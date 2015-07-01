@@ -1,0 +1,3 @@
+useDynLib(gkmSVM)
+exportPattern("^[[:alpha:]]+")
+importFrom(Rcpp, evalCpp)
