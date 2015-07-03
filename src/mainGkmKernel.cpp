@@ -764,7 +764,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
             //seqsTS->DFSTiDL(gDFSlistT[0],1, gDFSMMlist[0], iDL.passTrees+j, 0, globalConverter.b);
             gDFSlistT[0][0] = seqsTSj; // with nonEmptyDaughterCnt
             gDFSMMlist[0][0] = 0;
-            if(!((iDL.passTrees[j]->child0==nullptr)&&(iDL.passTrees[j]->child1==nullptr))) // i.e. if not empty tree
+            if(!((iDL.passTrees[j]->child0==NULL)&&(iDL.passTrees[j]->child1==NULL))) // i.e. if not empty tree
                 seqsTSj->DFSTiDL(gDFSlistT[0],1, gDFSMMlist[0], iDL.passTrees+j, 0, globalConverter.b);
             seqsTSj->deleteTree(L, globalConverter.b, 1);
             delete seqsTSj;

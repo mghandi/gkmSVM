@@ -12,8 +12,8 @@
 
 
 CbinMMtable::CbinMMtable(void){
-    table=nullptr;
-    dat=nullptr;
+    table=NULL;
+    dat=NULL;
     L=Dmax=nrow=0;
 }
 
@@ -36,11 +36,11 @@ int  CbinMMtable::createTable(int L, int Dmax){
 }
     
 void CbinMMtable::deleteTable(){
-    if(dat!=nullptr){
+    if(dat!=NULL){
         delete []dat;
         delete []table;
-        table=nullptr;
-        dat=nullptr;
+        table=NULL;
+        dat=NULL;
         L=Dmax=nrow=0;
     }
 }

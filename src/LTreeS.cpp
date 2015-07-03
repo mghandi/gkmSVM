@@ -1338,7 +1338,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                     
                     if (bid==fbid)
                     {
-                        if(icurMMtreeMatch!=nullptr){
+                        if(icurMMtreeMatch!=NULL){
                             
                             LTreeSnodeData *nodej=imatchingLmer->daughter[fbid].node;
                             if (nodej->n==1)
@@ -1361,7 +1361,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                     else
                     {
 //                        if (curMismatchCnt[i]<gMAXMM){
-                        if(icurMMtreeMisMatch!=nullptr){
+                        if(icurMMtreeMisMatch!=NULL){
                             //it tolerates one more mismatch
 
                             LTreeSnodeData *nodej=imatchingLmer->daughter[fbid].node;
@@ -1399,7 +1399,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                
                     
                     int fbid;
-              //      if(icurMMtreeMisMatch!=nullptr){
+              //      if(icurMMtreeMisMatch!=NULL){
                             //it tolerates one more mismatch
                         for(int jbid=0;jbid<imatchingLmer->nonEmptyDaughterCnt;jbid++)
                         {
@@ -1407,7 +1407,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                             
                             if (bid==fbid)
                             {
-                                if(icurMMtreeMatch!=nullptr){
+                                if(icurMMtreeMatch!=NULL){
 
                                 
                                     LTreeSnodeData *nodej=imatchingLmer->daughter[fbid].node;
@@ -1456,7 +1456,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                             else
                             {
     //                            if (curMismatchCnt[i]<gMAXMM){
-                                if(icurMMtreeMisMatch!=nullptr){
+                                if(icurMMtreeMisMatch!=NULL){
                                     LTreeSnodeData *nodej=imatchingLmer->daughter[fbid].node;
                                     int nodej_n=nodej->n;
                                     if (nodej_n==1)
@@ -1684,7 +1684,7 @@ void CLTreeS::DFSTiDL( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                 
                 int fbid;
                 
-                if(icurMMtreeMisMatch!=nullptr){
+                if(icurMMtreeMisMatch!=NULL){
                     //it tolerates one more mismatch
                     
                     for(int jbid=0;jbid<imatchingLmer->nonEmptyDaughterCnt;jbid++)
@@ -1692,7 +1692,7 @@ void CLTreeS::DFSTiDL( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                         fbid = imatchingLmer->nonEmptyDaughterIdxs[jbid];
                         
                         if (bid==fbid){  // Match
-                            if(icurMMtreeMatch!=nullptr){ // it allows match
+                            if(icurMMtreeMatch!=NULL){ // it allows match
                                 CLTreeS *newnode =imatchingLmer->daughter[fbid].t;
                                 if (newnode->minSeqID >daughter_maxSeqID) continue;
                             
@@ -1722,7 +1722,7 @@ void CLTreeS::DFSTiDL( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                     
                 }else{
                     //no more mismatches tolerated at this depth
-                //if(icurMMtreeMatch!=nullptr){  not needed because we assume it is not possible both child0 and 1 be null at internal nodes (depth<L)
+                //if(icurMMtreeMatch!=NULL){  not needed because we assume it is not possible both child0 and 1 be null at internal nodes (depth<L)
                     CLTreeS *newnode =imatchingLmer->daughter[bid].t;
                     
                     if (newnode!=NULL){  // if the neighbor has daughter with matching base
@@ -2141,7 +2141,7 @@ int CLTreeS::addSequence(int *bid, int n, int L, int seqID)  //adds all the L-su
 
 int CLTreeS::leavesCount(int withMultiplicity, int n, int alphabetSize, int *nodesAtDepth)  //returns the number of sequences in the tree.  //call with n=L from outside
 {
-    if(nodesAtDepth!=nullptr){
+    if(nodesAtDepth!=NULL){
         (*nodesAtDepth)++;
         nodesAtDepth++;
     }

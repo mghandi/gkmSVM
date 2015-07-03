@@ -12,7 +12,7 @@
 
 
 CbinMMtree::CbinMMtree(void){
-    child0 = child1 = nullptr;
+    child0 = child1 = NULL;
 }
 
 CbinMMtree::~CbinMMtree(void){
@@ -23,12 +23,12 @@ int CbinMMtree::addSeq(int *seq, int n){
         return(0);
     }
     if(*seq){
-        if(child1==nullptr){
+        if(child1==NULL){
             child1 = new CbinMMtree();
         }
         child1->addSeq(seq+1,n-1);
     }else{
-        if(child0==nullptr){
+        if(child0==NULL){
             child0= new CbinMMtree();
         }
         child0->addSeq(seq+1,n-1);
@@ -50,13 +50,13 @@ int CbinMMtree::addtree(int n0, int n1){
     }
     int res = 0;
     if(n0>0){
-        if(child0==nullptr){
+        if(child0==NULL){
             child0 = new CbinMMtree();
         }
         res+=child0->addtree(n0-1, n1);
     }
     if(n1>0){
-        if(child1==nullptr){
+        if(child1==NULL){
             child1 = new CbinMMtree();
         }
         res+=child1->addtree(n0, n1-1);
@@ -78,12 +78,12 @@ int CbinMMtree::addTreeToTable(int ** table, int frompos, int n, int *tmpArray){
     }
     int nadded = 0;
     int res = 0;
-    if(child0!=nullptr){
+    if(child0!=NULL){
         tmpArray[frompos]=0;
         nadded = child0->addTreeToTable(table, frompos+1, n, tmpArray);
         res+=nadded;
     }
-    if(child1!=nullptr){
+    if(child1!=NULL){
         tmpArray[frompos]=1;
         nadded = child1->addTreeToTable(table+res, frompos+1, n, tmpArray);
         res+=nadded;
@@ -129,7 +129,7 @@ int CbinMMtree::makeTable(int **table, int n0, int n1){
 double CbinMMtree::calcAddCost(int *lmer, double *w, int L, double p){ // calculates the cost of the additional edges
     // w is the weights . nodesatDepth^2 for example
     CbinMMtree *node = this;
-    CbinMMtree *son = nullptr;
+    CbinMMtree *son = NULL;
     double pj = 1;
     
     for(int i=0;i<L;i++){
@@ -140,7 +140,7 @@ double CbinMMtree::calcAddCost(int *lmer, double *w, int L, double p){ // calcul
             son = node->child1;
             pj = pj *(1-p);
         }
-        if (son==nullptr){
+        if (son==NULL){
             double res = w[i]*pj;
             for(int j=i+1; j<L;j++){
                 if (lmer[j]==0){
@@ -157,11 +157,11 @@ double CbinMMtree::calcAddCost(int *lmer, double *w, int L, double p){ // calcul
 }
 
 int CbinMMtree::deleteTree(){
-    if(child0!=nullptr){
+    if(child0!=NULL){
         child0->deleteTree();
         delete child0;
     }
-    if(child1!=nullptr){
+    if(child1!=NULL){
         child1->deleteTree();
         delete child1;
     }

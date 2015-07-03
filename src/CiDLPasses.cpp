@@ -14,8 +14,8 @@ CiDLPasses::CiDLPasses(void){
     L=0; // Length
     M=0; // number of passes
     //Dmax=0; // maximum number of mismatches
-    passOrder=nullptr; // order of the bases to be traversed. each of passOrder[0..M-1] is a permutation of 0..L-1
-    passTrees=nullptr; // for each of the M passes, there is a tree that holds all the mismatch (binary) L-mers that
+    passOrder=NULL; // order of the bases to be traversed. each of passOrder[0..M-1] is a permutation of 0..L-1
+    passTrees=NULL; // for each of the M passes, there is a tree that holds all the mismatch (binary) L-mers that
 }
 
 void CiDLPasses::initPassOrderIDL(int L){
@@ -316,7 +316,7 @@ int *CiDLPasses::reorder(int *lmer, int *order, int L, int *output){
 void CiDLPasses::newIDLPasses(int L, int Dmax){
     this->L = L;
 
-    if(this->passOrder==nullptr){
+    if(this->passOrder==NULL){
       initPassOrderIDL(L);
     }
     
@@ -363,7 +363,7 @@ void CiDLPasses::newGreedyIDLPasses(int L, int M,  int Dmax, int *nodesAtDepthCn
     
     this->L = L;
     
-    if(this->passOrder==nullptr){
+    if(this->passOrder==NULL){
         initPassOrderIDL(L, M, Dmax);
     }
     
@@ -548,13 +548,13 @@ void CiDLPasses::newGreedy2IDLPasses(int L, int M,  int Dmax, int *nodesAtDepthC
 }
 
 void CiDLPasses::deletePassOrder(){
-    if(passOrder!=nullptr){
+    if(passOrder!=NULL){
      
         for(int i=0;i<M;i++){
             delete []passOrder[i];
         }
         delete[]passOrder;
-        passOrder=nullptr;
+        passOrder=NULL;
     }
 }
 
