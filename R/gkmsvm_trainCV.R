@@ -87,8 +87,8 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
   #gkmsvm_trainCV(kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, cv=NA, Type="C-svc", C=10^((-5:5)/2), showPlots=TRUE, outputPDFfile=NA, ...){
   #gkmsvm_trainCV(kernelfn, posfn, negfn )
   #gkmsvm_trainCV(kernelfn, posfn, negfn, C=1, outputPDFfile = '~/plots/ROC.pdf' )
-  #gkmsvm_trainCV(kernelfn, posfn, negfn, nCV=5,niter=7, outputPDFfile = '~/plots/ROC.pdf' )
-  #gkmsvm_trainCV(kernelfn, posfn, negfn, nCV=5,niter=7, outputPDFfile = '~/plots/ROC2.pdf' )
+  #gkmsvm_trainCV(kernelfn, posfn, negfn, nCV=5,nrepeat=7, outputPDFfile = '~/plots/ROC.pdf' )
+  #gkmsvm_trainCV(kernelfn, posfn, negfn, nCV=5,nrepeat=7, outputPDFfile = '~/plots/ROC2.pdf' )
   
   
   #  library(seqinr)
@@ -130,8 +130,8 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
           print("Error:  nCV should be >= 2!")
           return;
         }
-        if(niter>=nseq){
-          niter = nseq-1; print(paste('Warning: niter was reduced to',niter));
+        if(nrepeat>=nseq){
+          nrepeat = nseq-1; print(paste('Warning: nrepeat was reduced to',nrepeat));
         }
         
         aucss=c();
