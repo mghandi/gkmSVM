@@ -10,7 +10,7 @@
 
 gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=3, cv=NA, Type="C-svc", C=10^((-3:6)/3), showPlots=TRUE, outputPDFfile=NA, ...){
   
-   
+  
   #uses some codes by Dongwon Lee 
   auPRC <- function (perf) {
     rec <- perf@x.values
@@ -106,16 +106,16 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
         #  kernelfn= '/Users/mghandi/gkmsvm/test/test9kernel.txt'
         
         pos = seqinr::read.fasta(posfn)
-        npos = length(pos)
+        npos = length(unique(names(pos))) #length(pos)
         neg = seqinr::read.fasta(negfn)
-        nneg = length(neg)
+        nneg = length(unique(names(neg))) #length(neg)
         nseq = npos+nneg; 
         
         mat <- data.matrix( utils::read.table(file=kernelfn, fill=TRUE, col.names=paste("V", 1:nseq)))
         mat[upper.tri(mat)] <- t(mat)[upper.tri(mat)]
         rownames(mat)=colnames(mat)
-
-        seqnames = c(names(pos), names(neg))
+        
+        seqnames = c(names(unique(pos)), names(unique(neg))) #c(names(pos), names(neg))
         
         y = c(rep(1, npos), rep(0, nneg)); names(y)=rownames(mat)
         #       cv= sample(nCV, nseq, replace =TRUE)
@@ -138,44 +138,44 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
         Cs= C;#10^((-5:5)/2);
         mxaucs=-1;
         for(ic in 1:length(Cs)){
-        
-        preds = rep(NA,nseq);
-        Lpreds <- list()
-        Llabs <- list()
-        
-        idx = 1:nseq; 
-        
-        for(j in 1:nrepeat){
-          jcv = c(cv[-(1:j)],cv[1:j]);
-          for(i in 1:nCV){
-            ii = which(jcv==i)
-            iidx = idx[-ii];
-            iK <- kernlab::as.kernelMatrix(mat[iidx, iidx]);
-            isvp <- kernlab::ksvm(iK, y[iidx], type=Type, C=Cs[ic], ...)
-            #isvp <- kernlab::ksvm(iK, y[iidx], type="C-svc", C=Cs[ic])
-            
-            alpha = unlist(isvp@alpha )
-            kk = iidx[unlist(isvp@SVindex)]
-            jj = which(kk>npos); 
-            alpha[jj]= -alpha[jj];
-            pp= mat[ii,kk]%*%as.matrix(alpha,ncol=1)
-            #ll =y[ii] 
-            preds[ii]=pp;
-            
-            Lpreds[[i+(j-1)*nCV]]=pp;
-            Llabs[[i+(j-1)*nCV]]=y[ii]
+          
+          preds = rep(NA,nseq);
+          Lpreds <- list()
+          Llabs <- list()
+          
+          idx = 1:nseq; 
+          
+          for(j in 1:nrepeat){
+            jcv = c(cv[-(1:j)],cv[1:j]);
+            for(i in 1:nCV){
+              ii = which(jcv==i)
+              iidx = idx[-ii];
+              iK <- kernlab::as.kernelMatrix(mat[iidx, iidx]);
+              isvp <- kernlab::ksvm(iK, y[iidx], type=Type, C=Cs[ic], ...)
+              #isvp <- kernlab::ksvm(iK, y[iidx], type="C-svc", C=Cs[ic])
+              
+              alpha = unlist(isvp@alpha )
+              kk = iidx[unlist(isvp@SVindex)]
+              jj = which(kk>npos); 
+              alpha[jj]= -alpha[jj];
+              pp= mat[ii,kk]%*%as.matrix(alpha,ncol=1)
+              #ll =y[ii] 
+              preds[ii]=pp;
+              
+              Lpreds[[i+(j-1)*nCV]]=pp;
+              Llabs[[i+(j-1)*nCV]]=y[ii]
+            }
+          }      
+          aucs= rocprc(Lpreds, Llabs,showPlots = FALSE)#, output="~/plots/rocprc.pdf") 
+          ri = c(ic,Cs[ic]); names(ri)=c('','C');
+          print(c(ri,aucs)); 
+          aucss= rbind(aucss,c(ri,aucs) )
+          if(aucs[1]>mxaucs){
+            mxaucs=aucs[1];
+            bestLpreds=Lpreds
+            bestLlabs=Llabs
           }
-        }      
-        aucs= rocprc(Lpreds, Llabs,showPlots = FALSE)#, output="~/plots/rocprc.pdf") 
-        ri = c(ic,Cs[ic]); names(ri)=c('','C');
-        print(c(ri,aucs)); 
-        aucss= rbind(aucss,c(ri,aucs) )
-        if(aucs[1]>mxaucs){
-          mxaucs=aucs[1];
-          bestLpreds=Lpreds
-          bestLlabs=Llabs
-        }
-        
+          
         }
         Copt = aucss[order(-aucss[,3])[1],2]; 
         res = aucss[order(-aucss[,3])[1],2:4];
