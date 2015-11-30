@@ -29,78 +29,78 @@
 
 CConverter::CConverter()
 {
-	b=4;
-	alphabet[0]='A';
-	alphabet[1]='C';
-	alphabet[2]='G';
-	alphabet[3]='T';
-
-	init();
-
+  b=4;
+  alphabet[0]='A';
+  alphabet[1]='C';
+  alphabet[2]='G';
+  alphabet[3]='T';
+  
+  init();
+  
 }
 
 void CConverter::init(){
-
-	//char ci;
-	int ici;
-	//for (ci='A';ci<'z';ci++) cidx[ci]=0;
-	for (ici=0;ici<256;ici++) cidx[ici]=0;
-
-	//	cidx['a'] = 0; 		cidx['c'] = 1; 		cidx['g'] = 2; 		cidx['t'] = 3;
-	//	cidx['A'] = 0; 		cidx['C'] = 1; 		cidx['G'] = 2; 		cidx['T'] = 3;
-	for(ici=0;ici<b;ici++){
-		cidx[toupper(alphabet[ici])]=ici;
-		cidx[tolower(alphabet[ici])]=ici;
-	}
-
-	icidx = new char[b];
-	icidxL = new char[b];
-
-	//	icidx[0]  = 'A';		icidx[1]  = 'C';		icidx[2]  = 'G';		icidx[3]  = 'T';
-	//	icidxL[0] = 'a';		icidxL[1] = 'c';		icidxL[2] = 'g';		icidxL[3] = 't';
-	for(ici=0;ici<b;ici++){
-		icidx[ici]=toupper(alphabet[ici]);
-		icidxL[ici]=tolower(alphabet[ici]);
-
-		bidcompl[ici]=b-ici-1; //only good for DNA
-		if (b==16){
-			// special case for dinucleotides
-			bidcompl[ici]= ((3-(ici&3))<<2) + (3-((ici&12)>>2)) ; //only good for DNA
-		}
-
-	}
-
-	//	bidcompl[0] = 3;
-	//	bidcompl[1] = 2;
-	//	bidcompl[2] = 1;
-	//	bidcompl[3] = 0;
-
-	for (ici=0;ici<256;ici++) //(ci='A';ci<'z';ci++)
-	{
-		//bcompl[ci] = icidx[bidcompl[cidx[ci]]];
-		bcompl[ici] = icidx[bidcompl[cidx[ici]]];
-	}
-
-	for (ici=0;ici<256;ici++)
-	{
-		isACGT[ici] = 0;
-		isInAlphabet[ici] = 0;
-	}
-	isACGT['a'] = 1; 		isACGT['c'] = 1; 		isACGT['g'] = 1; 		isACGT['t'] = 1;
-	isACGT['A'] = 1; 		isACGT['C'] = 1; 		isACGT['G'] = 1; 		isACGT['T'] = 1;
-
-	for(ici=0;ici<b;ici++){
-		isInAlphabet[toupper(alphabet[ici])]=1;
-		isInAlphabet[tolower(alphabet[ici])]=1;
-	}
-	
-
+  
+  //char ci;
+  int ici;
+  //for (ci='A';ci<'z';ci++) cidx[ci]=0;
+  for (ici=0;ici<256;ici++) cidx[ici]=0;
+  
+  //	cidx['a'] = 0; 		cidx['c'] = 1; 		cidx['g'] = 2; 		cidx['t'] = 3;
+  //	cidx['A'] = 0; 		cidx['C'] = 1; 		cidx['G'] = 2; 		cidx['T'] = 3;
+  for(ici=0;ici<b;ici++){
+    cidx[toupper(alphabet[ici])]=ici;
+    cidx[tolower(alphabet[ici])]=ici;
+  }
+  
+  icidx = new char[b];
+  icidxL = new char[b];
+  
+  //	icidx[0]  = 'A';		icidx[1]  = 'C';		icidx[2]  = 'G';		icidx[3]  = 'T';
+  //	icidxL[0] = 'a';		icidxL[1] = 'c';		icidxL[2] = 'g';		icidxL[3] = 't';
+  for(ici=0;ici<b;ici++){
+    icidx[ici]=toupper(alphabet[ici]);
+    icidxL[ici]=tolower(alphabet[ici]);
+    
+    bidcompl[ici]=b-ici-1; //only good for DNA
+    if (b==16){
+      // special case for dinucleotides
+      bidcompl[ici]= ((3-(ici&3))<<2) + (3-((ici&12)>>2)) ; //only good for DNA
+    }
+    
+  }
+  
+  //	bidcompl[0] = 3;
+  //	bidcompl[1] = 2;
+  //	bidcompl[2] = 1;
+  //	bidcompl[3] = 0;
+  
+  for (ici=0;ici<256;ici++) //(ci='A';ci<'z';ci++)
+  {
+    //bcompl[ci] = icidx[bidcompl[cidx[ci]]];
+    bcompl[ici] = icidx[bidcompl[cidx[ici]]];
+  }
+  
+  for (ici=0;ici<256;ici++)
+  {
+    isACGT[ici] = 0;
+    isInAlphabet[ici] = 0;
+  }
+  isACGT['a'] = 1; 		isACGT['c'] = 1; 		isACGT['g'] = 1; 		isACGT['t'] = 1;
+  isACGT['A'] = 1; 		isACGT['C'] = 1; 		isACGT['G'] = 1; 		isACGT['T'] = 1;
+  
+  for(ici=0;ici<b;ici++){
+    isInAlphabet[toupper(alphabet[ici])]=1;
+    isInAlphabet[tolower(alphabet[ici])]=1;
+  }
+  
+  
 }
 CConverter::~CConverter()
 {
-	delete []icidx; 
-	delete []icidxL; 
-
+  delete []icidx; 
+  delete []icidxL; 
+  
 }
 
 
@@ -127,7 +127,7 @@ tt	15
 
 dinuclId CConverter::dnidx(char *dn)
 {
-	return cidx[dn[0]]+b*cidx[dn[1]];
+  return cidx[dn[0]]+b*cidx[dn[1]];
 }
 
 
@@ -135,35 +135,35 @@ dinuclId CConverter::dnidx(char *dn)
 
 void CConverter::convertBasetoDinucl(baseId x[], dinuclId y[], int N) // x[0..N], y[0..N-1]
 {
-	for(int i=0;i<N;i++)
-		y[i] = x[i]+b*x[i+1];
+  for(int i=0;i<N;i++)
+    y[i] = x[i]+b*x[i+1];
 }
 
 void CConverter::convertBasetoDinucl(char x[], dinuclId y[], int N) // x[0..N], y[0..N-1]
 {
-	for(int i=0;i<N;i++)
-		y[i] = cidx[x[i]]+b*cidx[x[i+1]];
+  for(int i=0;i<N;i++)
+    y[i] = cidx[x[i]]+b*cidx[x[i+1]];
 }
 
 
 void CConverter::readAlphabetFile(char *FN, int MAX_ALPHABET_SIZE_copy){
-	FILE *f= fopen(FN,"r");
-	static char sline[1000+3];
-
-	b=0;
-	fgets(sline, 1000, f);
-	while(!feof(f)){
-		alphabet[b++]=sline[0];
-		fgets(sline, 1000, f);
-	}
-    sprintf(globtmpstr,"Alphabet Size = %d\n",b);Printf(globtmpstr);
-	if(b>MAX_ALPHABET_SIZE_copy){
-		Printf("ERROR: alphabet size greater than #MAX_ALPHABET_SIZE. Redefine #MAX_ALPHABET_SIZE in global.h\n \n");
-		return;//exit(-1);
-	}
-
-	delete []icidx;
-	delete []icidxL;
-	init();
+  FILE *f= fopen(FN,"r");
+  static char sline[1000+3];
+  
+  b=0;
+  fgets(sline, 1000, f);
+  while(!feof(f)){
+    alphabet[b++]=sline[0];
+    fgets(sline, 1000, f);
+  }
+  sprintf(globtmpstr,"Alphabet Size = %d\n",b);Printf(globtmpstr);
+  if(b>MAX_ALPHABET_SIZE_copy){
+    Printf("\n\n ERROR: alphabet size greater than #MAX_ALPHABET_SIZE. Increase MAX_ALPHABET_SIZE in src/global.h and recompile. \n \n");
+    return;//exit(-1);
+  }
+  
+  delete []icidx;
+  delete []icidxL;
+  init();
 }
 

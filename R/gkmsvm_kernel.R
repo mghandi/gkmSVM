@@ -13,7 +13,8 @@ gkmsvm_kernel <- function( posfile,
                            usePseudocnt=FALSE, 
                            wildcardLambda=1.0, 
                            wildcardMismatchM=2,
-                           alphabetFN="NULL"){
+                           alphabetFN="NULL",
+                           nmaxThreads=1000){
   
   params = list(L=L, 
                 K=K, 
@@ -30,7 +31,8 @@ gkmsvm_kernel <- function( posfile,
                 outfile=outfile,
                 wildcardLambda=wildcardLambda, 
                 wildcardMismatchM=wildcardMismatchM,
-                alphabetFN=alphabetFN
+                alphabetFN=alphabetFN, 
+                nmaxThreads=nmaxThreads
                 ); 
  # print(params)
   

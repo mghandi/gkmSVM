@@ -21,6 +21,22 @@
 #ifndef __gkmsvmXC__global_h__
 #define __gkmsvmXC__global_h__
 
+//default values
+#define MULTI_THREAD_SAFE  /*if remove (or comment) this line, it will become (about 2 times) faster, but may give approx results when using multithread */
+#define MAX_ALPHABET_SIZE 4 /*for DNA set this to 4 (for faster speen and less memory usage); */
+//#define MAX_ALPHABET_SIZE 24 /*for protein set this to 24 (or the maximu alphabet size); */
+#define NBITS 2 /*ceiling log2 MAX_ALPHABET_SIZE */
+#define DEF_L 10
+#define DEF_K 6
+#define DEF_D 3
+#define DEF_MAXSEQLEN 10000
+#define DEF_MAXNUMSEQ 1000000
+#define DEF_TGKM 1
+#define DEF_BATCHSIZE 100000
+#ifndef MULTI_THREAD_SAFE
+//    #define USE_GLOBAL /* may improve speed in some cases. but may make is slower in other cases.  */
+#endif
+
 #define TALK 0
 //#define DEBUG 0 /*0 1*/
 //#define TALK DEBUG /*1*/
@@ -33,31 +49,22 @@
 #include <iostream>
 #include <math.h>
 
-//#ifdef WIN32 
-//	#include <unordered_map>  // this line for windows
-// typedef std::unordered_map<int, double> Mymap;
-//#endif
-//#ifndef WIN32 
-//	#include <tr1/unordered_map>  // this line for gcc 
+//	#include <tr1/unordered_map>  // this line for gcc
 //  typedef std::tr1::unordered_map<int, double> Mymap;
-//#endif
 
 #include <unordered_map>
 typedef std::unordered_map<int, double> Mymap;
 
+#ifdef MULTI_THREAD_SAFE
+#include <atomic>
+typedef std::atomic<int> aint;
+#else 
+typedef int aint;
+#endif
+
 int stringcompare(char *s1, char*s2, int maxlength) ; 
-//int search_for_substring(char *s, int maxlength, char*subs, int sublength);
-//int search_for_substring_ignorecase(char *s, int maxlength, char*subs, int sublength);
-//int myFileExists(char *fn); 
-//int length(char *s);
 int strlength(char *s);
-//int search_for_substring(char *s, int maxlength, char*subs, int sublength);
-//int search_for_substring_ignorecase(char *s, int maxlength, char*subs, int sublength);
-//int extractChr(char *seq);
 #define MYABS(x) (((x)<0)?-(x):x)
-//int myabs(int x) ; 
-//float myabs(float x) ; 
-//double myabs(double x) ; 
 
 int Combinations(int n, int r);//
 double dCombinations(int n, int r);//
@@ -70,51 +77,30 @@ extern char globtmpstr[]; // global temp string;
 void Printf(char *str); // this to replace printf
 void Printf(const char *str); // this to replace printf
 
-//general alphabet
-//char *Alphabet;
-//int AlphabetSize=0;
 
-//int countKLmerHitsNDCONVUPPERC(char *KLmerseq, int L, char *s, int size);
-
-
-//void heapSort(double numbers[], double numbers2[], int index[], int array_size);
-//void heapSort(float numbers[], float numbers2[], int index[], int array_size);
-//void siftDown(double numbers[],double numbers2[], int index[],  int root, int bottom);
-//void siftDown(float numbers[],float numbers2[], int index[],  int root, int bottom);
-//double myheapify(int heap[], double value[], int N, int inext); 
-//int pow2upper(int x); 
-//void normalize(double *a, double *anorm, int frompos, int topos); // anorm = (a-mean)/std
-//void normalize(float *a, float *anorm, int frompos, int topos); // anorm = (a-mean)/std
-
-//void matrix_inverse(int **Min, double *Mout, int actualsize);
-
-//double normpdf(double x,double m, double s); 
 int myrandom(int M);
 void randomPermute(double *x, int N); 
 void randomPermute(int *x, int N);
-
-//void randomPermute(double *x, int N, int *select);
-//double calcPValuePat(float *sumdatai, int *cnti,double mean, double var, int npat);
-//double calcPValuePat(double *sumdatai, int *cnti,double mean, double var, int npat);
+int find_str(char **strs, int N, char *str);
 
 #define YSTMAXCHRPOS 1600000
 
 const int YSTCHRSIZE[]={230208,  
-					 813178,
-					 316617,
-					1531919,
-					 576869,	
-					 270148,
-					1090947,
-					 562643,	
-					 439885,
-					 745741,
-					 666454,	
-					1078175,
-					 924429,	
-					 784334,
-					1091289,
-					948062}; 
+                        813178,
+                        316617,
+                        1531919,
+                        576869,	
+                        270148,
+                        1090947,
+                        562643,	
+                        439885,
+                        745741,
+                        666454,	
+                        1078175,
+                        924429,	
+                        784334,
+                        1091289,
+                        948062}; 
 
 //static CConverter globalConverter;
 extern CConverter globalConverter;
@@ -136,63 +122,53 @@ extern CConverter globalConverter;
 /*
 struct Lmer{
   int seqID; 
-  int *baseID; 
+int *baseID; 
 };
 
 union LPTr {
-    Lmer **all;
-	Lmer *one;
+Lmer **all;
+Lmer *one;
 };
 */
 
 
 
 union intintptr {
-    int i;
-    int *p;
+  int i;
+  int *p;
 };
 
 struct LTreeSnodeData {
-    int n;
-    intintptr  seqIDs; //if n==1, it is int and contains the ID, otherwise it is int* and is the array of IDs;
-    //  LPTr Lmers; //pointer to the starts of the sequences
-   // int *baseID;
+  int n;
+  intintptr  seqIDs; //if n==1, it is int and contains the ID, otherwise it is int* and is the array of IDs;
+  //  LPTr Lmers; //pointer to the starts of the sequences
+  // int *baseID;
 };
 
 
 union LTreeSnodeDataptr {
-    LTreeSnodeData *p;
-    LTreeSnodeData **pp;
+  LTreeSnodeData *p;
+  LTreeSnodeData **pp;
 };
 
 
 /*
-struct GTreeLeafData {
-    int n;
-    intintptr seqIDs_gbits; //if n==1, it is int and contains the ID, otherwise it is int* and is the array of IDs;
-    //  LPTr Lmers; //pointer to the starts of the sequences
-    int first_gbits; // gbits for the case n==1, otherwise, seqIDs and gapped_bits are both written in seqIDs_gbits (2 numbers for each L-mer)
-};
-*/
+ struct GTreeLeafData {
+ int n;
+ intintptr seqIDs_gbits; //if n==1, it is int and contains the ID, otherwise it is int* and is the array of IDs;
+ //  LPTr Lmers; //pointer to the starts of the sequences
+ int first_gbits; // gbits for the case n==1, otherwise, seqIDs and gapped_bits are both written in seqIDs_gbits (2 numbers for each L-mer)
+ };
+ */
 
 
 #define myFlt double
 union fintptr_t {
-    myFlt f;
-    class CLTreef *p;
-	unsigned int i; 
+  myFlt f;
+  class CLTreef *p;
+  unsigned int i; 
 };
 
-//default values
-#define DEF_L 10
-#define DEF_K 6
-#define DEF_D 3
-#define DEF_MAXSEQLEN 10000
-#define DEF_MAXNUMSEQ 1000000
-#define DEF_TGKM 1
-#define DEF_BATCHSIZE 100000
-#define MAX_ALPHABET_SIZE 4 /*for DNA, setting this number to 4 may significantly improve the amount of needed memory and speed */
-#define NBITS 2 /*ceiling log2 MAX_ALPHABET_SIZE */
 #define NBITSONES ((1<<NBITS)-1)
 
 #endif

@@ -20,18 +20,18 @@
 class CKLmer
 {
 public:
-	CKLmer(int L, int K);
-	int K,L; 
-	char *seq;
-	int *iseq; //A:1 C:2 G:4 T:8 .:15
-	double score, w; // optional 
-
-	void readKLmer(char *s);
-	int countHits(char *s, int size);
-
-	int commonKMerCnt(CKLmer *klmerj); // returns number of distinct KMers that both this KLmer and KLmerj cover. 
-	double calcfbg(); 
-	
-	~CKLmer(void);
+  CKLmer(int L, int K);
+  int K,L; 
+  char *seq;
+  int *iseq; //A:1 C:2 G:4 T:8 .:15
+  double score, w; // optional 
+  
+  void readKLmer(char *s);
+  int countHits(char *s, int size);
+  
+  int commonKMerCnt(CKLmer *klmerj); // returns number of distinct KMers that both this KLmer and KLmerj cover. 
+  double calcfbg(); 
+  
+  ~CKLmer(void);
 };
 

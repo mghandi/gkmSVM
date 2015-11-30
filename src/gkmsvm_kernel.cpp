@@ -33,6 +33,7 @@ void gkmsvm_kernel(SEXP params){
   double wildcardLambda= Rcpp::as<double>(rparam["wildcardLambda"]);
   int wildcardMismatchM= Rcpp::as<int>(rparam["wildcardMismatchM"]);
   std::string alphabetFN = Rcpp::as<std::string>(rparam["alphabetFN"]);
+  int nmaxThreads= Rcpp::as<int>(rparam["nmaxThreads"]);
   
   /*
    * 
@@ -83,6 +84,9 @@ void gkmsvm_kernel(SEXP params){
       sprintf(argv[argc++], "%s", alphabetFN.c_str()); 
     }
 
+    sprintf(argv[argc++], "-T"); 
+    sprintf(argv[argc++], "%d", nmaxThreads); 
+    
     if(addRC==false){
       sprintf(argv[argc++], "-R"); 
     }

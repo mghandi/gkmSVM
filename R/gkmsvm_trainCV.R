@@ -8,8 +8,7 @@
 # showPlots: generate plots (default==TRUE)
 # filename for output PDF, default=NA (no PDF output)
 
-gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=3, cv=NA, Type="C-svc", C=10^((-3:6)/3), showPlots=TRUE, outputPDFfile=NA, ...){
-  
+gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=3, cv=NA, Type="C-svc", C=10^((-3:6)/3), showPlots=TRUE, outputPDFfn=NA,  outputCVpredfn='cvpred.txt', ...){
   
   #uses some codes by Dongwon Lee 
   auPRC <- function (perf) {
@@ -84,11 +83,11 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
   #posfn="/Users/mghandi/gkmsvm/test/pos500.fa"
   #negfn="/Users/mghandi/gkmsvm/test/neg500.fa"
   #kernelfn= '/Users/mghandi/gkmsvm/test/kernel500.txt'
-  #gkmsvm_trainCV(kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, cv=NA, Type="C-svc", C=10^((-5:5)/2), showPlots=TRUE, outputPDFfile=NA, ...){
+  #gkmsvm_trainCV(kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, cv=NA, Type="C-svc", C=10^((-5:5)/2), showPlots=TRUE, outputPDFfn=NA, ...){
   #gkmsvm_trainCV(kernelfn, posfn, negfn )
-  #gkmsvm_trainCV(kernelfn, posfn, negfn, C=1, outputPDFfile = '~/plots/ROC.pdf' )
-  #gkmsvm_trainCV(kernelfn, posfn, negfn, nCV=5,nrepeat=7, outputPDFfile = '~/plots/ROC.pdf' )
-  #gkmsvm_trainCV(kernelfn, posfn, negfn, nCV=5,nrepeat=7, outputPDFfile = '~/plots/ROC2.pdf' )
+  #gkmsvm_trainCV(kernelfn, posfn, negfn, C=1, outputPDFfn = '~/plots/ROC.pdf' )
+  #gkmsvm_trainCV(kernelfn, posfn, negfn, nCV=5,nrepeat=7, outputPDFfn = '~/plots/ROC.pdf' )
+  #gkmsvm_trainCV(kernelfn, posfn, negfn, nCV=5,nrepeat=7, outputPDFfn = '~/plots/ROC2.pdf' )
   
   
   #  library(seqinr)
@@ -115,7 +114,7 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
         mat[upper.tri(mat)] <- t(mat)[upper.tri(mat)]
         rownames(mat)=colnames(mat)
         
-        seqnames = c(names(unique(pos)), names(unique(neg))) #c(names(pos), names(neg))
+        seqnames = c(unique(names(pos)), unique(names(neg))) #c(names(pos), names(neg))
         
         y = c(rep(1, npos), rep(0, nneg)); names(y)=rownames(mat)
         #       cv= sample(nCV, nseq, replace =TRUE)
@@ -142,6 +141,7 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
           preds = rep(NA,nseq);
           Lpreds <- list()
           Llabs <- list()
+          Lseqnams <- list()
           
           idx = 1:nseq; 
           
@@ -151,19 +151,20 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
               ii = which(jcv==i)
               iidx = idx[-ii];
               iK <- kernlab::as.kernelMatrix(mat[iidx, iidx]);
-              isvp <- kernlab::ksvm(iK, y[iidx], type=Type, C=Cs[ic], ...)
-              #isvp <- kernlab::ksvm(iK, y[iidx], type="C-svc", C=Cs[ic])
+              #isvp <- kernlab::ksvm(iK, y[iidx], type=Type, C=Cs[ic], ...)
+              isvp <- kernlab::ksvm(iK, y[iidx], type="C-svc", C=Cs[ic])
               
               alpha = unlist(isvp@alpha )
               kk = iidx[unlist(isvp@SVindex)]
               jj = which(kk>npos); 
               alpha[jj]= -alpha[jj];
-              pp= mat[ii,kk]%*%as.matrix(alpha,ncol=1)
+              pp= mat[ii,kk]%*%as.matrix(alpha,ncol=1)- isvp@b
               #ll =y[ii] 
               preds[ii]=pp;
               
               Lpreds[[i+(j-1)*nCV]]=pp;
               Llabs[[i+(j-1)*nCV]]=y[ii]
+              Lseqnams[[i+(j-1)*nCV]]=seqnames[ii]
             }
           }      
           aucs= rocprc(Lpreds, Llabs,showPlots = FALSE)#, output="~/plots/rocprc.pdf") 
@@ -174,14 +175,39 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
             mxaucs=aucs[1];
             bestLpreds=Lpreds
             bestLlabs=Llabs
+            bestLseqnams=Lseqnams
           }
           
         }
         Copt = aucss[order(-aucss[,3])[1],2]; 
         res = aucss[order(-aucss[,3])[1],2:4];
+        
+        if(!is.na(outputCVpredfn)){
+
+          
+          cvpred =unlist(bestLpreds)
+          names(cvpred) = unlist(bestLseqnams)
+          mnpred = rep(0, length(seqnames));
+          names(mnpred)=seqnames;
+          mi = match(names(cvpred), seqnames)
+          labels =unlist(bestLlabs)[match(seqnames,names(cvpred))]
+          sdpred = mnpred
+          for(i in 1:length(seqnames)){
+            ii = which(mi==i)
+            mnpred[i]=mean(cvpred[ii])
+            sdpred[i]=sd(cvpred[ii])
+          }
+          res = cbind(seqnames,labels, format(round(cbind(mnpred, sdpred),4),nsmall = 4)); 
+          colnames(res)= c('seqID', 'label', 'cvpred_mean', 'cvpred_sd')
+          write.table(res, file=outputCVpred, quote = FALSE,row.names = FALSE, sep='\t')
+
+          #boxplot(as.numeric(res[,3])~as.numeric(res[,2]))
+
+          
+        }
         if(showPlots){
-          if(!is.na(outputPDFfile)){
-            pdf(outputPDFfile, width=8, height=4)
+          if(!is.na(outputPDFfn)){
+            pdf(outputPDFfn, width=8, height=4)
           }            
           if(length(Cs)>1){
             par(mfrow=c(1,2))
@@ -190,7 +216,7 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
           }
           rocprc(bestLpreds, bestLlabs,showPlots = TRUE)#, output="~/plots/rocprc.pdf") 
           
-          if(!is.na(outputPDFfile)){
+          if(!is.na(outputPDFfn)){
             dev.off();
           }
         }

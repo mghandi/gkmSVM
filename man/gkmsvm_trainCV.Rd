@@ -6,20 +6,20 @@
 It uses repeated CV to find optimum SVM parameter C. Also generates ROC and PRC curves.}
 
 \usage{gkmsvm_trainCV(kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=3, cv=NA, 
-Type="C-svc", C=10^((-3:6)/3), showPlots=TRUE, outputPDFfile=NA, ...)}
+Type="C-svc", C=10^((-3:6)/3), showPlots=TRUE, outputPDFfn=NA, outputCVpredfn=NA, ...)}
 \arguments{
   \item{kernelfn}{kernel matrix file name}
   \item{posfn}{positive sequences file name}
   \item{negfn}{negative sequences file name}
   \item{svmfnprfx}{(optional) output SVM model file name prefix }
-  \item{nCV}{9optional) number of CV folds}
+  \item{nCV}{(optional) number of CV folds}
   \item{nrepeat}{(optional) number of repeated CVs}
   \item{cv}{(optional) CV group label. An array of length (npos+nneg), containing CV group number (between 1 an nCV) for each sequence}
   \item{Type}{(optional) SVM type (default='C-svc'), see 'kernlab' documentation for more details.}
   \item{C}{(optional)a vector of all values of C (SVM parameter) to be tested. (default=10^((-3:6)/3)), see 'kernlab' documentation for more details.}
   \item{showPlots}{generate plots (default==TRUE)}
-  \item{outputPDFfile}{filename for output PDF, default=NA (no PDF output)}
-
+  \item{outputPDFfn}{filename for output PDF, default=NA (no PDF output)}
+  \item{outputCVpredfn}{filename for output cvpred (predicted CV values), default=NA (no output)}
   \item{...}{optional: additional SVM parameters, see 'kernlab' documentation for more details.}
 }
 \details{Trains SVM classifier and generates two files: [svmfnprfx]_svalpha.out for SVM alphas and the other for the corresponding SV sequences ([svmfnprfx]_svseq.fa) }
@@ -36,7 +36,7 @@ Type="C-svc", C=10^((-3:6)/3), showPlots=TRUE, outputPDFfile=NA, ...)}
   outfn =   'output.txt'      #output scores for sequences in the test set       
 
 #  gkmsvm_kernel(posfn, negfn, kernelfn);                #computes kernel 
-#  gkmsvm_trainCV(kernelfn,posfn, negfn, svmfnprfx, outputPDFfile='ROC.pdf');       #trains SVM and plots ROC and PRC curves.
+#  gkmsvm_trainCV(kernelfn,posfn, negfn, svmfnprfx, outputPDFfn='ROC.pdf', outputCVpredfn='cvpred.out');       #trains SVM, plots ROC and PRC curves, and outputs model predictions.
 #  gkmsvm_classify(testfn, svmfnprfx, outfn);            #scores test sequences 
 }
 
