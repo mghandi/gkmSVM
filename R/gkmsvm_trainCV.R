@@ -8,7 +8,7 @@
 # showPlots: generate plots (default==TRUE)
 # filename for output PDF, default=NA (no PDF output)
 
-gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=3, cv=NA, Type="C-svc", C=10^((-3:6)/3), showPlots=TRUE, outputPDFfn=NA,  outputCVpredfn='cvpred.txt', ...){
+gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=3, cv=NA, Type="C-svc", C=10^((-3:6)/3), showPlots=TRUE, outputPDFfn=NA,  outputCVpredfn=NA, ...){
   
   #uses some codes by Dongwon Lee 
   auPRC <- function (perf) {
@@ -210,7 +210,7 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
           }
           res = cbind(seqnames,labels, format(round(cbind(mnpred, sdpred),5),nsmall = 5)); 
           colnames(res)= c('seqID', 'label', 'cvpred_mean', 'cvpred_sd')
-          write.table(res, file=outputCVpred, quote = FALSE,row.names = FALSE, sep='\t')
+          write.table(res, file=outputCVpredfn, quote = FALSE,row.names = FALSE, sep='\t')
 
           #boxplot(as.numeric(res[,3])~as.numeric(res[,2]))
 
