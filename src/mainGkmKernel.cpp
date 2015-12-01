@@ -144,7 +144,7 @@ int mainGkmKernel(int argc, char** argv) //mainGkmKernel
     
     if (argc == 1) { print_usage_and_exit_gkmKernel(argv[0]); return 0;}
 
-	while ((c = getopt (argc, argv, "l:k:d:m:n:t:a:L:M:A:Rpb")) != -1)
+	while ((c = getopt (argc, argv, "l:k:d:m:n:t:a:L:M:A:T:Rpb")) != -1)
 	{
 		switch (c) 
 		{
