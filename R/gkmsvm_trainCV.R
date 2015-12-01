@@ -110,6 +110,17 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
         nneg = length(unique(names(neg))) #length(neg)
         nseq = npos+nneg; 
         
+        if(length(which(duplicated(names(pos))))>0){
+          print(paste("Error: duplicated sequence ID in", posfn))
+          print(names(pos)[which(duplicated(names(pos)))])
+          return;
+        }
+        if(length(which(duplicated(names(neg))))>0){
+          print(paste("Error: duplicated sequence ID in", negfn))
+          print(names(neg)[which(duplicated(names(neg)))])
+          return;
+        }
+        
         mat <- data.matrix( utils::read.table(file=kernelfn, fill=TRUE, col.names=paste("V", 1:nseq)))
         mat[upper.tri(mat)] <- t(mat)[upper.tri(mat)]
         rownames(mat)=colnames(mat)
@@ -197,7 +208,7 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
             mnpred[i]=mean(cvpred[ii])
             sdpred[i]=sd(cvpred[ii])
           }
-          res = cbind(seqnames,labels, format(round(cbind(mnpred, sdpred),4),nsmall = 4)); 
+          res = cbind(seqnames,labels, format(round(cbind(mnpred, sdpred),5),nsmall = 5)); 
           colnames(res)= c('seqID', 'label', 'cvpred_mean', 'cvpred_sd')
           write.table(res, file=outputCVpred, quote = FALSE,row.names = FALSE, sep='\t')
 

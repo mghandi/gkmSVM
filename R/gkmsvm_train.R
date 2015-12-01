@@ -17,10 +17,21 @@ gkmsvm_train = function (kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, 
   #  kernelfn= '/Users/mghandi/gkmsvm/test/test9kernel.txt'
     
     pos = seqinr::read.fasta(posfn)
-    npos = length(pos)
+    npos = length(unique(names(pos))) #length(pos)
     neg = seqinr::read.fasta(negfn)
-    nneg = length(neg)
+    nneg = length(unique(names(neg))) #length(neg)
     nseq = npos+nneg; 
+    
+    if(length(which(duplicated(names(pos))))>0){
+      print(paste("Error: duplicated sequence ID in", posfn))
+      print(names(pos)[which(duplicated(names(pos)))])
+      return;
+    }
+    if(length(which(duplicated(names(neg))))>0){
+      print(paste("Error: duplicated sequence ID in", negfn))
+      print(names(neg)[which(duplicated(names(neg)))])
+      return;
+    }
     
     mat <- data.matrix( utils::read.table(file=kernelfn, fill=TRUE, col.names=paste("V", 1:nseq)))
     mat[upper.tri(mat)] <- t(mat)[upper.tri(mat)]
