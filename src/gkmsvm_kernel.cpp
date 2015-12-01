@@ -44,8 +44,8 @@ void gkmsvm_kernel(SEXP params){
   }
    */ 
     int argc=0; 
-    char** argv = new char *[30]; 
-    for(int i=0;i<30;i++){
+    char** argv = new char *[50]; 
+    for(int i=0;i<50;i++){
       argv[i]=new char[5000]; 
     }
     
@@ -106,7 +106,7 @@ void gkmsvm_kernel(SEXP params){
     
    mainGkmKernel( argc, argv); 
    
-   for(int i=0;i<30;i++){
+   for(int i=0;i<50;i++){
      delete []argv[i]; 
    }
    delete[]argv;   
