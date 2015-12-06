@@ -11,6 +11,7 @@
   \item{svmfnprfx}{output SVM model file name prefix}
   \item{Type}{optional: SVM type (default='C-svc'), see 'kernlab' documentation for more details.}
   \item{C}{optional: SVM parameter C (default=1), see 'kernlab' documentation for more details.}
+  \item{shrinking}{optional: shrinking parameter for kernlab (default=FALSE), see 'kernlab' documentation for more details.}
   \item{...}{optional: additional SVM parameters, see 'kernlab' documentation for more details.}
 }
 \details{Trains SVM classifier and generates two files: [svmfnprfx]_svalpha.out for SVM alphas and the other for the corresponding SV sequences ([svmfnprfx]_svseq.fa) }

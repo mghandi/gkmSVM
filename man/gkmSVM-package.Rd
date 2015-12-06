@@ -12,8 +12,8 @@ Imports the 'gkmSVM' v2.0 functionalities into R (www.beerlab.org/gkmsvm). It al
 \tabular{ll}{
 Package: \tab gkmSVM\cr
 Type: \tab Package\cr
-Version: \tab 0.55\cr
-Date: \tab 2015-06-29\cr
+Version: \tab 0.75\cr
+Date: \tab 2015-12-05\cr
 License: \tab GPL (>= 2)\cr
 }
 
@@ -98,7 +98,7 @@ Maintainer: Mahmoud Ghandi <mghandi@gmail.com>
 \references{
 Ghandi M, Lee D, Mohammad-Noori M, Beer MA. 2014. Enhanced Regulatory Sequence Prediction Using Gapped k-mer Features. PLoS Comput Biol 10: e1003711. 
 
-Ghandi M et al., gkmSVM a package for gapped-kmer SVM in R, Bioinformatics (in prep.)
+Ghandi M, Mohammad-Noori M, Ghareghani N, Lee D, Garraway LA, and Beer MA. gkmSVM an R package for gapped-kmer SVM, Bioinformatics (in prep.)
 }
 \keyword{package}
 \keyword{gkmSVM}

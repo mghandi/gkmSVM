@@ -16,10 +16,12 @@ Type="C-svc", C=10^((-3:6)/3), showPlots=TRUE, outputPDFfn=NA, outputCVpredfn=NA
   \item{nrepeat}{(optional) number of repeated CVs}
   \item{cv}{(optional) CV group label. An array of length (npos+nneg), containing CV group number (between 1 an nCV) for each sequence}
   \item{Type}{(optional) SVM type (default='C-svc'), see 'kernlab' documentation for more details.}
-  \item{C}{(optional)a vector of all values of C (SVM parameter) to be tested. (default=10^((-3:6)/3)), see 'kernlab' documentation for more details.}
+  \item{C}{(optional)a vector of all values of C (SVM parameter) to be tested. (default=1), see 'kernlab' documentation for more details.}
+  \item{shrinking}{optional: shrinking parameter for kernlab (default=FALSE), see 'kernlab' documentation for more details.}
   \item{showPlots}{generate plots (default==TRUE)}
   \item{outputPDFfn}{filename for output PDF, default=NA (no PDF output)}
   \item{outputCVpredfn}{filename for output cvpred (predicted CV values), default=NA (no output)}
+  \item{outputROCfn}{filename for output auROC (Area Under an ROC Curve) and auPRC (Area Under the Precision Recall Curve) values, default=NA (no output)}
   \item{...}{optional: additional SVM parameters, see 'kernlab' documentation for more details.}
 }
 \details{Trains SVM classifier and generates two files: [svmfnprfx]_svalpha.out for SVM alphas and the other for the corresponding SV sequences ([svmfnprfx]_svseq.fa) }

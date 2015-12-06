@@ -6,9 +6,12 @@
 # cv: CV group label. An array of length (npos+nneg), containing CV group number (between 1 an nCV) for each sequence. (optional)
 # C: a vector of all values of C (SVM parameter) to be tested. (optinal)
 # showPlots: generate plots (default==TRUE)
-# filename for output PDF, default=NA (no PDF output)
+# outputPDFfn: filename for output PDF, default=NA (no PDF output)
+# outputCVpredfn: filename for output cross validation predictions, default=NA (no output)
+# outputROCfn: filename for output auROC (Area Under an ROC Curve) and auPRC (Area Under the Precision Recall Curve) values, default=NA (no output)
 
-gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=3, cv=NA, Type="C-svc", C=10^((-3:6)/3), showPlots=TRUE, outputPDFfn=NA,  outputCVpredfn=NA, ...){
+
+gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=1, cv=NA, Type="C-svc", C=1, shrinking=FALSE, showPlots=TRUE, outputPDFfn=NA,  outputCVpredfn=NA, outputROCfn=NA,  ...){
   
   #uses some codes by Dongwon Lee 
   auPRC <- function (perf) {
@@ -163,7 +166,7 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
               iidx = idx[-ii];
               iK <- kernlab::as.kernelMatrix(mat[iidx, iidx]);
               #isvp <- kernlab::ksvm(iK, y[iidx], type=Type, C=Cs[ic], ...)
-              isvp <- kernlab::ksvm(iK, y[iidx], type="C-svc", C=Cs[ic])
+              isvp <- kernlab::ksvm(iK, y[iidx], type="C-svc", C=Cs[ic], shrinking=shrinking,...)
               
               alpha = unlist(isvp@alpha )
               kk = iidx[unlist(isvp@SVindex)]
@@ -194,7 +197,7 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
         res = aucss[order(-aucss[,3])[1],2:4];
         
         if(!is.na(outputCVpredfn)){
-
+          
           
           cvpred =unlist(bestLpreds)
           names(cvpred) = unlist(bestLseqnams)
@@ -208,14 +211,17 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
             mnpred[i]=mean(cvpred[ii])
             sdpred[i]=sd(cvpred[ii])
           }
-          res = cbind(seqnames,labels, format(round(cbind(mnpred, sdpred),5),nsmall = 5)); 
-          colnames(res)= c('seqID', 'label', 'cvpred_mean', 'cvpred_sd')
-          write.table(res, file=outputCVpredfn, quote = FALSE,row.names = FALSE, sep='\t')
-
-          #boxplot(as.numeric(res[,3])~as.numeric(res[,2]))
-
+          #          res = cbind(seqnames,labels, format(round(cbind(mnpred, sdpred),5),nsmall = 5)); 
+          res = cbind(seqnames,format(round(mnpred,5),nsmall = 5),2*labels-1,cv-1 ); 
+          colnames(res)= c('seqID', 'cvpred_mean', 'label', 'cv_set')
+          write.table(res, file=paste(outputCVpredfn), quote = FALSE,row.names = FALSE, col.names=FALSE,sep='\t');
           
+          #boxplot(as.numeric(res[,3])~as.numeric(res[,2]))
         }
+        if(!is.na(outputROCfn)){
+          write.table(aucss, file = paste(outputROCfn), col.names=FALSE, row.names=FALSE, quote=FALSE, sep='\t')
+        }
+        
         if(showPlots){
           if(!is.na(outputPDFfn)){
             pdf(outputPDFfn, width=8, height=4)

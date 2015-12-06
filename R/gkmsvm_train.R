@@ -1,5 +1,5 @@
 
-gkmsvm_train = function (kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, ...){
+gkmsvm_train = function (kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, shrinking=FALSE, ...){
 #TODO: add bootstrapping and cv capabilities -- also autyomatic choise of C  . check if kernlab does that 
   
 
@@ -40,7 +40,7 @@ gkmsvm_train = function (kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, 
     y = c(rep(1, npos), rep(0, nneg)); names(y)=rownames(mat)
   
   #  svp <- ksvm(K, y, type="C-svc", C=1)
-    svp <- kernlab::ksvm(K, y, type=Type, C=C, ...)
+    svp <- kernlab::ksvm(K, y, type=Type, C=C, shrinking=shrinking, ...)
     
     seqnames = c(names(pos), names(neg))
     
