@@ -38,7 +38,7 @@ Type="C-svc", C=10^((-3:6)/3), showPlots=TRUE, outputPDFfn=NA, outputCVpredfn=NA
   outfn =   'output.txt'      #output scores for sequences in the test set       
 
 #  gkmsvm_kernel(posfn, negfn, kernelfn);                #computes kernel 
-#  gkmsvm_trainCV(kernelfn,posfn, negfn, svmfnprfx, outputPDFfn='ROC.pdf', outputCVpredfn='cvpred.out');       #trains SVM, plots ROC and PRC curves, and outputs model predictions.
+#  cvres = gkmsvm_trainCV(kernelfn,posfn, negfn, svmfnprfx, outputPDFfn='ROC.pdf', outputCVpredfn='cvpred.out');       #trains SVM, plots ROC and PRC curves, and outputs model predictions.
 #  gkmsvm_classify(testfn, svmfnprfx, outfn);            #scores test sequences 
 }
 
