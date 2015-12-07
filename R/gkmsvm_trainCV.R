@@ -241,5 +241,4 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
           gkmsvm_train(kernelfn, posfn, negfn, svmfnprfx, Type=Type, C=Copt);
         }
       }
-  return(res);
 }
