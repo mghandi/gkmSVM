@@ -96,6 +96,8 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
   #  library(seqinr)
   #  library(kernlab)
   #  library(utils)
+  outres = list(); 
+  
   if (requireNamespace("seqinr", quietly = TRUE)&
       requireNamespace("utils", quietly = TRUE)&
       requireNamespace("ROCR", quietly = TRUE)&
@@ -196,6 +198,8 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
         Copt = aucss[order(-aucss[,3])[1],2]; 
         res = aucss[order(-aucss[,3])[1],2:4];
         
+        outres$aucss = res; 
+        
         if(!is.na(outputCVpredfn)){
           
           
@@ -215,7 +219,7 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
           res = cbind(seqnames,format(round(mnpred,5),nsmall = 5),2*labels-1,cv-1 ); 
           colnames(res)= c('seqID', 'cvpred_mean', 'label', 'cv_set')
           write.table(res, file=paste(outputCVpredfn), quote = FALSE,row.names = FALSE, col.names=FALSE,sep='\t');
-          
+          outres$cvpred = data.frame(seqID=seqnames, cvpred_mean=mnpred, cvpred_sd=sdpred, label =2*labels-1, cv_set=cv-1); 
           #boxplot(as.numeric(res[,3])~as.numeric(res[,2]))
         }
         if(!is.na(outputROCfn)){
@@ -241,4 +245,7 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
           gkmsvm_train(kernelfn, posfn, negfn, svmfnprfx, Type=Type, C=Copt);
         }
       }
+  
+    return(outres); 
+  
 }
