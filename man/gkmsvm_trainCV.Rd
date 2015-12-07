@@ -1,7 +1,7 @@
 \name{gkmsvm_trainCV}
 \alias{gkmsvm_trainCV}
 %- Also NEED an '\alias' for EACH other topic documented here.
-\title{Training the SVM model, using repeated CV to tune parameter C}
+\title{Training the SVM model, using repeated CV to tune parameter C and plot ROC curves}
 \description{Using the kernel matrix created by 'gkmsvm_kernel', this function trains the SVM classifier. 
 It uses repeated CV to find optimum SVM parameter C. Also generates ROC and PRC curves.}
 
