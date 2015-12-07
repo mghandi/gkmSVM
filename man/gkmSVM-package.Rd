@@ -81,13 +81,19 @@ Tutorial
   gkmsvm_classify(testfn, svmfnprfx, outfn);            #scores test sequences 
 
 
-  In a more advanced example, we set the word length L=18, and the number of non gapped positions K=7, and maximum number of mismatches maxnmm=4:
+  In a more advanced example, we set the word length L=18, and the number of non-gapped positions K=7, and maximum number of mismatches maxnmm=4:
   
   gkmsvm_kernel(posfn, negfn, kernelfn, L=18, K=7, maxnmm=4);     #computes kernel 
   
   gkmsvm_train(kernelfn,posfn, negfn, svmfnprfx);                 #trains SVM
   
   gkmsvm_classify(testfn, svmfnprfx, outfn, L=18, K=7, maxnmm=4); #scores test sequences 
+
+  In another example, we run a 5-fold cross validation to plot the ROC curves: 
+  
+  gkmsvm_kernel(posfn, negfn, kernelfn);     #computes kernel 
+
+  cvres = gkmsvm_trainCV(kernelfn, posfn, negfn, svmfnprfx, outputPDFfn='ROC.pdf', outputCVpredfn='cvpred.out');       #trains SVM, plots ROC and PRC curves, and outputs model predictions.
 
 }
 \author{
