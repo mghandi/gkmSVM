@@ -3,7 +3,7 @@
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{Training the SVM model}
 \description{Using the kernel matrix created by 'gkmsvm_kernel', this function trains the SVM classifier. Here we rely on the 'kernlab' package, and merely provide a wrapper function.}
-\usage{gkmsvm_train(kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, ...)}
+\usage{gkmsvm_train(kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, shrinking=FALSE, ...)}
 \arguments{
   \item{kernelfn}{kernel matrix file name}
   \item{posfn}{positive sequences file name}

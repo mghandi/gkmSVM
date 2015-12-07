@@ -5,8 +5,10 @@
 \description{Using the kernel matrix created by 'gkmsvm_kernel', this function trains the SVM classifier. 
 It uses repeated CV to find optimum SVM parameter C. Also generates ROC and PRC curves.}
 
-\usage{gkmsvm_trainCV(kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=3, cv=NA, 
-Type="C-svc", C=10^((-3:6)/3), showPlots=TRUE, outputPDFfn=NA, outputCVpredfn=NA, ...)}
+\usage{gkmsvm_trainCV(kernelfn, posfn, negfn, svmfnprfx=NA, 
+  nCV=5, nrepeat=1, cv=NA, Type="C-svc", C=1, shrinking=FALSE, 
+  showPlots=TRUE, outputPDFfn=NA,  outputCVpredfn=NA, outputROCfn=NA, ...)}
+  
 \arguments{
   \item{kernelfn}{kernel matrix file name}
   \item{posfn}{positive sequences file name}
@@ -38,7 +40,9 @@ Type="C-svc", C=10^((-3:6)/3), showPlots=TRUE, outputPDFfn=NA, outputCVpredfn=NA
   outfn =   'output.txt'      #output scores for sequences in the test set       
 
 #  gkmsvm_kernel(posfn, negfn, kernelfn);                #computes kernel 
-#  cvres = gkmsvm_trainCV(kernelfn,posfn, negfn, svmfnprfx, outputPDFfn='ROC.pdf', outputCVpredfn='cvpred.out');       #trains SVM, plots ROC and PRC curves, and outputs model predictions.
+#  cvres = gkmsvm_trainCV(kernelfn,posfn, negfn, svmfnprfx, 
+#      outputPDFfn='ROC.pdf', outputCVpredfn='cvpred.out');    
+#      #trains SVM, plots ROC and PRC curves, and outputs model predictions.
 #  gkmsvm_classify(testfn, svmfnprfx, outfn);            #scores test sequences 
 }
 
