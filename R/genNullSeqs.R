@@ -30,11 +30,11 @@ genNullSeqs = function(
     if(is.null(genome)){  
       if(toupper(genomeVersion)=='HG18'){
         if(requireNamespace("BSgenome.Hsapiens.UCSC.hg18.masked", quietly = TRUE)){
-          genome <- BSgenome.Hsapiens.UCSC.hg18.masked
+          genome <- BSgenome.Hsapiens.UCSC.hg18.masked::BSgenome.Hsapiens.UCSC.hg18.masked
         }
       } else{
         if(requireNamespace("BSgenome.Hsapiens.UCSC.hg19.masked", quietly = TRUE)){
-          genome <- BSgenome.Hsapiens.UCSC.hg19.masked
+          genome <- BSgenome.Hsapiens.UCSC.hg19.masked::BSgenome.Hsapiens.UCSC.hg19.masked
         }
       }
     }
@@ -79,7 +79,7 @@ genNullSeqs = function(
       start = rpos - chrpos0[ichr1];
       names <- chr; 
       ranges <- IRanges::IRanges(start=start, width=seqlens)
-      strand <- GenomicRanges::strand(sample(c("+", "-"), length(names), replace=TRUE))
+      strand <- BiocGenerics::strand(sample(c("+", "-"), length(names), replace=TRUE))
       gr <- GenomicRanges::GRanges(seqnames=names, ranges=ranges, strand=strand)
     }
     
@@ -93,7 +93,7 @@ genNullSeqs = function(
       cat( unique(as.character(inbed$seqnames[jj])))
       return(NULL)
     }
-    jj = which(inbed$end>seqlengths(genome)[inbed$seqnames])
+    jj = which(inbed$end>GenomeInfoDb::seqlengths(genome)[inbed$seqnames])
     if (length(jj)>0){
       cat( 'ERROR: Region outside chromosome. (Check the genome version) \n')
       print( inbed[jj,])
@@ -188,23 +188,24 @@ genNullSeqs = function(
       
       for(ichr in as.character(chrs)){
         seq = genome[[ichr]]
-        rpt = masks(seq)[['TRF']]
+        rpt = Biostrings::masks(seq)[['TRF']]
         
-        jj = which(seqnames(bed)==ichr)
+        jj = which(as.character(GenomeInfoDb::seqnames(bed))==ichr)
+#       jj = which((GenomeInfoDb::seqnames(bed))==ichr)
         
         if (length(jj)>0){
           
           jbed = bed[jj]
           jrpts = rep(0, length(jj))
           
-          olaps <- GenomicRanges::findOverlaps(rpt, jbed@ranges)
+          olaps <- IRanges::findOverlaps(rpt, jbed@ranges)
           #isect <- pintersect(rpt[queryHits(olaps)], jbed@ranges[subjectHits(olaps)])
           
-          qdf=as.data.frame(rpt)[GenomicRanges::queryHits(olaps),]
-          isect <- IRanges::pintersect(IRanges::IRanges(start=qdf$start,end=qdf$end), jbed@ranges[subjectHits(olaps)])
+          qdf=as.data.frame(rpt)[S4Vectors::queryHits(olaps),]
+          isect <- IRanges::pintersect(IRanges::IRanges(start=qdf$start,end=qdf$end), jbed@ranges[S4Vectors::subjectHits(olaps)])
           
-          jres = GenomicRanges::subjectHits(olaps)
-          olap_width=IRanges::width(isect)
+          jres = S4Vectors::subjectHits(olaps)
+          olap_width=BiocGenerics::width(isect)
           
           ## this could be done faster if duplicated(jres) is empty 
           for(i in 1:length(jres)){
@@ -214,7 +215,7 @@ genNullSeqs = function(
         }
       }
       
-      rpts = rpts/IRanges::width(bed)
+      rpts = rpts/BiocGenerics::width(bed)
     }
     
     #check the BED file:
@@ -222,34 +223,35 @@ genNullSeqs = function(
     
     cat(' importing sequences for',inputBedFN, 'from', GenomeInfoDb::bsgenomeName(genome),'\n')
     #extract sequences
-    inSeqs = getSeq(genome, inBed)
+    inSeqs = Biostrings::getSeq(genome, inBed)
     seqlens = inbed$width
     inGC = gcContent(inSeqs)
     cat(' calculating repeat distributions\n')
     inRpt = repeatRat(inBed)
     
-    outbed=as.data.frame(matrix(ncol=ncol(inbed), nrow=nrow(inbed)*xfold))
-    outSeq = rep(inSeqs, xfold); 
+    nout = round(nrow(inbed)*xfold)
+    outbed=as.data.frame(matrix(ncol=ncol(inbed), nrow=nout))
+    outSeq = rep(inSeqs, length=nout); 
     
     colnames(outbed)=colnames(inbed)
     
     unmatched = 1:length(outSeq)
     
-    desGC = rep(inGC, xfold); #desired output GC
-    desRpt = rep(inRpt, xfold); #desired output repeat
-    desLens = rep(seqlens, xfold); #desired output lengths 
+    desGC = rep(inGC, length=nout); #desired output GC
+    desRpt = rep(inRpt, length=nout); #desired output repeat
+    desLens = rep(seqlens, length=nout); #desired output lengths 
     
     for(iter in 1:nMaxTrials){
       if(length(unmatched)>0){
         cat(' Trial',iter,'out of',nMaxTrials,'\n')
         rndBed = generateRandomGenSeqs(rep(desLens[unmatched],length.out=batchsize))
-        rndbed=as.data.frame(rndBed)
+        rndbed= GenomicRanges::as.data.frame(rndBed)
         cat(' importing sequences\n')
-        rndSeqs = getSeq(genome, rndBed)
+        rndSeqs = Biostrings::getSeq(genome, rndBed)
         rndGC = gcContent(rndSeqs)
         cat(' calculating repeat distributions\n')
         rndRpt = repeatRat(rndBed)
-        mtc = matchSeqs(desGC[unmatched], rndGC, desLens[unmatched], width(rndBed), desRpt[unmatched], rndRpt,
+        mtc = matchSeqs(desGC[unmatched], rndGC, desLens[unmatched], BiocGenerics::width(rndBed), desRpt[unmatched], rndRpt,
                         gc_th = GC_match_tol,
                         len_th = repeat_match_tol,
                         rpt_th = length_match_tol)

@@ -5,5 +5,4 @@ importFrom("grDevices", "dev.off", "pdf")
 importFrom("graphics", "abline", "par", "plot", "text")
 importFrom("stats", "sd")
 importFrom("utils", "write.table")
-
 importMethodsFrom(GenomicRanges, as.data.frame)
