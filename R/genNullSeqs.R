@@ -45,7 +45,7 @@ genNullSeqs = function(
     pmax = max(chrpos)
     chrpos = c(chrpos,1E12)
     chrpos0 = c(0, chrpos)
-    ichr = names(chrlens); 
+    ichrA = as.character(names(chrlens)); 
     
     
     getichrpos = function(ipos){
@@ -75,7 +75,7 @@ genNullSeqs = function(
         ichr2 = getichrpos(rpos+seqlens)
         jj = which(ichr1!=ichr2)
       }
-      chr = ichr[ichr1]
+      chr = ichrA[ichr1]
       start = rpos - chrpos0[ichr1];
       names <- chr; 
       ranges <- IRanges::IRanges(start=start, width=seqlens)
@@ -201,7 +201,7 @@ genNullSeqs = function(
           olaps <- IRanges::findOverlaps(rpt, jbed@ranges)
           #isect <- pintersect(rpt[queryHits(olaps)], jbed@ranges[subjectHits(olaps)])
           
-          qdf=as.data.frame(rpt)[S4Vectors::queryHits(olaps),]
+          qdf= GenomicRanges::as.data.frame(rpt)[S4Vectors::queryHits(olaps),]
           isect <- IRanges::pintersect(IRanges::IRanges(start=qdf$start,end=qdf$end), jbed@ranges[S4Vectors::subjectHits(olaps)])
           
           jres = S4Vectors::subjectHits(olaps)
@@ -219,7 +219,7 @@ genNullSeqs = function(
     }
     
     #check the BED file:
-    inbed = as.data.frame(inBed)
+    inbed = GenomicRanges::as.data.frame(inBed)
     
     cat(' importing sequences for',inputBedFN, 'from', GenomeInfoDb::bsgenomeName(genome),'\n')
     #extract sequences
@@ -230,7 +230,8 @@ genNullSeqs = function(
     inRpt = repeatRat(inBed)
     
     nout = round(nrow(inbed)*xfold)
-    outbed=as.data.frame(matrix(ncol=ncol(inbed), nrow=nout))
+    #outbed=as.data.frame(matrix(ncol=ncol(inbed), nrow=nout))
+    outbed=matrix(ncol=ncol(inbed), nrow=nout)
     outSeq = rep(inSeqs, length=nout); 
     
     colnames(outbed)=colnames(inbed)
@@ -251,17 +252,20 @@ genNullSeqs = function(
         rndGC = gcContent(rndSeqs)
         cat(' calculating repeat distributions\n')
         rndRpt = repeatRat(rndBed)
+        cat(' matching sequences\n')
+        
         mtc = matchSeqs(desGC[unmatched], rndGC, desLens[unmatched], BiocGenerics::width(rndBed), desRpt[unmatched], rndRpt,
                         gc_th = GC_match_tol,
                         len_th = repeat_match_tol,
                         rpt_th = length_match_tol)
         jj = which(!is.na(mtc))
         if(length(jj)>0){
-          outbed[unmatched[jj],]=rndbed[mtc[jj],];
+          #outbed[unmatched[jj],]=rndbed[mtc[jj],];
+          outbed[unmatched[jj],]=as.matrix(rndbed[mtc[jj],]);
           outSeq[unmatched[jj],]=rndSeqs[mtc[jj],];
           unmatched = unmatched[-jj]
         }
-        cat(nrow(outbed) - length(unmatched),' sequences found so far, ',length(unmatched), ' remaining.\n')
+        cat(nrow(outbed) - length(unmatched),'sequences found so far, ',length(unmatched), ' remaining.\n')
       }
     }  
     
@@ -287,18 +291,18 @@ if(FALSE){
   genNullSeqs('~/Downloads/ctcfpos.bed', nMaxTrials=2,xfold=3, genomeVersion = 'hg18' );
   genNullSeqs('~/Downloads/ctcfpos.bed', genomeVersion = 'hg18' );
   
-  
-  #   inputBedFN='~/Downloads/ctcfpos.bed'
-  #   genomeVersion='hg18' 
-  #   outputBedFN = 'posSet.bed' 
-  #   outputPosFastaFN = 'posSet.fa'
-  #   outputNegFastaFN = 'negSet.fa' 
-  #   xfold = 1
-  #   repeat_match_tol = 0.02
-  #   GC_match_tol = 0.02
-  #   length_match_tol = 0.02
-  #   batchsize = 5000
-  #   nMaxTrials = 20 
-  #   genome = NULL  
+#   
+#     inputBedFN='~/Downloads/ctcfpos.bed'
+#     genomeVersion='hg18' 
+#     outputBedFN = 'posSet.bed' 
+#     outputPosFastaFN = 'posSet.fa'
+#     outputNegFastaFN = 'negSet.fa' 
+#     xfold = 1
+#     repeat_match_tol = 0.02
+#     GC_match_tol = 0.02
+#     length_match_tol = 0.02
+#     batchsize = 5000
+#     nMaxTrials = 20 
+#     genome = NULL  
   
 }
