@@ -273,10 +273,11 @@ genNullSeqs = function(
       outbed = outbed[-unmatched,]
       outSeq = outSeq[-unmatched,]
     }
-    
+
+    outbed = gsub(' ','', outbed)
     write.table(as.matrix(outbed[,1:3]),quote = FALSE, sep='\t',row.names = FALSE, col.names = FALSE , file = outputBedFN)  
     if(requireNamespace("seqinr", quietly = TRUE)){
-      outseqnams = paste(gsub(' ','',outbed[,1]), outbed[,2], outbed[,3], 'neg', 1:nrow(outbed), sep='_')
+      outseqnams = paste(outbed[,1], outbed[,2], outbed[,3], 'neg', 1:nrow(outbed), sep='_')
       seqinr::write.fasta(sequences = sapply(as.character(outSeq), strsplit,''), names =outseqnams,file.out =   outputNegFastaFN); 
       inseqnams = paste(as.character(inbed[,1]), inbed[,2], inbed[,3], 'pos', 1:nrow(inbed), sep='_')
       seqinr::write.fasta(sequences = sapply(as.character(inSeqs), strsplit,''), names =inseqnams, file.out =   outputPosFastaFN); 
@@ -294,7 +295,7 @@ if(FALSE){
 #   
 #     inputBedFN='~/Downloads/ctcfpos.bed'
 #     genomeVersion='hg18' 
-#     outputBedFN = 'posSet.bed' 
+#     outputBedFN = 'negSet.bed' 
 #     outputPosFastaFN = 'posSet.fa'
 #     outputNegFastaFN = 'negSet.fa' 
 #     xfold = 1
