@@ -261,7 +261,7 @@ genNullSeqs = function(
           outSeq[unmatched[jj],]=rndSeqs[mtc[jj],];
           unmatched = unmatched[-jj]
         }
-        cat(nrow(outbed) - length(unmatched),' sequences found so far, ',length(unmatched), ' is remaining.\n')
+        cat(nrow(outbed) - length(unmatched),' sequences found so far, ',length(unmatched), ' remaining.\n')
       }
     }  
     
@@ -270,11 +270,11 @@ genNullSeqs = function(
       outSeq = outSeq[-unmatched,]
     }
     
-    write.table(outbed[,1:3],quote = FALSE, sep='\t',row.names = FALSE, col.names = FALSE , file = outputBedFN)  
+    write.table(as.matrix(outbed[,1:3]),quote = FALSE, sep='\t',row.names = FALSE, col.names = FALSE , file = outputBedFN)  
     if(requireNamespace("seqinr", quietly = TRUE)){
-      outseqnams = paste(outbed[,1], outbed[,2], outbed[,3], 'neg', 1:nrow(outbed), sep='_')
+      outseqnams = paste(as.character(outbed[,1]), outbed[,2], outbed[,3], 'neg', 1:nrow(outbed), sep='_')
       seqinr::write.fasta(sequences = sapply(as.character(outSeq), strsplit,''), names =outseqnams,file.out =   outputNegFastaFN); 
-      inseqnams = paste(inbed[,1], inbed[,2], inbed[,3], 'neg', 1:nrow(inbed), sep='_')
+      inseqnams = paste(as.character(inbed[,1]), inbed[,2], inbed[,3], 'pos', 1:nrow(inbed), sep='_')
       seqinr::write.fasta(sequences = sapply(as.character(inSeqs), strsplit,''), names =inseqnams, file.out =   outputPosFastaFN); 
     }
     return(outputNegFastaFN)

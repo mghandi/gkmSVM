@@ -185,7 +185,8 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
           }      
           aucs= rocprc(Lpreds, Llabs,showPlots = FALSE)#, output="~/plots/rocprc.pdf") 
           ri = c(ic,Cs[ic]); names(ri)=c('','C');
-          print(c(ri,aucs)); 
+          #print(c(ri,aucs)); 
+          cat('.')
           aucss= rbind(aucss,c(ri,aucs) )
           if(aucs[1]>mxaucs){
             mxaucs=aucs[1];
@@ -245,7 +246,7 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
           gkmsvm_train(kernelfn, posfn, negfn, svmfnprfx, Type=Type, C=Copt);
         }
       }
-  
+    cat('\n')
     return(outres); 
   
 }
