@@ -9,7 +9,11 @@ if (requireNamespace("GenomicRanges", quietly = TRUE)&
 # genNullSeqs('~/Downloads/ctcfpos.bed' );
 # genNullSeqs('~/Downloads/ctcfpos.bed', nMaxTrials=2,xfold=3, genomeVersion = 'hg18' );
 # genNullSeqs('~/Downloads/ctcfpos.bed', xfold=3, genomeVersion = 'hg18', outputBedFN = 'ctcf_negSet.bed', outputPosFastaFN = 'ctcf_posSet.fa',outputNegFastaFN = 'ctcf_negSet.fa' );
+#
+# library(BSgenome.Mmusculus.UCSC.mm9.masked)
+# genNullSeqs('ctcfpos.bed', outputBedFN = 'ctcf_negSet.bed', outputPosFastaFN = 'ctcf_posSet.fa',outputNegFastaFN = 'ctcf_negSet.fa' , genome = BSgenome.Mmusculus.UCSC.mm9.masked);
 
+  
 genNullSeqs = function(
   inputBedFN, 
   genomeVersion='hg19', 
@@ -87,13 +91,13 @@ genNullSeqs = function(
     
     #check the BED file:
     inbed = GenomicRanges::as.data.frame(inBed)
-    jj = which(is.na(match(inbed$seqnames,seqnams)))
+    jj = which(is.na(match(as.character(inbed$seqnames),as.character(seqnams))))
     if (length(jj)>0){
       cat( paste('ERROR: Chromosome name not recognized for',length(jj), 'sequences.\n'))
       cat( unique(as.character(inbed$seqnames[jj])))
       return(NULL)
     }
-    jj = which(inbed$end>GenomeInfoDb::seqlengths(genome)[inbed$seqnames])
+    jj = which(inbed$end>GenomeInfoDb::seqlengths(genome)[as.character(inbed$seqnames)])
     if (length(jj)>0){
       cat( 'ERROR: Region outside chromosome. (Check the genome version) \n')
       print( inbed[jj,])
@@ -293,17 +297,17 @@ if(FALSE){
   genNullSeqs('~/Downloads/ctcfpos.bed', genomeVersion = 'hg18' );
   
 #   
-#     inputBedFN='~/Downloads/ctcfpos.bed'
-#     genomeVersion='hg18' 
-#     outputBedFN = 'negSet.bed' 
-#     outputPosFastaFN = 'posSet.fa'
-#     outputNegFastaFN = 'negSet.fa' 
-#     xfold = 1
-#     repeat_match_tol = 0.02
-#     GC_match_tol = 0.02
-#     length_match_tol = 0.02
-#     batchsize = 5000
-#     nMaxTrials = 20 
-#     genome = NULL  
+#   inputBedFN='~/Downloads/segway.bed'
+#   genomeVersion='hg19' 
+#   outputBedFN = 'negSet.bed' 
+#   outputPosFastaFN = 'posSet.fa'
+#   outputNegFastaFN = 'negSet.fa' 
+#   xfold = 1
+#   repeat_match_tol = 0.02
+#   GC_match_tol = 0.02
+#   length_match_tol = 0.02
+#   batchsize = 5000
+#   nMaxTrials = 2 
+#   genome = NULL  
   
 }
