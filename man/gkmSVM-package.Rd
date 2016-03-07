@@ -105,7 +105,7 @@ Maintainer: Mahmoud Ghandi <mghandi@gmail.com>
 \references{
 Ghandi M, Lee D, Mohammad-Noori M, Beer MA. 2014. Enhanced Regulatory Sequence Prediction Using Gapped k-mer Features. PLoS Comput Biol 10: e1003711. 
 
-Ghandi M, Mohammad-Noori M, Ghareghani N, Lee D, Garraway LA, and Beer MA. gkmSVM an R package for gapped-kmer SVM, Bioinformatics (in prep.)
+Ghandi M, Mohammad-Noori M, Ghareghani N, Lee D, Garraway LA, and Beer MA. gkmSVM an R package for gapped-kmer SVM, Bioinformatics (under review)
 }
 \keyword{package}
 \keyword{gkmSVM}
