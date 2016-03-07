@@ -38,11 +38,9 @@ gkmsvm_delta<- function( seqfile_allele1,
                   usePseudocnt=usePseudocnt,batchSize=batchSize,wildcardLambda=wildcardLambda,wildcardMismatchM=wildcardMismatchM,
                   alphabetFN=alphabetFN,svseqfile=svseqfile,alphafile=alphafile)
   
-  s1 = read.delim(seqfile_allele1, header=FALSE)
-  s2 = read.delim(seqfile_allele2, header=FALSE)
-  write.table(cbind(as.character(s1[,1]), s2[,1]-s[,2]), file = outfile, quote = FALSE, row.names=FALSE, col.names = FALSE) 
-  res =  s2[,1]-s[,2]; names(res)=as.character(s1[,1]); res=res; 
+  s1 = read.delim(outfile_allele1, header=FALSE)
+  s2 = read.delim(outfile_allele2, header=FALSE)
+  res =  as.numeric(s2[,2])-as.numeric(s1[,2]); names(res)=as.character(s1[,1]); 
+  write.table(cbind(as.character(s1[,1]), res), file = outfile, quote = FALSE, row.names=FALSE, col.names = FALSE) 
+  res=res; 
 }
-
-
-
