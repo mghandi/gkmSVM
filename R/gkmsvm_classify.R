@@ -23,10 +23,10 @@ gkmsvm_classify <- function( seqfile,
                                alphafile= paste(svmfnprfx, 'svalpha.out', sep='_')
                              }    
                              
-                             params = list(seqfile=normalizePath(seqfile, mustWork = TRUE), 
-                                           svseqfile=normalizePath(svseqfile, mustWork == TRUE),
-                                           alphafile=normalizePath(alphafile, mustWork == TRUE),
-                                           outfile=normalizePath(outfile, mustWork == FALSE),
+                             params = list(seqfile=normalizePath(seqfile, mustWork =  TRUE), 
+                                           svseqfile=normalizePath(svseqfile, mustWork = TRUE),
+                                           alphafile=normalizePath(alphafile, mustWork = TRUE),
+                                           outfile=normalizePath(outfile, mustWork = FALSE),
                                            L=L, 
                                            K=K, 
                                            maxnmm=maxnmm, 
