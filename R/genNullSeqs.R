@@ -128,7 +128,8 @@ genNullSeqs = function(
       #  len2 = seqlens;
       #  rpt1 = inRpt; 
       #  rpt2 = rndRpt; 
-      
+      #  gc1=desGC[unmatched];gc2= rndGC;len1= desLens[unmatched];len2= BiocGenerics::width(rndBed);rpt1= desRpt[unmatched];rpt2= rndRpt;
+                      
       #  gc_th=0.02
       #  len_th=0.02
       
@@ -157,6 +158,7 @@ genNullSeqs = function(
       mtc1 = rep(NA, N)
       mtc2 = rep(0, length(i2))
       for(i in 1:N){
+        #if(i%%1000==0){cat(i,' ')}
         gc1i = gc1[i]; 
         len1i = len1[i]
         rpt1i = rpt1[i]
@@ -176,7 +178,7 @@ genNullSeqs = function(
             }
             m2b =m2b+1; 
           }
-        }
+        }else{break;}
       }
       
       mtc1 = i2[mtc1]
@@ -265,7 +267,7 @@ genNullSeqs = function(
         jj = which(!is.na(mtc))
         if(length(jj)>0){
           #outbed[unmatched[jj],]=rndbed[mtc[jj],];
-          outbed[unmatched[jj],]=as.matrix(rndbed[mtc[jj],]);
+          outbed[unmatched[jj],1:5]=as.matrix(rndbed[mtc[jj],]);
           outSeq[unmatched[jj],]=rndSeqs[mtc[jj],];
           unmatched = unmatched[-jj]
         }
