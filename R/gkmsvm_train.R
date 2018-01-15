@@ -25,12 +25,17 @@ gkmsvm_train = function (kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, 
     if(length(which(duplicated(names(pos))))>0){
       print(paste("Error: duplicated sequence ID in", posfn))
       print(names(pos)[which(duplicated(names(pos)))])
-      return;
+      stop("Error: duplicated sequence ID");
     }
     if(length(which(duplicated(names(neg))))>0){
       print(paste("Error: duplicated sequence ID in", negfn))
       print(names(neg)[which(duplicated(names(neg)))])
-      return;
+      stop("Error: duplicated sequence ID");
+    }
+    if(length(which(duplicated(c(names(pos),names(neg)))))>0){
+      print(paste("Error: Same sequence ID found in positive and negative sets:", posfn, negfn))
+      print(c(names(pos),names(neg))[which(duplicated(c(names(pos),names(neg))))])
+      stop("Error: duplicated sequence ID");
     }
     
     mat <- data.matrix( utils::read.table(file=kernelfn, fill=TRUE, col.names=paste("V", 1:nseq)))

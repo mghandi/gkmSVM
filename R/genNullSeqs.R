@@ -262,8 +262,8 @@ genNullSeqs = function(
         
         mtc = matchSeqs(desGC[unmatched], rndGC, desLens[unmatched], BiocGenerics::width(rndBed), desRpt[unmatched], rndRpt,
                         gc_th = GC_match_tol,
-                        len_th = repeat_match_tol,
-                        rpt_th = length_match_tol)
+                        len_th = length_match_tol,
+                        rpt_th = repeat_match_tol)
         jj = which(!is.na(mtc))
         if(length(jj)>0){
           #outbed[unmatched[jj],]=rndbed[mtc[jj],];
