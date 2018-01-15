@@ -293,8 +293,8 @@ int mainSVMtrain(int argc, char * argv[]) //mainSVMtrain
 	delete []seqname; 
 	delete []seqs;
 	
-	delete alphaFN;
-	delete svFN;
-
+	delete []alphaFN;
+	delete []svFN;
+	
 	return 0; 
 }
