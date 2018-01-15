@@ -40,6 +40,9 @@ gkmsvm_kernel <- function( posfile,
   ## test for duplicate id 
   if (requireNamespace("seqinr", quietly = TRUE)){
     
+    posfn = posfile; 
+    negfn = negfile;
+    
     pos = seqinr::read.fasta(posfn)
     neg = seqinr::read.fasta(negfn)
     
