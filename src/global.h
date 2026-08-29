@@ -118,8 +118,8 @@ extern CConverter globalConverter;
 #define Epsilon 0.0000000000001
 #define MAX_LINE_WIDTH 10000	/* maximum line width */
 
-#define min(x,y) ((x<y)?x:y)
-#define max(x,y) ((x>y)?x:y)
+// (the former min/max macros are gone: they broke <vector> in libstdc++ 14 when included after global.h;
+//  no live code used them)
 #define lcase(c) ((c>='a')?c:c-'A'+'a')
 #define ucase(c) ((c>='a')?c-'a'+'A':c)
 

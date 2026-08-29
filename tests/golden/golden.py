@@ -155,7 +155,12 @@ def main():
                 failed.append((r, f"XPASS: now runs (exit 0) - freeze it and drop the {xfail[0]} tag"))
             continue
         if crashed:
-            failed.append((r, f"exit code {r['rc']}, see {r['dir']}/stderr.txt"))
+            tail = b""
+            for fn in ("stdout.txt", "stderr.txt"):
+                t = open(os.path.join(r["dir"], fn), "rb").read()
+                if t.strip():
+                    tail += b"\n       [" + fn.encode() + b"] " + b" | ".join(t.strip().splitlines()[-3:])[:300]
+            failed.append((r, f"exit code {r['rc']}" + tail.decode(errors="replace")))
             continue
         actual = open(r["out"], "rb").read()
         if a.cmd == "freeze":
