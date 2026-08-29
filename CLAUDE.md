@@ -15,43 +15,29 @@ Related repo on this machine: `../gkmsvm3` — the generalisation of gkm-SVM to 
 pure-Python implementation** (`fractions.Fraction`, unit-tested) that serves as the independent
 numerical oracle for this refactor, and its theory is the target of Phase 7.
 
-## 2. Current state (2026-08-29)
+## 2. Current state (2026-08-29, after the merges)
 
-* `master` = **0.80**, plus the refactor scaffolding merged from PR #5 (`ebd50e9`):
-  `dev/REFACTORING_PLAN.md`, `dev/baseline.sh`, `CLAUDE.md`, `.claude/settings.json`,
-  `.Rbuildignore`, `.gitignore`. `src/` and `R/` are untouched at `222cc50`.
-* **Branch stack (none merged): `phase0/baseline-safety-net` (PR #7) ← `phase1/latent-bug-fixes`
-  (PR #8) ← `phase2/core-extraction` (PR #9, Phase 2a) ← `phase3/sequence-identity` (PR #10) ← `phase4/binary-formats` (PR #11) ← `phase4b/libsvm-train` (PR #12) ← `phase5/alphabet-generalisation` (PR #13) ← `phase6/performance` (PR #14) ← `phase0b/cran-reconciliation` (PR #15) ← `phase2b/kernel-context` (PR #16) ← `phase6b/tiled-profile` (PR #17) ← `phase2c/alphabet-per-call` (PR #18) ← `phase2d/reporter` (PR #19) ← `phase8/legacy-norm`.** CI (ubuntu gcc/clang,
-  macOS, ASAN+UBSAN, R, benchmark gate) is green on every branch from #8 up after the Linux
-  portability fixes were forward-merged through the stack; only #7 is red on Linux, by design
-  (see the plan §7, "Linux CI reconciliation"). If you change something on a lower branch, merge it
-  forward through the chain (`git merge -X ours <parent>` from each child) — an independently applied
-  duplicate makes the child PR "CONFLICTING" and GitHub then runs no CI for it at all. See §7 of the plan for what each contains and what
-  is left (Phase 2b = the context object), and `NEWS.md` for user-visible changes. Merge in order and
-  retarget each PR to `master` after its base merges. Key commands: `make`, `make test` (golden), `make oracle`,
-  `make bench`, `dev/scratch_install.sh` then `Rscript -e 'testthat::test_dir("tests/testthat",
-  package="gkmSVM", load_package="installed")'`. Later phases branch from `master` but need Phase 0's
-  files — until it is merged, branch from the Phase 0 branch and say so in the PR.
-* The stale branch `refactor/plan` can be ignored (its content is on `master`).
-* **The plan is approved.** All seven decisions are recorded in §5 of the plan. Execute the phases
-  in order starting with Phase 0.
-* CRAN ships **0.83.0 (2023)**, a diverged lineage: it has packaging hardening (`snprintf`,
-  `.registration=TRUE`, Bioc deps in `Suggests`) but **not** this tree's multithreading, duplicate-ID
-  checks or `normalizePath`. Folding the good CRAN changes in is **Phase 0b: low priority,
-  non-blocking**, best done after Phase 1. A copy of the CRAN tarball is not committed; fetch from
-  `https://cran.r-project.org/src/contrib/gkmSVM_0.83.0.tar.gz` when you get to it.
+* **`master` = 0.90.0**: every phase of the plan through Phase 6 (except the items below), plus
+  Phase 0b and all of Phase 2, merged as PRs #7–#21 in order. `v0.80` tags the pre-refactor tree
+  (`222cc50`, 2018), which is the version used in the papers; `README.md` and
+  `tutorials/gkmsvm-tutorial.md` point at it.
+* Gates on `master`: golden corpus 151/151 byte-identical (macOS and Linux, native and ASAN+UBSAN),
+  oracle OK, testthat 28/0, `R CMD check --as-cran` OK, CI green. `make test`, `make oracle`,
+  `dev/bench.sh` and `R CMD INSTALL .` all work directly (the Bioconductor packages are `Suggests`).
+* **Not done** (see the plan's §7 for the measurements behind each): Phase 6's per-pass tree clone
+  (a node arena was measured and rejected), 4b-2 (kernel on the fly), micro-optimisations; Phase 7.
+  Dropping the mismatch profile from the hot path is incompatible with the bit-identical gate.
+* Working rules that still apply: one branch + PR per change, branched from `master`; never push to
+  `master`; golden tests are the gate; when stacking PRs, fix things low in the stack and
+  forward-merge (`git merge -X ours <parent>` from each child); when merging a stack, retarget the
+  child PR to `master` *before* deleting the merged branch (deleting first closes the child).
+* The CI benchmark job is advisory (shared runners vary ±10 % run to run); the 2 % gate is
+  `dev/bench.sh` best-of-5 on a quiet machine.
 
-## 3. Where to start: Phase 0
+## 3. Where to start
 
-Phase 0 is fully specified in the plan. Its first item unblocks everything else:
-
-1. **`main()` shims + Makefile** so `gkmsvm_kernel`, `gkmsvm_classify` (and later `gkmsvm_train`)
-   build from this tree. There is **no `main()` and no Makefile** today — the repo only builds the R
-   shared object, and the published CLI binaries come from a separate `gkmsvm-2.0.tar.gz`.
-   `dev/baseline.sh` already contains a working shim; lift it into `src/cli/`.
-2. Golden-test corpus + `testthat`, 3. numerical oracle vs `../gkmsvm3/generalb/generalb_gkm.py`,
-4. CI (R CMD check, golden tests, ASAN/UBSAN, benchmark gate), 5. baseline numbers (already in
-`dev/baseline.sh`).
+Read the plan's §7 (execution log) for what each phase did and measured. The next open items are
+listed in §2 above; Phase 7 is project-sized and needs a design discussion first.
 
 ## 4. Verified facts you can rely on (do not re-derive)
 
