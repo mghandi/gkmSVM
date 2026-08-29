@@ -1,0 +1,5 @@
+# RNA with complement pairs
+A U
+C G
+G C
+U A

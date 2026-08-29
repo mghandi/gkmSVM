@@ -86,8 +86,8 @@ c_L8K5d-1	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	8	5	-
 c_L12K8d4	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	12	8	4	1	2	1	0														
 c_t3_M1	classify	classify wildcard			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	8	5	-1	3	2	1	0	1	0.5												
 c_pseudo	classify	classify pseudo			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	1	2	1	1														
-k_b5_t1	kernel	alphabet b5 expect-error phase5	b5_pos.fa	b5_neg.fa				8	5	-1	1	2	1	0			alphabet_b5.txt											
-k_b5_t4_M2	kernel	alphabet b5 mismatch expect-error phase5	b5_pos.fa	b5_neg.fa				8	5	-1	4	2	1	0	2		alphabet_b5.txt											
+k_b5_t1	kernel	alphabet b5	b5_pos.fa	b5_neg.fa				8	5	-1	1	2	1	0			alphabet_b5.txt											
+k_b5_t4_M2	kernel	alphabet b5 mismatch	b5_pos.fa	b5_neg.fa				8	5	-1	4	2	1	0	2		alphabet_b5.txt											
 k_maxseqlen_exceeded	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0						50								
 k_maxnumseq_exceeded	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0							5							
 k_maxnumseq_exceeded_a1	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	1	1	0							5							
@@ -126,3 +126,16 @@ t_small_noshrink	train	train numeric	dna_small_pos.fa	dna_small_neg.fa									1
 t_medium	train	train numeric medium	dna_medium_pos.fa	dna_medium_neg.fa									1	0										k_medium_T1.out	1			
 t_dupnames	train	train numeric dupnames	dupnames_pos.fa	dna_small_neg.fa									1	0										k_dupnames.out				
 t_wrong_n	train	train error expect-error	dna_medium_pos.fa	dna_medium_neg.fa									1	0										k_small_t1_a2.out				
+k_protein_t1	kernel	alphabet protein	protein_pos.fa	protein_neg.fa				6	4	-1	1	2	1	0			alphabet_protein.txt											
+k_protein_t0	kernel	alphabet protein	protein_pos.fa	protein_neg.fa				5	3	-1	0	2	1	0			alphabet_protein.txt											
+k_protein_t2	kernel	alphabet protein	protein_pos.fa	protein_neg.fa				6	4	-1	2	2	1	0			alphabet_protein.txt											
+k_protein_t4_M1	kernel	alphabet protein mismatch	protein_pos.fa	protein_neg.fa				6	4	-1	4	2	1	0	1		alphabet_protein.txt											
+k_protein_keyword	kernel	alphabet protein	protein_pos.fa	protein_neg.fa				6	4	-1	1	2	1	0			protein											
+k_protein_binary	kernel	alphabet protein binary	protein_pos.fa	protein_neg.fa				6	4	-1	1	2	1	0			alphabet_protein.txt						1					
+k_b5_t2	kernel	alphabet b5	b5_pos.fa	b5_neg.fa				8	5	-1	2	2	1	0			alphabet_b5.txt											
+k_b5_d2	kernel	alphabet b5	b5_pos.fa	b5_neg.fa				8	5	2	1	2	1	0			alphabet_b5.txt											
+k_rna_pairs	kernel	alphabet rna rc	rna_pos.fa	rna_neg.fa				10	6	3	1	2	1	0			alphabet_rna_pairs.txt											
+k_rna_keyword	kernel	alphabet rna rc	rna_pos.fa	rna_neg.fa				10	6	3	1	2	1	0			rna											
+k_dna_keyword	kernel	small alphabet	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0			dna											
+k_b5_pairs_bad	kernel	alphabet error expect-error	b5_pos.fa	b5_neg.fa				8	5	-1	1	2	1	0			alphabet_b5_pairs_bad.txt											
+c_protein_t1	classify	classify alphabet protein			protein_pos.fa	protein_neg.fa	sv_protein_svalpha.out	6	4	-1	1	2	1	0			alphabet_protein.txt											

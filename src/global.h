@@ -23,9 +23,18 @@
 
 //default values
 #define MULTI_THREAD_SAFE  /*if remove (or comment) this line, it will become (about 2 times) faster, but may give approx results when using multithread */
-#define MAX_ALPHABET_SIZE 4 /*for DNA set this to 4 (for faster speen and less memory usage); */
-//#define MAX_ALPHABET_SIZE 24 /*for protein set this to 24 (or the maximu alphabet size); */
-#define NBITS 2 /*ceiling log2 MAX_ALPHABET_SIZE */
+/* Phase 5: the trie classes (CLTreeS, CLTreef) and the tree-path drivers are compiled once per
+ * child-array size, each in its own namespace: trie_b4.cpp (MAX_ALPHABET_SIZE 4, namespace gkm_b4:
+ * the DNA fast path, byte-for-byte today's code) and trie_b32.cpp (32, gkm_b32: any alphabet up to
+ * GKM_MAX_ALPHABET). mainGkmKernel/mainSVMclassify dispatch on the runtime alphabet size. */
+#ifndef MAX_ALPHABET_SIZE
+#define MAX_ALPHABET_SIZE 4
+#endif
+#ifndef GKM_NS
+#define GKM_NS gkm_b4
+#endif
+#define GKM_MAX_ALPHABET 32   /* largest alphabet the wide instantiation supports */
+#define LTREE_ALPHABET 4      /* CLTree / CLList (the XOR algorithm, alg=1) are DNA-only by design */
 #define DEF_L 10
 #define DEF_K 6
 #define DEF_D 3
@@ -151,12 +160,5 @@ union LTreeSnodeDataptr {
 
 
 #define myFlt double
-union fintptr_t {
-  myFlt f;
-  class CLTreef *p;
-  unsigned int i; 
-};
-
-#define NBITSONES ((1<<NBITS)-1)
 
 #endif

@@ -30,7 +30,7 @@ num_or <- function(x, default) if (nzchar(x)) as.numeric(x) else default
 # returning the path of the produced output file.
 run_golden_case_R <- function(case, outfile) {
   fx <- function(f) file.path(golden_dir(), "fixtures", f)
-  alphabetFN <- if (nzchar(case$A)) fx(case$A) else "NULL"
+  alphabetFN <- if (!nzchar(case$A)) "NULL" else if (case$A %in% c("dna", "rna", "protein")) case$A else fx(case$A)
   common <- list(L = num_or(case$L, 10), K = num_or(case$K, 6), maxnmm = num_or(case$d, 3),
                  maxseqlen = num_or(case$m, 10000), maxnumseq = num_or(case$n, 1000000),
                  useTgkm = num_or(case$t, 1), alg = num_or(case$alg, 2), addRC = case$RC != "0",

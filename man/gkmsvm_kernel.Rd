@@ -23,7 +23,7 @@ wildcardMismatchM=2, alphabetFN="NULL", nmaxThreads=1000, mergeByName=FALSE, for
 \item{usePseudocnt}{adds a constant to count estimates, default=FALSE}
 \item{wildcardLambda}{lambda for wildcard kernel, defaul=0.9}
 \item{wildcardMismatchM}{max mismatch for Mismatch kernel or wildcard kernel, default=2}
-\item{alphabetFN}{alphabets file name, if not specified, it is assumed the inputs are DNA sequences}
+\item{alphabetFN}{alphabet: one of the keywords "dna" (the default), "rna", "protein", or the name of a file listing one symbol per line. A second symbol on a line declares the complement of the first (e.g. "A U"); reverse complements (\code{addRC}) are only added when every symbol has a complement (built in for dna/rna and for any 4-letter file, which is paired 1st-4th, 2nd-3rd). Alphabets of up to 32 symbols are supported; DNA keeps a dedicated fast path.}
 \item{nmaxThreads}{maximum number of threads, defaul=2*L}
 \item{format}{"text" (default) writes the historical tab-separated lower-triangle text file; "binary" writes the compact \code{.gkmk} format (float32, about 3x smaller and much faster to load; see \code{\link{read_gkm_kernel}}). \code{gkmsvm_train} and \code{gkmsvm_trainCV} read both.}
 \item{mergeByName}{if TRUE, records that share a name within one FASTA file are merged into a single kernel row (the behaviour of versions before 0.90). Default FALSE: one record = one row. Row identity (id, name, label, length) is written to \code{<outfile>.index}.}

@@ -23,6 +23,15 @@
 
 
 
+namespace GKM_NS {
+
+class CLTreef;
+union fintptr_t {
+  myFlt f;
+  CLTreef *p;
+  unsigned int i; 
+};
+
 class CLTreef
 {
 public:
@@ -69,4 +78,4 @@ private:
 
 };
 
-
+} // namespace GKM_NS

@@ -679,3 +679,18 @@ and text-vs-binary kernel size and R load time.
   posWeight, eps, nfold, quiet)`. Golden `train` cases compare numerically (rel 1e-5) because the
   solver's last digits may differ between compilers. 4b-2 (kernel on the fly) is untouched: it belongs
   with Phase 6.
+* **Phase 5 — done (PR: `phase5/alphabet-generalisation`, stacked on 4b).** Design as in §3 but realised
+  by **per-size instantiation instead of templates**: `MAX_ALPHABET_SIZE` only sized the child arrays
+  of `CLTreeS`/`CLTreef`/`CLTree` (every algorithm already took `b` at runtime; `NBITS` was unused), so
+  `LTreeS.cpp`/`LTreef.cpp` became `.inl` files wrapped in `namespace GKM_NS`, the tree-path drivers
+  moved to `kernel_tree.inl`/`classify_tree.inl`, and `trie_b4.cpp` (B=4, `gkm_b4`: the DNA fast path,
+  byte-for-byte today's code) / `trie_b32.cpp` (B=32, `gkm_b32`) compile them twice; the front ends
+  dispatch on `globalConverter.b`. `CLTree`/`CLList` (the XOR path) are pinned to 4 (`LTREE_ALPHABET`).
+  The DFS scratch globals moved into the namespaces. `CConverter`: `setAlphabet`/`setNamedAlphabet`
+  (`dna`/`rna`/`protein`), complement pairs from the file (`hasComplement` replaces the `b!=4 && b!=16`
+  test), duplicate-symbol and partial-pair errors, limit `GKM_MAX_ALPHABET=32`. Gates: oracle OK for
+  b ∈ {2,4,5,20} (281 table values, 5 238 kernel entries); all DNA/b2 golden cases byte-identical;
+  b=5 (formerly SIGSEGV) and protein frozen (13 new cases); RNA-with-pairs == DNA rows; DNA bench
+  6.43 s vs 6.46 s for the 4b build measured back-to-back (best of 7). A true dynamic-`b` trie
+  (`LmerTrieDyn`) and a separate B=2 instantiation were not needed for the gate and are left for
+  Phase 7, where the per-position alphabet makes the node layout dynamic anyway.

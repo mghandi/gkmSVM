@@ -22,7 +22,7 @@
 class CLTree
 {
 public:
-	CLTree *daughter[MAX_ALPHABET_SIZE];
+	CLTree *daughter[LTREE_ALPHABET];
 	void deleteTree(int n); //call with n=L from outside 
 	void mismatchCount(int *bid, int n, int *cnt); // fills the mismatch count array (howmany sequences with m mismatches to a given sequence exist) ;  //call with n=L from outside
 	void mismatchCount(int *bid, int n, int *cnt, int maxmm); // fills the mismatch count array (howmany sequences with m mismatches to a given sequence exist) ;  //call with n=L from outside

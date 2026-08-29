@@ -24,7 +24,7 @@ svseqfile=NA, alphafile=NA)}
 \item{batchSize}{number of sequences to compute scores for in batch, default=100000}
 \item{wildcardLambda}{lambda for wildcard kernel, defaul=0.9}
 \item{wildcardMismatchM}{max mismatch for Mismatch kernel or wildcard kernel, default=2}
-\item{alphabetFN}{alphabets file name, if not specified, it is assumed the inputs are DNA sequences}
+\item{alphabetFN}{alphabet keyword ("dna", "rna", "protein") or file name; see \code{\link{gkmsvm_kernel}}}
 \item{svseqfile}{SVM support vectors sequence file name (not needed if svmfnprfx is provided)}
 \item{alphafile}{SVM support vectors weights file name (not needed if svmfnprfx is provided)}
 

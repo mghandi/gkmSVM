@@ -21,15 +21,17 @@
 #include "LList.h"
 #include "CbinMMtree.h"
 
+extern	int gLM1; //L-1
+extern	int gMAXMM; //MaxMismatch
+extern	aint ***gMMProfile; //mismatchprofile[seqidi][mm][seqidj]
+extern	myFlt **gMMProfile0; //mismatchprofile[seqidi][mm][seqidj]
+
+namespace GKM_NS {
 union CLTreeSptr {
   class CLTreeS *t;
   LTreeSnodeData *node;
 };
 
-extern	int gLM1; //L-1
-extern	int gMAXMM; //MaxMismatch
-extern	aint ***gMMProfile; //mismatchprofile[seqidi][mm][seqidj]
-extern	myFlt **gMMProfile0; //mismatchprofile[seqidi][mm][seqidj]
 extern	LTreeSnodeData ** gDFSlist[1000]; 
 //extern CLTreeSptr **gDFSlistT[1000]; // without nonEmptyDaughterCnt
 extern CLTreeS **gDFSlistT[1000]; // with nonEmptyDaughterCnt
@@ -113,3 +115,5 @@ private:
   //	void addSeq(int *bid, int n, int cnt);  //call with n=L from outside
   
 };
+
+} // namespace GKM_NS

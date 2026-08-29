@@ -24,18 +24,11 @@
 
 #include "global.h"
 
-#include "LTreeS.h"
-
 int gLM1; //L-1
 int gMAXMM; //MaxMismatch
 aint ***gMMProfile; //mismatchprofile[seqidi][mm][seqidj]
 myFlt **gMMProfile0; //gMMProfile[0]
 
-LTreeSnodeData ** gDFSlist[1000];
-//CLTreeSptr **gDFSlistT[1000]; // without nonEmptyDaughterCnt
-CLTreeS **gDFSlistT[1000]; // with nonEmptyDaughterCnt
-int *gDFSMMlist[1000];
-CbinMMtree **gDFSMMtree[1000]; // for the iDL bound 
 
 
 int strlength(char *s)

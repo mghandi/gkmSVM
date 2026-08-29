@@ -1,0 +1,13 @@
+row	id	name	label	length	nlmers
+0	pos1	pos0	1	100	182
+1	pos2	pos1	1	100	182
+2	pos3	pos2	1	100	182
+3	pos4	pos3	1	100	182
+4	pos5	pos4	1	100	182
+5	pos6	pos5	1	100	182
+6	neg1	neg0	-1	100	182
+7	neg2	neg1	-1	100	182
+8	neg3	neg2	-1	100	182
+9	neg4	neg3	-1	100	182
+10	neg5	neg4	-1	100	182
+11	neg6	neg5	-1	100	182

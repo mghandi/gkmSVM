@@ -53,7 +53,7 @@ def build_argv(c, bindir, outfile):
         if c.get(col, "") != "":
             argv += [flag, c[col]]
     if c["A"]:
-        argv += ["-A", os.path.join(FIX, c["A"])]
+        argv += ["-A", c["A"] if c["A"] in ("dna", "rna", "protein") else os.path.join(FIX, c["A"])]  # keyword or file
     if c["RC"] == "0":
         argv.append("-R")
     if c["p"] == "1":

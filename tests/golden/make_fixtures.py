@@ -23,6 +23,9 @@ expected outputs stay small, and each file exercises one edge of the FASTA reade
   sv_b2_* / test_b2.fa     a fixed model and 8 test sequences over the "AB" alphabet                  (Phase 1)
   names_edge_pos.fa        empty / tab / non-ASCII / 200-char / cross-file-duplicate names              (Phase 3)
   sv_dupalpha_svalpha.out, sv_missing_svalpha.out  invalid SV models (duplicate / missing name)         (Phase 3)
+  protein_{pos,neg}.fa + alphabet_protein.txt   6+6 x 60 over the 20 amino acids                          (Phase 5)
+  rna_{pos,neg}.fa + alphabet_rna_pairs.txt     dna_small with T->U, alphabet file declaring complements  (Phase 5)
+  alphabet_b5_pairs_bad.txt                     complement declared for some symbols only (rejected)      (Phase 5)
 """
 import argparse, os, random, sys
 
@@ -120,6 +123,16 @@ def build():
     # SV models that must be rejected: a name listed twice, a name absent from the sequence file
     files["sv_dupalpha_svalpha.out"] = files["sv_svalpha.out"] + "pos2\t 1.000000e-01\n"
     files["sv_missing_svalpha.out"] = files["sv_svalpha.out"] + "pos99\t 1.000000e-01\n"
+    # --- added in Phase 5: protein (b=20) sequences, an RNA alphabet file with complement pairs
+    AA = "ACDEFGHIKLMNPQRSTVWY"
+    files["protein_pos.fa"] = fasta([(f"prp{i}", s) for i, s in enumerate(seqs(rng, 6, 60, alpha=AA, motif="WKRHQ"))])
+    files["protein_neg.fa"] = fasta([(f"prn{i}", s) for i, s in enumerate(seqs(rng, 6, 60, alpha=AA))])
+    files["alphabet_protein.txt"] = "\n".join(AA) + "\n"
+    files["alphabet_rna_pairs.txt"] = "# RNA with complement pairs\nA U\nC G\nG C\nU A\n"
+    files["rna_pos.fa"] = fasta([(n, s.replace("T", "U")) for n, s in small_pos[:6]])
+    files["rna_neg.fa"] = fasta([(n, s.replace("T", "U")) for n, s in small_neg[:6]])
+    files["alphabet_b5_pairs_bad.txt"] = "A T\nC G\nG C\nT A\nN\n"
+    files["sv_protein_svalpha.out"] = "".join(f"prn{i}\t{a:11.6e}\n" for i, a in enumerate([0.5, -0.3, 0.8, -1.0, 0.2, -0.6]))
     return files
 
 
