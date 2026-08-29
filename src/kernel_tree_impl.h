@@ -22,23 +22,23 @@
 
 namespace GKM_NS {
 
-double calcinnerprod(int i, int j, double *c)
+double calcinnerprod(int i, int j, double *c, const KernelContext &kc)
 {
 	double res = 0; 
-	for(int m=0;m<=::gMAXMM;m++)
+	for(int m=0;m<=kc.maxmm;m++)
 	{
-		res+=::gMMProfile[i][m][j]*c[m]; 
+		res+=kc.mmProfile[i][m][j]*c[m]; 
 	}
 	return(res); 
 }
 
 
-double calcinnerprod(int i, int j, double *c, double n0, double C, int nA, int nB, double btL) // gives inner prodict of the pseudo-counts . nA is the number of L-mers in A and is equal to length(A)-L+1, btL is b^L
+double calcinnerprod(int i, int j, double *c, double n0, double C, int nA, int nB, double btL, const KernelContext &kc) // gives inner prodict of the pseudo-counts . nA is the number of L-mers in A and is equal to length(A)-L+1, btL is b^L
 {
 	double res = 0; 
-	for(int m=0;m<=::gMAXMM;m++)
+	for(int m=0;m<=kc.maxmm;m++)
 	{
-		res+=::gMMProfile[i][m][j]*c[m]; 
+		res+=kc.mmProfile[i][m][j]*c[m]; 
 	}
 
 	res = res+(nA+nB)*n0*C+btL*n0*n0; 
@@ -47,7 +47,7 @@ double calcinnerprod(int i, int j, double *c, double n0, double C, int nA, int n
 
 // One worker: takes passes from the shared counter until none are left (Phase 6: passes have
 // unequal cost, so a static j % nThreads assignment left threads idle).
-void task1(int L, CiDLPasses *iDL, CLTreeS *seqsTS, int M, std::atomic<int> *nextPass){
+void task1(int L, CiDLPasses *iDL, CLTreeS *seqsTS, int M, std::atomic<int> *nextPass, const KernelContext *kc){
   for(;;){
     int j = nextPass->fetch_add(1);
     if (j >= M) break;
@@ -64,7 +64,7 @@ void task1(int L, CiDLPasses *iDL, CLTreeS *seqsTS, int M, std::atomic<int> *nex
     //    seqsTSj->DFSTiDL(gDFSlistT[0],1, gDFSMMlist[0], iDL->passTrees+j, 0, globalConverter.b);
     int zero=0;
     if(!((iDL->passTrees[j]->child0==NULL)&&(iDL->passTrees[j]->child1==NULL))) // i.e. if not empty tree
-      seqsTSj->DFSTiDL(&seqsTSj,1, &zero, iDL->passTrees+j, 0, globalConverter.b);
+      seqsTSj->DFSTiDL(&seqsTSj,1, &zero, iDL->passTrees+j, 0, globalConverter.b, kc);
     seqsTSj->deleteTree(L, globalConverter.b, 1);
     delete seqsTSj;
     
@@ -72,8 +72,8 @@ void task1(int L, CiDLPasses *iDL, CLTreeS *seqsTS, int M, std::atomic<int> *nex
     /* for(int si=0;si<nseqs; si++){
     for(int sj=0;sj<nseqs;sj++){
     printf("\n (s%d, s%d) = ",si,sj);
-    for(int dd = 0; dd<=gMAXMM; dd++){
-    printf("%d ",gMMProfile[si][dd][sj]);
+    for(int dd = 0; dd<=kc.maxmm; dd++){
+    printf("%d ",kc.mmProfile[si][dd][sj]);
     }
     }
   }
@@ -141,6 +141,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
     }
   }
   double n0 = wmc.n0; 
+  (void)n0; // computed for symmetry with the other paths; not used here
   double *c = wmc.cTr; 
   
   n0 = c[maxnmm]/2; 
@@ -181,7 +182,8 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   int npos=0; 
   int nneg=0;
   
-  gMAXMM=maxnmm; //MaxMismatch
+  KernelContext kc; // per-call state (was the kc.mmProfile/kc.maxmm/kc.LM1 globals)
+  kc.maxmm=maxnmm; //MaxMismatch
   
   CLTreeS *seqsTS= new CLTreeS();
   
@@ -328,20 +330,20 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   for(int i=0;i<nseqs;i++) { records[i].id = seqRecordId(i, npos); records[i].label = (i<npos) ? 1 : -1; records[i].nlmers = LmersCnt[i]; }
   
   // global vars init: 
-  gLM1=L-1;
-  gMAXMM=maxnmm; //MaxMismatch
+  kc.LM1=L-1;
+  kc.maxmm=maxnmm; //MaxMismatch
   // Phase 6: the mismatch profile is only ever read for j <= i (calcinnerprod is called for i >= j and
   // the leaf code only records pairs with j <= i), so row i holds i+1 entries: half the memory.
-  gMMProfile=new aint **[nseqs];
+  kc.mmProfile=new aint **[nseqs];
   for(int i=0;i<nseqs;i++)
   {
-    gMMProfile[i] = new aint*[gMAXMM+1];
-    for (int j=0;j<=gMAXMM;j++)
+    kc.mmProfile[i] = new aint*[kc.maxmm+1];
+    for (int j=0;j<=kc.maxmm;j++)
     {
-      gMMProfile[i][j]=new aint[i+1];
+      kc.mmProfile[i][j]=new aint[i+1];
       for(int k=0;k<=i;k++)
       {
-        gMMProfile[i][j][k]=0;
+        kc.mmProfile[i][j][k]=0;
       }
     }
   }
@@ -361,8 +363,8 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
     for(int si=0;si<nseqs; si++){
     for(int sj=0;sj<nseqs;sj++){
     printf("\n (s%d, s%d) = ",si,sj);
-    for(int dd = 0; dd<=gMAXMM; dd++){
-    printf("%d ",gMMProfile[si][dd][sj]);
+    for(int dd = 0; dd<=kc.maxmm; dd++){
+    printf("%d ",kc.mmProfile[si][dd][sj]);
     }
     }
     }
@@ -373,19 +375,19 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
     }
     
     CiDLPasses iDL;
-    //iDL.newIDLPasses(L, gMAXMM);
+    //iDL.newIDLPasses(L, kc.maxmm);
     double p=1.0/::globalConverter.b;
     
-    //iDL.initPassOrderAll(L, gMAXMM);
-    //iDL.newGreedyIDLPasses(L,iDL.M,  gMAXMM, nodesAtDepthCnt, p);
+    //iDL.initPassOrderAll(L, kc.maxmm);
+    //iDL.newGreedyIDLPasses(L,iDL.M,  kc.maxmm, nodesAtDepthCnt, p);
     
-    iDL.newGreedyIDLPasses(L,2*L,  gMAXMM, nodesAtDepthCnt, p);
+    iDL.newGreedyIDLPasses(L,2*L,  kc.maxmm, nodesAtDepthCnt, p);
     
-    //iDL.newGreedy2IDLPasses(L,2*L,  gMAXMM, nodesAtDepthCnt, p);
-    //iDL.newGreedy2IDLPasses(L,L,  gMAXMM, nodesAtDepthCnt, p);
+    //iDL.newGreedy2IDLPasses(L,2*L,  kc.maxmm, nodesAtDepthCnt, p);
+    //iDL.newGreedy2IDLPasses(L,L,  kc.maxmm, nodesAtDepthCnt, p);
     
-    //iDL.newPassOrderDesignCover( L, gMAXMM, 3);// generates M passes, that gaurantee that the first k places are matches (in all the trees)
-    //iDL.newGreedyIDLPasses(L,iDL.M,  gMAXMM, nodesAtDepthCnt, p);
+    //iDL.newPassOrderDesignCover( L, kc.maxmm, 3);// generates M passes, that gaurantee that the first k places are matches (in all the trees)
+    //iDL.newGreedyIDLPasses(L,iDL.M,  kc.maxmm, nodesAtDepthCnt, p);
     
     
     /*    int *tmpArray1 = new int[L];
@@ -406,8 +408,8 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
     / * for(int si=0;si<nseqs; si++){
     for(int sj=0;sj<nseqs;sj++){
     printf("\n (s%d, s%d) = ",si,sj);
-    for(int dd = 0; dd<=gMAXMM; dd++){
-    printf("%d ",gMMProfile[si][dd][sj]);
+    for(int dd = 0; dd<=kc.maxmm; dd++){
+    printf("%d ",kc.mmProfile[si][dd][sj]);
     }
     }
     }
@@ -431,7 +433,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
     
     snprintf(globtmpstr, GKM_TMPSTR_LEN,"Running %d passes on %d thread%s.\n", iDL.M, nThreads, (nThreads==1)?"":"s"); Printf(globtmpstr);
     if (nThreads<=1){
-      task1( L, &iDL, seqsTS, iDL.M, &nextPass);
+      task1( L, &iDL, seqsTS, iDL.M, &nextPass, &kc);
     }else{
       
 #ifndef MULTI_THREAD_SAFE
@@ -443,7 +445,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
       int j;
       
       for(j=0;j<nThreads;j++){
-        myThreads[j] = std::thread(task1, L, &iDL, seqsTS, iDL.M, &nextPass);
+        myThreads[j] = std::thread(task1, L, &iDL, seqsTS, iDL.M, &nextPass, &kc);
         // myThreads[j].join();
       }
       for(j=0;j<nThreads;j++){
@@ -461,9 +463,9 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   {
   for(int k=0;k<nseqs;k++)
   {
-  for (int j=0;j<=gMAXMM;j++)
+  for (int j=0;j<=kc.maxmm;j++)
   {
-  printf("(%d,%d)[%d] = %d\n",i,k,j, gMMProfile[i][j][k]);
+  printf("(%d,%d)[%d] = %d\n",i,k,j, kc.mmProfile[i][j][k]);
   }
   }
   }
@@ -489,11 +491,11 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   if (OutputMismatchProfileOnly)
   {
   fprintf(fo, "%d\tL (length)\n", L); 
-  fprintf(fo, "%d\td (maximum number of mismatches)\n", gMAXMM); 
+  fprintf(fo, "%d\td (maximum number of mismatches)\n", kc.maxmm); 
   fprintf(fo, "%d\tNp (number of sequences in positive class)\n", npos);
   fprintf(fo, "%d\tNn (number of sequences in negative class)\n", nneg); 
   
-  for (int nmm=0;nmm<=gMAXMM;nmm++)
+  for (int nmm=0;nmm<=kc.maxmm;nmm++)
   {
   fprintf(fo, "d=%d\n",nmm);
   
@@ -514,7 +516,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   {
   if(i>=j)
   {
-  fprintf(fo, "%d\t",gMMProfile[i][nmm][j]);
+  fprintf(fo, "%d\t",kc.mmProfile[i][nmm][j]);
   }
   }
   fprintf(fo, "\n"); 
@@ -528,11 +530,11 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
     {
       if (usePseudocnt)
       {
-        norm[i] = sqrt(calcinnerprod(i,i,c,n0,C,LmersCnt[i], LmersCnt[i], btL));
+        norm[i] = sqrt(calcinnerprod(i,i,c,n0,C,LmersCnt[i], LmersCnt[i], btL, kc));
       }
       else
       {
-        norm[i] = sqrt(calcinnerprod(i,i,c));
+        norm[i] = sqrt(calcinnerprod(i,i,c,kc));
       }
     }
     
@@ -552,8 +554,8 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
       {
         double v;
         if (i==j) v = 1.0;
-        else if (usePseudocnt) v = (norm[i]*norm[j]<1E-50)?0.0:calcinnerprod(i,j,c, n0,C,LmersCnt[i], LmersCnt[j], btL)/(norm[i]*norm[j]);
-        else v = (norm[i]*norm[j]<1E-50)?0.0:calcinnerprod(i,j,c)/(norm[i]*norm[j]);
+        else if (usePseudocnt) v = (norm[i]*norm[j]<1E-50)?0.0:calcinnerprod(i,j,c, n0,C,LmersCnt[i], LmersCnt[j], btL, kc)/(norm[i]*norm[j]);
+        else v = (norm[i]*norm[j]<1E-50)?0.0:calcinnerprod(i,j,c,kc)/(norm[i]*norm[j]);
         if (fo) { if (i==j) fprintf(fo, "1.0\t"); else fprintf(fo, "%e\t", v); }
         else bin.add(gkmCanon(v));
       }
@@ -575,13 +577,13 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   {//printf("\n4 %d\n",i);
     delete []seqsB[i]; 
     if (seqsBrc[i]!=NULL) delete []seqsBrc[i]; 
-    for (int j=0;j<=gMAXMM;j++)
+    for (int j=0;j<=kc.maxmm;j++)
     {
-      delete []gMMProfile[i][j];
+      delete []kc.mmProfile[i][j];
     }
-    delete []gMMProfile[i];
+    delete []kc.mmProfile[i];
   }
-  delete []gMMProfile;
+  delete []kc.mmProfile;
   
   delete []seqname; 
   if (seqname2!=NULL)

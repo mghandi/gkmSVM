@@ -21,7 +21,7 @@
 namespace GKM_NS {
 
 double calcnorm(CSequence *sgi, int addRC, CLList *tmplist, double *c, int *mmcnt, int L, int maxmm);
-double svmScoreunorm(int i, double *c); 
+double svmScoreunorm(int i, double *c, const ScoreContext &sc); 
 
 //given fasta file for SVs and the corresponding weights, outputs and another file for the test sequences, gives the SVM score
 int svmClassifySuffixTree(OptsSVMClassify &opt)
@@ -51,6 +51,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 
 	CCalcWmML wmc(L, K, ::globalConverter.b);
 	double *kernel = wmc.kernelTruncated;
+	(void)kernel; // computed for symmetry with the other paths; not used here
 	if (maxnmm==-1)
 	{ 
 	  maxnmm=L;
@@ -76,6 +77,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
         }
 	}
 	double n0 = wmc.n0; 
+	(void)n0; // computed for symmetry with the other paths; not used here
 	double *c = wmc.cTr; 
 	if (!useTgkm)
 	{
@@ -219,47 +221,45 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 		{
 
 			// global vars init: 
-			gLM1=L-1;
-			gMAXMM=maxnmm; //MaxMismatch
+			ScoreContext sctx; // per-batch state (was the sctx.mmProfile0/sctx.maxmm/gLM1 globals)
+			sctx.LM1=L-1;
+			sctx.maxmm=maxnmm; //MaxMismatch
 	
-			gMMProfile0 = new myFlt*[gMAXMM+1];
+			sctx.mmProfile0 = new myFlt*[sctx.maxmm+1];
 
-			for (int j=0;j<=gMAXMM;j++)
+			for (int j=0;j<=sctx.maxmm;j++)
 			{
-				gMMProfile0[j]=new myFlt[nseqs];
+				sctx.mmProfile0[j]=new myFlt[nseqs];
 				for(int k=0;k<nseqs;k++)
 				{
-					gMMProfile0[j][k]=0;
+					sctx.mmProfile0[j][k]=0;
 				}
 			}
 
 			int uniqueLmerCnt = seqsTS->leavesCount(0,L, ::globalConverter.b, NULL);
 
 			int minL2 = L; if (minL2<2) minL2 = 2; 
+			ScoreScratch scratch; // per-batch DFS lists, one per trie level (was gDFSlistT/gDFSMMlist)
+			scratch.listT.resize(minL2+1); scratch.mmlist.resize(minL2+1);
 			for(i=0;i<=minL2;i++)
 			{
-				//gDFSlist[i] = new LTreeSnodeData *[uniqueLmerCnt];
-//				gDFSlistT[i] = new CLTreeSptr *[uniqueLmerCnt];  // without nonEmptyDaughterCnt
-				gDFSlistT[i] = new CLTreeS *[uniqueLmerCnt]; // with nonEmptyDaughterCnt
-				gDFSMMlist[i] = new int[uniqueLmerCnt]; 
-		
+				scratch.listT[i] = new CLTreeS *[uniqueLmerCnt]; // with nonEmptyDaughterCnt
+				scratch.mmlist[i] = new int[uniqueLmerCnt]; 
 			}
-			//int *curmmcnt = gDFSMMlist[0];
 		
-//			gDFSlistT[0][0] = seqsTS->daughter; // without nonEmptyDaughterCnt
-			gDFSlistT[0][0] = seqsTS;// with nonEmptyDaughterCnt
-			gDFSMMlist[0][0] = 0; 
-			tSVs->DFST(gDFSlistT[0],1, gDFSMMlist[0], 0, ::globalConverter.b);
+			scratch.listT[0][0] = seqsTS;// with nonEmptyDaughterCnt
+			scratch.mmlist[0][0] = 0; 
+			tSVs->DFST(scratch.listT[0],1, scratch.mmlist[0], 0, ::globalConverter.b, &sctx, &scratch);
 
 			for(i=0;i<=minL2;i++)
 			{
-				delete []gDFSlistT[i];
-				delete []gDFSMMlist[i]; 
+				delete []scratch.listT[i];
+				delete []scratch.mmlist[i]; 
 			}
 
 			for(i=0;i<nseqs;i++)
 			{
-				fprintf(fo, "%s\t%f\n",seqname[i], gkmCanon(svmScoreunorm(i,c)/norm[i] - rho));
+				fprintf(fo, "%s\t%f\n",seqname[i], gkmCanon(svmScoreunorm(i,c,sctx)/norm[i] - rho));
 			}
 
 			seqsTS->deleteTree(L, ::globalConverter.b, 0);
@@ -272,11 +272,11 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 				delete []seqname[i]; 
 			}
 
-			for (int j=0;j<=gMAXMM;j++)
+			for (int j=0;j<=sctx.maxmm;j++)
 			{
-				delete []gMMProfile0[j];
+				delete []sctx.mmProfile0[j];
 			}
-			delete []gMMProfile0;
+			delete []sctx.mmProfile0;
 
 			nseqs = 0; 
 		}
@@ -302,12 +302,12 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 	return 0; 
 }
 
-double svmScoreunorm(int i, double *c)
+double svmScoreunorm(int i, double *c, const ScoreContext &sc)
 {
 	double res = 0; 
-	for(int m=0;m<=::gMAXMM;m++)
+	for(int m=0;m<=sc.maxmm;m++)
 	{
-		res+=::gMMProfile0[m][i]*c[m]; 
+		res+=sc.mmProfile0[m][i]*c[m]; 
 	}
 	return(res); 
 }

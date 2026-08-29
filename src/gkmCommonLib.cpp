@@ -24,10 +24,6 @@
 
 #include "global.h"
 
-int gLM1; //L-1
-int gMAXMM; //MaxMismatch
-aint ***gMMProfile; //mismatchprofile[seqidi][mm][seqidj]
-myFlt **gMMProfile0; //gMMProfile[0]
 
 
 

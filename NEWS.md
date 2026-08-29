@@ -46,6 +46,14 @@ Crashes and memory errors fixed (all reproduced before the fix, all now ASAN/UBS
   call could misparse its options and silently write nothing), and the reverse-complement code
   copied a sequence name onto itself (undefined; flagged by AddressSanitizer on Linux).
 
+### Phase 2b — no more shared computation state (behaviour-preserving)
+
+* The kernel and classify computations keep their state in per-call objects (`KernelContext`,
+  `ScoreContext`, `ScoreScratch`) instead of process-wide globals, so the trie recursion is
+  re-entrant and two computations can never see each other's data. The dead depth-first-search
+  variants and the commented-out history in the trie sources are deleted (`LTreeS` 2 368 → 679
+  lines). Outputs are byte-identical.
+
 ### Phase 2a — core extraction (behaviour-preserving)
 
 * Invalid parameters (`K > L`, `maxnmm > L`, `useTgkm` outside 0–4, `alg` outside 0–2, `batchSize < 1`)

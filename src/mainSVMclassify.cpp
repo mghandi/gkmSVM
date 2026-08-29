@@ -226,6 +226,7 @@ int svmClassifySimple(OptsSVMClassify &opt)
         }
 	}
 	double n0 = wmc.n0; 
+	(void)n0; // computed for symmetry with the other paths; not used here
 	double *c = wmc.cTr; 
 	
 	n0 = c[maxnmm]/2; 
