@@ -74,6 +74,10 @@ Measured on this machine; `dev/baseline.sh` reproduces all of them.
 * Before Phase 1: ~38 consecutive `gkmsvm_kernel()` calls in one R session aborted R (heap
   corruption), 120-char names aborted R, an empty FASTA record crashed with SIGBUS. All fixed in
   Phase 1 and covered by golden/testthat cases; the whole corpus is ASAN+UBSAN clean since then.
+* **Linux differs from macOS in three places that the golden corpus caught on CI** (all fixed from
+  Phase 2a up): `min`/`max` macros in `global.h` vs libstdc++ `<vector>`; `snprintf` of a buffer
+  onto itself empties it under glibc; the sign of exact zeros differs between gcc and clang. Run the
+  corpus on Linux (CI) before trusting a change that only passed here.
 
 ## 5. Environment and tooling on this Mac
 
