@@ -166,10 +166,10 @@ void CConverter::resetToDNA(){
 
 int CConverter::readAlphabetFile(const char *FN, int MAX_ALPHABET_SIZE_copy){
   int named = setNamedAlphabet(FN);
-  if (named >= 0) { snprintf(globtmpstr, GKM_TMPSTR_LEN,"Alphabet: %s (%d symbols)\n", FN, b);Printf(globtmpstr); return named; }
+  if (named >= 0) { gkmMsg("Alphabet: %s (%d symbols)\n", FN, b); return named; }
   FILE *f= fopen(FN,"r");
   if (f==NULL){
-    snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n ERROR: cannot open alphabet file %s\n", FN);Printf(globtmpstr);
+    gkmMsg("\n ERROR: cannot open alphabet file %s\n", FN);
     return 1;
   }
   // One symbol per line; an optional second symbol on the line is its complement ("A T"). When
@@ -188,9 +188,9 @@ int CConverter::readAlphabetFile(const char *FN, int MAX_ALPHABET_SIZE_copy){
     nb++;
   }
   fclose(f);
-  snprintf(globtmpstr, GKM_TMPSTR_LEN,"Alphabet Size = %d\n",nb);Printf(globtmpstr);
+  gkmMsg("Alphabet Size = %d\n",nb);
   if(nb>MAX_ALPHABET_SIZE_copy){
-    snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n ERROR: alphabet size (>%d) is greater than the supported maximum of %d symbols.\n", MAX_ALPHABET_SIZE_copy, MAX_ALPHABET_SIZE_copy);Printf(globtmpstr);
+    gkmMsg("\n ERROR: alphabet size (>%d) is greater than the supported maximum of %d symbols.\n", MAX_ALPHABET_SIZE_copy, MAX_ALPHABET_SIZE_copy);
     return 1;
   }
   if(nb<2){
@@ -198,7 +198,7 @@ int CConverter::readAlphabetFile(const char *FN, int MAX_ALPHABET_SIZE_copy){
     return 1;
   }
   for (int i=0;i<nb;i++) for (int j=0;j<i;j++) if (toupper(alphabet[i])==toupper(alphabet[j])) {
-    snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n ERROR: symbol '%c' appears twice in the alphabet file.\n", alphabet[i]);Printf(globtmpstr);
+    gkmMsg("\n ERROR: symbol '%c' appears twice in the alphabet file.\n", alphabet[i]);
     return 1;
   }
   return setAlphabet(alphabet, nb, npairs ? partner : NULL);
@@ -210,12 +210,12 @@ int CConverter::setAlphabet(const char *symbols, int nb, const char *partner){
   if (partner != NULL) {
     // every symbol must have a partner that is itself in the alphabet, and pairing must be symmetric
     for (int i=0;i<nb;i++) {
-      if (partner[i]==0) { snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n ERROR: symbol '%c' has no complement while others do; declare a complement for every symbol or for none.\n", alphabet[i]);Printf(globtmpstr); return 1; }
+      if (partner[i]==0) { gkmMsg("\n ERROR: symbol '%c' has no complement while others do; declare a complement for every symbol or for none.\n", alphabet[i]); return 1; }
       int j; for (j=0;j<nb;j++) if (toupper(alphabet[j])==toupper(partner[i])) break;
-      if (j==nb) { snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n ERROR: complement '%c' of '%c' is not in the alphabet.\n", partner[i], alphabet[i]);Printf(globtmpstr); return 1; }
+      if (j==nb) { gkmMsg("\n ERROR: complement '%c' of '%c' is not in the alphabet.\n", partner[i], alphabet[i]); return 1; }
       bidcompl[i]=j;
     }
-    for (int i=0;i<nb;i++) if (bidcompl[bidcompl[i]]!=i) { snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n ERROR: complement pairs are not symmetric ('%c' -> '%c' -> '%c').\n", alphabet[i], alphabet[bidcompl[i]], alphabet[bidcompl[bidcompl[i]]]);Printf(globtmpstr); return 1; }
+    for (int i=0;i<nb;i++) if (bidcompl[bidcompl[i]]!=i) { gkmMsg("\n ERROR: complement pairs are not symmetric ('%c' -> '%c' -> '%c').\n", alphabet[i], alphabet[bidcompl[i]], alphabet[bidcompl[bidcompl[i]]]); return 1; }
     explicitComplement = 1;
   }
   b=nb;

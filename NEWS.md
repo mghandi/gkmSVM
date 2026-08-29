@@ -41,6 +41,11 @@ Crashes and memory errors fixed (all reproduced before the fix, all now ASAN/UBS
 * Errors in the C++ core are now reported to R as errors (`stop()`); previously the R functions
   returned normally with no or partial output.
 
+### Phase 2d — no global message buffer (behaviour-preserving)
+
+* Console messages are formatted through a printf-style `gkmMsg()` into a local buffer instead of
+  a shared global one. No user-visible change.
+
 ### Phase 2c — the alphabet is a per-call object (behaviour-preserving)
 
 * The alphabet (`CConverter`) is created by each `gkmsvm_kernel`/`gkmsvm_classify` call and handed

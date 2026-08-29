@@ -81,7 +81,7 @@ void CiDLPasses::initPassOrderAll(int L, int Dmax){ // generates choose(L, Dmax)
     Printf("\n");
     for(int j=0;j<this->L;j++){
       //            printf("%d ", this->passOrder[i][j]);
-      snprintf(globtmpstr, GKM_TMPSTR_LEN, "%d ", this->passOrder[i][j]); Printf(globtmpstr);
+      gkmMsg("%d ", this->passOrder[i][j]);
       
     }
   }
@@ -281,7 +281,7 @@ void CiDLPasses::initPassOrderIDL(int L, int M, int Dmax){
     Printf("\n");
     for(int i=0;i< this->M;i++){
     for(int j=0;j<this->L;j++){
-    snprintf(globtmpstr, GKM_TMPSTR_LEN, "%d ", this->passOrder[i][j]); Printf(globtmpstr);
+    gkmMsg("%d ", this->passOrder[i][j]);
     }
     Printf("\n");
     
@@ -492,7 +492,7 @@ void CiDLPasses::newGreedy2IDLPasses(int L, int M,  int Dmax, int *nodesAtDepthC
   double *sumcost=new double[L];
   
   for(int m=1;m<M; m++){
-    snprintf(globtmpstr, GKM_TMPSTR_LEN,"  %d total cost = %lf\n", m, totalCost);Printf(globtmpstr);
+    gkmMsg("  %d total cost = %lf\n", m, totalCost);
     // calc avgCost
     for(int j=0;j<L;j++){sumcost[j]=0;}
     for(int i=0;i<n;i++){
@@ -513,7 +513,7 @@ void CiDLPasses::newGreedy2IDLPasses(int L, int M,  int Dmax, int *nodesAtDepthC
     }
     
     for(int i=0;i<L;i++){
-      snprintf(globtmpstr, GKM_TMPSTR_LEN," %d ", passi[i]);Printf(globtmpstr);
+      gkmMsg(" %d ", passi[i]);
     }
     Printf("\n");
     //for(int i=0;i<L;i++){

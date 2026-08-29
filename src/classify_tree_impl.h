@@ -106,9 +106,9 @@ int svmClassifySuffixTree(OptsSVMClassify &opt, const CConverter &conv)
 
     }
     
-	snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n maximumMismatch = %d\n", maxnmm);Printf(globtmpstr);
+	gkmMsg("\n maximumMismatch = %d\n", maxnmm);
 	for(int ii=0;ii<=maxnmm;ii++) {
-		snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n c[%d] = %e",ii,c[ii] ); 	Printf(globtmpstr);
+		gkmMsg("\n c[%d] = %e",ii,c[ii] );
 	}
 	Printf("\n");
 	
@@ -122,7 +122,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt, const CConverter &conv)
 
 	CSequenceNames *svsn= new CSequenceNames(); 
 	svsn->readSeqNamesandWeights(SVSeqIDsFN); 
-	snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n  %d SV ids read. \n",svsn->Nseqs);Printf(globtmpstr);
+	gkmMsg("\n  %d SV ids read. \n",svsn->Nseqs);
 
 	svsn->openSeqFile(SVSeqsFN, maxseqlen, &conv);
 
@@ -150,7 +150,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt, const CConverter &conv)
 	
 	if (svsn->error) return 1;
 	double rho = svsn->rho;
-	snprintf(globtmpstr, GKM_TMPSTR_LEN,"  %d SV seqs read \n",nsvseqs); Printf(globtmpstr);
+	gkmMsg("  %d SV seqs read \n",nsvseqs);
 
 	delete svsn; 
 

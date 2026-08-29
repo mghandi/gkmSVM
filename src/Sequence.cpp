@@ -247,7 +247,7 @@ int CSequence::readFsa(FILE *f, int SkipAlphabetCheck)  // reads one sequence fr
 
 	if (overflow)
 	{
-		snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n ERROR: sequence '%s' is longer than the maximum sequence length %d (set -m / maxseqlen to at least its length).\n", seqName, maxLength-3); Printf(globtmpstr);
+		gkmMsg("\n ERROR: sequence '%s' is longer than the maximum sequence length %d (set -m / maxseqlen to at least its length).\n", seqName, maxLength-3);
 		readError = 1; 
 		length = 0; 
 		return -1; 
@@ -374,7 +374,7 @@ void CSequence::mutateOneBase(int pos, baseId nwbid)
 {
 	if (pos>=length)
 	{
-		snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n error : cannot mutate pos %d while length is %d",pos, length); Printf(globtmpstr);
+		gkmMsg("\n error : cannot mutate pos %d while length is %d",pos, length);
 		return; 
 	}
 

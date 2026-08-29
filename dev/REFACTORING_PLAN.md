@@ -775,3 +775,8 @@ and text-vs-binary kernel size and R load time.
   DNA-only `convertInt2Str` uses a literal `"ACGT"`. `dnidx` is const. Golden 145/145, ASAN clean,
   oracle OK, testthat 27/0. **Last global left:** `globtmpstr` (the message buffer; a `Reporter` sink
   would replace it) — bounded, main-thread only, harmless for sequential calls.
+* **Phase 2d — done (PR: `phase2d/reporter`, stacked on 2c).** `globtmpstr` removed: the 86
+  `snprintf(globtmpstr, …); Printf(globtmpstr);` pairs became `gkmMsg(fmt, …)` (variadic, local
+  buffer, same `Printf` sink → `Rprintf` in the package, `printf` in the CLI). **Phase 2's rule 1 now
+  holds in full: `src/` has no mutable globals** (the per-instantiation DFS scratch went in 2b, the
+  alphabet in 2c). Golden 145/145, ASAN clean, oracle OK (it parses the `c[m] = …` lines, unchanged).

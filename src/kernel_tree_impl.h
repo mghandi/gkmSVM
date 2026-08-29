@@ -83,7 +83,7 @@ void task1(int L, CiDLPasses *iDL, CLTreeS *seqsTS, int M, std::atomic<int> *nex
     //}
     delete []tmpArray1;
     delete []tmpArray2;
-    //snprintf(globtmpstr, GKM_TMPSTR_LEN,"ended pass %d out of %d.\n",j+1,iDL->M);Printf(globtmpstr);
+    //gkmMsg("ended pass %d out of %d.\n",j+1,iDL->M);
     }
   
   }
@@ -173,9 +173,9 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv)  //maingKern
     
   }
   
-  snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n maximumMismatch = %d\n", maxnmm);Printf(globtmpstr);
+  gkmMsg("\n maximumMismatch = %d\n", maxnmm);
   for(int ii=0;ii<=maxnmm;ii++) {
-    snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n c[%d] = %e",ii,c[ii] ); 	Printf(globtmpstr);
+    gkmMsg("\n c[%d] = %e",ii,c[ii] );
   }
   Printf("\n");
   
@@ -344,7 +344,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv)  //maingKern
   }
   
   int uniqueLmerCnt = seqsTS->leavesCount(0,L, conv.b, nodesAtDepthCnt);
-  snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n npos %d \n nneg %d \n  ntotal %d \n nunique %d\n",npos,nneg,ntotal,uniqueLmerCnt);Printf(globtmpstr);
+  gkmMsg("\n npos %d \n nneg %d \n  ntotal %d \n nunique %d\n",npos,nneg,ntotal,uniqueLmerCnt);
     // if no IDL bound
     /*
     seqsTS->DFST(gDFSlistT[0],1, gDFSMMlist[0], 0, b);
@@ -360,7 +360,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv)  //maingKern
     */
     // else if IDL bound then
     for(int i=0;i<L; i++){
-      //     snprintf(globtmpstr, GKM_TMPSTR_LEN,"d%d , %d\n", i, nodesAtDepthCnt[i]);Printf(globtmpstr);
+      //     gkmMsg("d%d , %d\n", i, nodesAtDepthCnt[i]);
     }
     
     CiDLPasses iDL;
@@ -382,7 +382,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv)  //maingKern
     /*    int *tmpArray1 = new int[L];
     int *tmpArray2 = new int[L];
     for(int j=0;j<iDL.M;j++){
-    snprintf(globtmpstr, GKM_TMPSTR_LEN,"pass %d out of %d.\n",j+1,iDL.M);Printf(globtmpstr);
+    gkmMsg("pass %d out of %d.\n",j+1,iDL.M);
     CLTreeS *seqsTSj= new CLTreeS();
     seqsTS->cloneReorder(seqsTSj, iDL.passOrder[j], L,L,b, tmpArray1, tmpArray2);
     //seqsTS->DFSTiDL(gDFSlistT[0],1, gDFSMMlist[0], iDL.passTrees+j, 0, b);
@@ -495,7 +495,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv)  //maingKern
   }
   if (tileRows > nseqs) tileRows = nseqs;
   int ntiles = (nseqs + tileRows - 1) / tileRows;
-  if (ntiles > 1) { snprintf(globtmpstr, GKM_TMPSTR_LEN, "Computing the kernel in %d tiles of %d rows.\n", ntiles, tileRows); Printf(globtmpstr); }
+  if (ntiles > 1) { gkmMsg("Computing the kernel in %d tiles of %d rows.\n", ntiles, tileRows); }
   // One contiguous block, sized for the largest (last) tile and reused by every tile: freeing and
   // reallocating a block per tile does not lower the resident set (the allocator keeps freed large
   // blocks, and each tile's block is bigger than the previous one), a single reused block does.
@@ -528,7 +528,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv)  //maingKern
     if(nThreads<1){nThreads=1;}
     std::atomic<int> nextPass(0);
     
-    snprintf(globtmpstr, GKM_TMPSTR_LEN,"Running %d passes on %d thread%s.\n", iDL.M, nThreads, (nThreads==1)?"":"s"); Printf(globtmpstr);
+    gkmMsg("Running %d passes on %d thread%s.\n", iDL.M, nThreads, (nThreads==1)?"":"s");
     if (nThreads<=1){
       task1( L, &iDL, seqsTS, iDL.M, &nextPass, &kc, conv.b);
     }else{
@@ -596,7 +596,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv)  //maingKern
   delete []tileBlock;
   if (fo) fclose(fo); 
   else if (bin.write(opt.outfile, records) != 0) return gkmCannotOpen(outFN);
-  if (writeIndexSidecar(opt.outfile, records) != 0) { snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n WARNING: could not write %s.index\n", outFN); Printf(globtmpstr); }
+  if (writeIndexSidecar(opt.outfile, records) != 0) { gkmMsg("\n WARNING: could not write %s.index\n", outFN); }
   
   delete []norm;
   delete []LmersCnt;

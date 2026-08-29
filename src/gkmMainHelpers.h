@@ -7,13 +7,13 @@
 
 inline int gkmCannotOpen(const char *fn)
 {
-	snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n ERROR: cannot open file %s\n", fn); Printf(globtmpstr);
+	gkmMsg("\n ERROR: cannot open file %s\n", fn);
 	return 1;
 }
 
 inline int gkmTooManySequences(int limit)
 {
-	snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n ERROR: more than %d sequences (set -n / maxnumseq to at least the number of sequences).\n", limit); Printf(globtmpstr);
+	gkmMsg("\n ERROR: more than %d sequences (set -n / maxnumseq to at least the number of sequences).\n", limit);
 	return 1;
 }
 
