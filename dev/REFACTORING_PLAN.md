@@ -791,3 +791,9 @@ and text-vs-binary kernel size and R load time.
   not re-initialise glibc's `getopt`, so a later in-process R call could misparse `-R` and return
   without output (`k_small_noRC_a2` in the R job); glibc needs `optind = 0`, BSD/macOS `optreset = 1`.
   Moot from Phase 2a on (no argv round-trip) but a real Phase 1 defect. Only #7 remains red on Linux.
+* **`legacyNorm` (PR `phase8/legacy-norm`, stacked on 2d; at the user's request).** `OptsSVMClassify::legacyNorm`
+  (`-y`, R `legacyNorm=` on `gkmsvm_classify` and `gkmsvm_delta`, documented, default FALSE) makes
+  `calcnorm`'s DNA branch sum all mismatch levels as 0.80 did. Verified the strongest way available:
+  six new golden cases run with `-y` (`c_{t0,t1,t2,t4}_a2_legacy`, `c_noRC_a2_legacy`,
+  `c_pseudo_legacy`) are **byte-identical to the Phase 0 freeze of the unmodified code**; the
+  default path is untouched (151/151). `R CMD check --as-cran` OK; testthat 28/0.

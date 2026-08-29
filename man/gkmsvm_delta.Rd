@@ -11,7 +11,7 @@ gkmsvm_delta(seqfile_allele1, seqfile_allele2, svmfnprfx, outfile, L = 10,
 K = 6, maxnmm = 3, maxseqlen = 10000, maxnumseq = 1e+06, useTgkm = 1, alg = 2, 
 addRC = TRUE, usePseudocnt = FALSE, batchSize = 1e+05, wildcardLambda = 1, 
 wildcardMismatchM = 2, alphabetFN = "NULL", svseqfile = NA,alphafile = NA, 
-outfile_allele1 = NA, outfile_allele2 = NA)
+outfile_allele1 = NA, outfile_allele2 = NA, legacyNorm = FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -42,6 +42,7 @@ output filename for gkmSVM scores for the reference sequences (optional)
   \item{outfile_allele2}{
 output filename for gkmSVM scores for the alternate sequences (optional)
 }
+\item{legacyNorm}{if TRUE, normalise the sequences over all mismatch levels as versions up to 0.80 did, although the scores themselves only count mismatches up to \code{maxnmm}; this reproduces pre-0.90 scores exactly (DNA, \code{alg=2}). Passed to \code{gkmsvm_classify}. Default FALSE. Deprecated; kept for reproducing old results.}
 }
 \details{
   predicting the effect of variants using gkmSVM model:

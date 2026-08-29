@@ -46,6 +46,13 @@ Crashes and memory errors fixed (all reproduced before the fix, all now ASAN/UBS
   call could misparse its options and silently write nothing), and the reverse-complement code
   copied a sequence name onto itself (undefined; flagged by AddressSanitizer on Linux).
 
+### `legacyNorm` option (additive)
+
+* `gkmsvm_classify(..., legacyNorm = TRUE)` / `gkmsvm_delta(..., legacyNorm = TRUE)` / CLI `-y`
+  reproduce the scores of versions up to 0.80 exactly: the DNA sequence norms are summed over all
+  mismatch levels while the scores themselves stop at `maxnmm` (the inconsistency fixed in Phase 1).
+  Default FALSE. Deprecated — provided only for reproducing old results.
+
 ### Phase 2d — no global message buffer (behaviour-preserving)
 
 * Console messages are formatted through a printf-style `gkmMsg()` into a local buffer instead of

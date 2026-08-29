@@ -50,6 +50,7 @@ struct OptsSVMClassify {
 	double wildcardLambda = 1.0;
 	int wildcardMismatchM = 2;
 	std::string alphabetFN;
+	bool legacyNorm = false;    // -y: normalise DNA test/SV sequences over all mismatch levels as versions <= 0.80 did (score still truncated at maxnmm); deprecated
 };
 
 struct OptsGkmTrain {

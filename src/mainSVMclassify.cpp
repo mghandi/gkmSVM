@@ -78,6 +78,7 @@ void print_usage_and_exit(const char *prog)
 	gkmMsg("                 default=%d\n", DEF_BATCHSIZE);
 	Printf("  -R             if set, reverse complement sequences will NOT be considered\n");
 	Printf("  -p             if set, a constant to count estimates will be added\n");
+	Printf("  -y             legacy normalisation (versions <= 0.80): DNA norms over all mismatch levels; deprecated\n");
 	Printf("  -M             max mismatch for Mismatch kernel or wildcard kernel, default=2\n");
 	Printf("  -L             lambda for wildcard kernel, defaul=0.9\n");
 	Printf("  -A             alphabets file name, if not specified, it is assumed the inputs are DNA sequences\n");
@@ -90,7 +91,7 @@ static int svmClassifyParseArgs(int argc, char** argv, OptsSVMClassify &opt)
 	int c;
     if (argc == 1) { print_usage_and_exit(argv[0]); return 1; }
 
-	while ((c = getopt (argc, argv, "l:k:d:m:n:t:a:b:M:L:A:Rp")) != -1)
+	while ((c = getopt (argc, argv, "l:k:d:m:n:t:a:b:M:L:A:Rpy")) != -1)
 	{
 		switch (c) 
 		{
@@ -104,6 +105,7 @@ static int svmClassifyParseArgs(int argc, char** argv, OptsSVMClassify &opt)
 			case 'b': opt.batchSize= atoi(optarg); break;
 			case 'R': opt.addRC = false; break;
 			case 'p': opt.usePseudocnt = true; break;
+			case 'y': opt.legacyNorm = true; break;
 			case 'M': opt.wildcardMismatchM = atoi(optarg); break;
 			case 'L': opt.wildcardLambda = atof(optarg); break;
 			case 'A': opt.alphabetFN = optarg; break;

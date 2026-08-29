@@ -18,7 +18,8 @@ gkmsvm_delta<- function( seqfile_allele1,
                              svseqfile=NA,
                              alphafile=NA, 
                              outfile_allele1 = NA, 
-                             outfile_allele2 = NA 
+                             outfile_allele2 = NA,
+                             legacyNorm = FALSE
                          ){
   
   
@@ -32,11 +33,11 @@ gkmsvm_delta<- function( seqfile_allele1,
   gkmsvm_classify(seqfile = seqfile_allele1, svmfnprfx = svmfnprfx, outfile = outfile_allele1, 
                   L=L ,K=K, maxnmm=maxnmm,maxseqlen=maxseqlen,maxnumseq=maxnumseq,useTgkm=useTgkm,alg=alg,addRC=addRC,
                   usePseudocnt=usePseudocnt,batchSize=batchSize,wildcardLambda=wildcardLambda,wildcardMismatchM=wildcardMismatchM,
-                  alphabetFN=alphabetFN,svseqfile=svseqfile,alphafile=alphafile)
+                  alphabetFN=alphabetFN,svseqfile=svseqfile,alphafile=alphafile,legacyNorm=legacyNorm)
   gkmsvm_classify(seqfile = seqfile_allele2, svmfnprfx = svmfnprfx, outfile = outfile_allele2, 
                   L=L ,K=K, maxnmm=maxnmm,maxseqlen=maxseqlen,maxnumseq=maxnumseq,useTgkm=useTgkm,alg=alg,addRC=addRC,
                   usePseudocnt=usePseudocnt,batchSize=batchSize,wildcardLambda=wildcardLambda,wildcardMismatchM=wildcardMismatchM,
-                  alphabetFN=alphabetFN,svseqfile=svseqfile,alphafile=alphafile)
+                  alphabetFN=alphabetFN,svseqfile=svseqfile,alphafile=alphafile,legacyNorm=legacyNorm)
   
   s1 = utils::read.delim(outfile_allele1, header=FALSE)
   s2 = utils::read.delim(outfile_allele2, header=FALSE)

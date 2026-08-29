@@ -17,6 +17,7 @@ void gkm_classify_cpp(SEXP params){
   opt.alg = Rcpp::as<int>(rparam["alg"]);
   opt.addRC = Rcpp::as<bool>(rparam["addRC"]);
   opt.usePseudocnt = Rcpp::as<bool>(rparam["usePseudocnt"]);
+  opt.legacyNorm = Rcpp::as<bool>(rparam["legacyNorm"]);
   opt.seqfile = Rcpp::as<std::string>(rparam["seqfile"]);
   opt.svseqfile = Rcpp::as<std::string>(rparam["svseqfile"]);
   opt.alphafile = Rcpp::as<std::string>(rparam["alphafile"]);

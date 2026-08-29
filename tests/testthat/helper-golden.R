@@ -44,7 +44,8 @@ run_golden_case_R <- function(case, outfile) {
     do.call(gkmSVM::gkmsvm_kernel, args)
   } else {
     args <- c(list(seqfile = fx(case$seq), svmfnprfx = NA, outfile = outfile), common,
-              list(batchSize = num_or(case$batch, 100000), svseqfile = fx(case$svseq), alphafile = fx(case$svalpha)))
+              list(batchSize = num_or(case$batch, 100000), svseqfile = fx(case$svseq), alphafile = fx(case$svalpha),
+                   legacyNorm = identical(case$legacy, "1")))
     do.call(gkmSVM::gkmsvm_classify, args)
   }
   outfile
