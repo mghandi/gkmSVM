@@ -13,3 +13,7 @@
     invisible(.Call('_gkmSVM_gkm_kernel_cpp', PACKAGE = 'gkmSVM', params))
 }
 
+.gkm_train_cpp <- function(params) {
+    invisible(.Call('_gkmSVM_gkm_train_cpp', PACKAGE = 'gkmSVM', params))
+}
+

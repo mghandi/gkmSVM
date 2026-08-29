@@ -82,3 +82,55 @@ public:
 		return ok ? 0 : 1;
 	}
 };
+
+namespace gkmk_detail {
+inline bool get8(FILE *f, uint8_t &v) { int c = fgetc(f); if (c == EOF) return false; v = (uint8_t)c; return true; }
+inline bool get32(FILE *f, uint32_t &v) { unsigned char b[4]; if (fread(b, 1, 4, f) != 4) return false; v = (uint32_t)b[0] | ((uint32_t)b[1] << 8) | ((uint32_t)b[2] << 16) | ((uint32_t)b[3] << 24); return true; }
+inline bool get64(FILE *f, uint64_t &v) { uint32_t lo, hi; if (!get32(f, lo) || !get32(f, hi)) return false; v = ((uint64_t)hi << 32) | lo; return true; }
+inline bool getstr(FILE *f, std::string &s) { uint32_t n; if (!get32(f, n)) return false; s.resize(n); return n == 0 || fread(&s[0], 1, n, f) == n; }
+}
+
+// Reads a .gkmk file whose 4 magic bytes have already been consumed (see readKernel in
+// mainSVMtrain.cpp). Fills hdr, records and values (row-major lower triangle as doubles).
+class GkmkReader {
+public:
+	GkmkHeader hdr;
+	std::vector<SeqRecord> records;
+	std::vector<double> values;
+	std::string error;
+	int read(FILE *f) {
+		using namespace gkmk_detail;
+		uint8_t version, dtype, layout, flags;
+		if (!get8(f, version) || !get8(f, dtype) || !get8(f, layout) || !get8(f, flags)) return fail("truncated header");
+		if (version != 1) return fail("unsupported .gkmk version");
+		if (layout != 0) return fail("unsupported layout");
+		uint32_t u;
+		if (!get32(f, u)) return fail("truncated header"); hdr.n = (int)u;
+		if (!get32(f, u)) return fail("truncated header"); hdr.npos = (int)u;
+		int *prov[7] = {&hdr.L, &hdr.K, &hdr.maxnmm, &hdr.useTgkm, &hdr.b, &hdr.addRC, &hdr.usePseudocnt};
+		for (int i = 0; i < 7; i++) { if (!get32(f, u)) return fail("truncated header"); *prov[i] = (int)u; }
+		if (!getstr(f, hdr.alphabet)) return fail("truncated header");
+		if (flags & 1) {
+			records.resize(hdr.n);
+			for (int i = 0; i < hdr.n; i++) {
+				SeqRecord &r = records[i]; r.index = i; uint8_t lab; uint64_t v;
+				if (!getstr(f, r.id) || !getstr(f, r.name) || !get8(f, lab) || !get64(f, v)) return fail("truncated names table");
+				r.label = (int8_t)lab; r.length = (long)v;
+				if (!get64(f, v)) return fail("truncated names table"); r.nlmers = (long)v;
+			}
+		}
+		size_t m = (size_t)hdr.n * (hdr.n + 1) / 2, size = dtype == 0 ? 4 : 8;
+		std::vector<unsigned char> payload(m * size);
+		if (m && fread(payload.data(), 1, payload.size(), f) != payload.size()) return fail("truncated payload");
+		uint32_t crc; if (!get32(f, crc)) return fail("missing checksum");
+		if (crc != gkm_crc32(payload.data(), payload.size())) return fail("payload checksum mismatch (file corrupted or truncated)");
+		values.resize(m);
+		for (size_t k = 0; k < m; k++) {
+			if (dtype == 0) { uint32_t b = (uint32_t)payload[4*k] | ((uint32_t)payload[4*k+1] << 8) | ((uint32_t)payload[4*k+2] << 16) | ((uint32_t)payload[4*k+3] << 24); float x; memcpy(&x, &b, 4); values[k] = x; }
+			else { uint64_t b = 0; for (int i = 7; i >= 0; i--) b = (b << 8) | payload[8*k+i]; double x; memcpy(&x, &b, 8); values[k] = x; }
+		}
+		return 0;
+	}
+private:
+	int fail(const char *msg) { error = msg; return 1; }
+};

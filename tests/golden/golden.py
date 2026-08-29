@@ -11,7 +11,8 @@ tests/testthat/helper-golden.R for the R mapping). Expected outputs are frozen f
 approved that exact behaviour change; in that case re-freeze only the affected cases with --filter
 and explain the diff in the PR.
 
-Tags: `xfail-<phase>` marks a case that crashes today (passes while it crashes, fails as XPASS once it
+Tags: `numeric` compares numbers to a relative 1e-5 and everything else exactly (SVM solver output);
+`xfail-<phase>` marks a case that crashes today (passes while it crashes, fails as XPASS once it
 does not); `expect-error` marks invalid input that must be rejected with a clean non-zero exit and an
 ERROR message (no crash, no output file).
 
@@ -35,6 +36,16 @@ def load_cases(path=os.path.join(HERE, "cases.tsv")):
 
 def build_argv(c, bindir, outfile):
     """CLI argv for one case. Only options with a value are passed, so that defaults are exercised."""
+    if c["tool"] == "train":
+        # positional: kernel pos neg prefix; the compared output is <prefix>_svalpha.out (see run_case)
+        argv = [os.path.join(bindir, "gkmsvm_train"), "-q"]
+        for col, flag in (("C", "-c"), ("w", "-w"), ("v", "-v")):
+            if c.get(col, ""):
+                argv += [flag, c[col]]
+        if c.get("S", "") == "1":
+            argv.append("-S")
+        argv += [os.path.join(EXP, c["kernel"]), os.path.join(FIX, c["pos"]), os.path.join(FIX, c["neg"]), outfile]
+        return argv
     exe = os.path.join(bindir, "gkmsvm_kernel" if c["tool"] == "kernel" else "gkmsvm_classify")
     argv = [exe]
     for col, flag in (("L", "-l"), ("K", "-k"), ("d", "-d"), ("t", "-t"), ("alg", "-a"),
@@ -63,14 +74,23 @@ def run_case(c, bindir):
     shutil.rmtree(d, ignore_errors=True)
     os.makedirs(d)
     out = os.path.join(d, "out.txt")
-    argv = build_argv(c, bindir, out)
+    argv = build_argv(c, bindir, out if c["tool"] != "train" else os.path.join(d, "model"))
     t0 = time.time()
     with open(os.path.join(d, "stdout.txt"), "wb") as so, open(os.path.join(d, "stderr.txt"), "wb") as se:
         rc = subprocess.call(argv, stdout=so, stderr=se)
+    if c["tool"] == "train" and os.path.exists(os.path.join(d, "model_svalpha.out")):
+        os.rename(os.path.join(d, "model_svalpha.out"), out)
     return dict(name=c["name"], rc=rc, out=out, argv=argv, secs=time.time() - t0, dir=d)
 
 
 NUM = re.compile(rb"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?")
+
+
+def numeric_equal(a, b, rtol):
+    """Same non-numeric text and all numbers within rtol (for solver output whose last digits vary by compiler)."""
+    if NUM.sub(b"#", a) != NUM.sub(b"#", b):
+        return False
+    return max_rel_diff(a, b) <= rtol
 
 
 def max_rel_diff(a, b):
@@ -150,6 +170,9 @@ def main():
             failed.append((r, "no expected output (run freeze)"))
             continue
         expected = open(exp, "rb").read()
+        if actual != expected and "numeric" in tags[r["name"]] and numeric_equal(actual, expected, 1e-5):
+            print(f"ok~    {r['name']:32s} {r['secs']:.2f}s (numeric, rel 1e-5)")
+            continue
         if actual != expected:
             msg = "output differs"
             if a.tol is not None:

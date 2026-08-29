@@ -5,6 +5,7 @@
 ^build(-asan)?$
 ^src/cli$
 ^src/legacy$
+^src/libsvm/README-gkmsvm\.md$
 ^tests/golden$
 ^tests/oracle$
 ^CLAUDE\.md$
