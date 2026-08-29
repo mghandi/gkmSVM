@@ -900,3 +900,9 @@ and text-vs-binary kernel size and R load time.
   prefix-split DAG only bounds the total count, so it is ~2–3× slower there but is the only
   feasible design once the table nears 2^20. `GKM_MAX_PATTERN_TABLE` = 750 000 (between the two
   crossover rows); `-P` overrides. Per-position `p_i` in the greedy cost stays undone.
+  **Follow-up (same PR): single-track `K > L`.** gkmsvm3's experiment 03 runs its single-channel
+  baselines with the k of the joint word (e.g. L = 2, k = 3), which the Python reference accepts
+  (H becomes exact word matching, the gkm counts vanish) and the classical tables refuse. One track
+  with `K > L` (`-t 0/1/2`) now runs through the general-B driver (single-line FASTA records); the
+  two former `expect-error` golden cases (`k_KgtL`, `c_KgtL`) are frozen as regular cases, a new
+  oracle case checks the kernel against the exact reference (b = 4, L = 4, K = 5). Golden 180/180.

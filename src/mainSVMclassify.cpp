@@ -166,17 +166,17 @@ int svmClassifyRun(OptsSVMClassify &opt)
 	}
 	TrackAlphabets ta; // the alphabet(s) of this call (DNA unless -A); Phase 7: one per track
 	if (ta.parse(opt.alphabetFN, GKM_MAX_ALPHABET) != 0) return 1;
-	if ((opt.K > ta.T() * opt.L) && (opt.useTgkm < 3)) {
-		if (ta.T() == 1) Printf("\n ERROR: K must be less than or equal to L!\n");
-		else Printf("\n ERROR: K must be less than or equal to the number of tracks times L!\n");
-		return 1;
+	if (ta.T() > 1 && (opt.K > ta.T() * opt.L) && (opt.useTgkm < 3)) {
+		Printf("\n ERROR: K must be less than or equal to the number of tracks times L!\n"); return 1;
 	}
 	if ((opt.maxnmm > 0) && (ta.T() * opt.L < opt.maxnmm)) {
 		if (ta.T() == 1) Printf("\n ERROR: maxMismatch must be less than or equal to L!\n");
 		else Printf("\n ERROR: maxMismatch must be less than or equal to the number of tracks times L!\n");
 		return 1;
 	}
-	if (ta.T() > 1) {
+	bool generalSingle = (ta.T() == 1 && opt.K > opt.L && opt.useTgkm < 3); // see gkmKernelRun
+	if (generalSingle) gkmMsg("K = %d > L = %d: using the general-B tables (single-line FASTA records).\n", opt.K, opt.L);
+	if (ta.T() > 1 || generalSingle) {
 		if (opt.useTgkm > 2) { Printf("\n ERROR: filter types 3 and 4 (wildcard, mismatch kernels) are only available for a single alphabet.\n"); return 1; }
 		if (opt.usePseudocnt) { Printf("\n ERROR: pseudocounts (-p) are only available for a single alphabet.\n"); return 1; }
 		if (opt.legacyNorm) { Printf("\n ERROR: the legacy normalisation (-y) is only available for a single alphabet.\n"); return 1; }

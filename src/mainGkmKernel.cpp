@@ -174,11 +174,9 @@ int gkmKernelRun(OptsGkmKernel &opt)
 	TrackAlphabets ta; // the alphabet(s) of this call (DNA unless -A); Phase 7: one per track
 	if (ta.parse(opt.alphabetFN, GKM_MAX_ALPHABET) != 0) return 1;
 	// K counts informative positions of the whole word: L for one track, T*L for multi-track input (Phase 7)
-	if ((opt.K > ta.T() * opt.L) && (opt.useTgkm < 3))
+	if (ta.T() > 1 && (opt.K > ta.T() * opt.L) && (opt.useTgkm < 3))
 	{
-		if (ta.T() == 1) Printf("\n ERROR: K must be less than or equal to L!\n");
-		else Printf("\n ERROR: K must be less than or equal to the number of tracks times L!\n");
-		return 1;
+		Printf("\n ERROR: K must be less than or equal to the number of tracks times L!\n"); return 1;
 	}
 	if ((opt.maxnmm > 0) && (ta.T() * opt.L < opt.maxnmm))
 	{
@@ -186,7 +184,12 @@ int gkmKernelRun(OptsGkmKernel &opt)
 		else Printf("\n ERROR: maxMismatch must be less than or equal to the number of tracks times L!\n");
 		return 1;
 	}
-	if (ta.T() > 1) {
+	// K > L with one track: the classical tables are undefined, the general-B ones are not (the filter
+	// becomes exact word matching, the gkm counts vanish); use the multi-track driver, as the Python
+	// reference does. Records must then be single-line FASTA.
+	bool generalSingle = (ta.T() == 1 && opt.K > opt.L && opt.useTgkm < 3);
+	if (generalSingle) gkmMsg("K = %d > L = %d: using the general-B tables (single-line FASTA records).\n", opt.K, opt.L);
+	if (ta.T() > 1 || generalSingle) {
 		if (opt.useTgkm > 2) { Printf("\n ERROR: filter types 3 and 4 (wildcard, mismatch kernels) are only available for a single alphabet.\n"); return 1; }
 		if (opt.usePseudocnt) { Printf("\n ERROR: pseudocounts (-p) are only available for a single alphabet.\n"); return 1; }
 		if (opt.alg == 1) Printf("\nAlgorithm is set to 2 (Tree) for multi-track input.\n");

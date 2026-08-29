@@ -101,11 +101,11 @@ c_maxnumseq_exceeded	classify	error expect-error			test_seqs.fa	sv_svseq.fa	sv_s
 c_b2_t1	classify	classify alphabet b2			test_b2.fa	sv_b2_svseq.fa	sv_b2_svalpha.out	8	5	-1	1	2	1	0	2	0.5	alphabet_b2.txt														
 c_b2_t3	classify	classify alphabet b2			test_b2.fa	sv_b2_svseq.fa	sv_b2_svalpha.out	8	5	-1	3	2	1	0	2	0.5	alphabet_b2.txt														
 c_b2_t4	classify	classify alphabet b2			test_b2.fa	sv_b2_svseq.fa	sv_b2_svalpha.out	8	5	-1	4	2	1	0	2	0.5	alphabet_b2.txt														
-k_KgtL	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				6	8	3	1	2	1	0																	
+k_KgtL	kernel	multitrack general	dna_small_pos.fa	dna_small_neg.fa				6	8	3	1	2	1	0																	
 k_dgtL	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				6	4	8	1	2	1	0																	
 k_badt	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				10	6	3	7	2	1	0																	
 k_bada	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	5	1	0																	
-c_KgtL	classify	error expect-error			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	6	8	3	1	2	1	0																	
+c_KgtL	classify	multitrack general			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	6	8	3	1	2	1	0																	
 c_badt	classify	error expect-error			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	9	2	1	0																	
 k_dupnames_merge	kernel	reader dupnames merge	dupnames_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0								1									
 k_names_edge	kernel	reader names	names_edge_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0																	
@@ -178,3 +178,4 @@ k_mt3t_t0	kernel	multitrack general	three_tracks.mfa	three_tracks.mfa				3	4	-1	
 k_mt4t_t1	kernel	multitrack general	mt4_pos.mfa	mt4_neg.mfa				4	5	-1	1	2	1	0			dna,=01,=NUM,=wxyz														
 k_mt4t_t2_d4	kernel	multitrack general	mt4_pos.mfa	mt4_neg.mfa				4	5	4	2	2	0	0			dna,=01,=NUM,=wxyz														
 c_mt4t_model_t0	classify	multitrack general classify			test_mt4.mfa	sv_mt4.gkmmodel	sv_mt4.gkmmodel	4	5	-1	0	2	1	0																	
+k_KgtL_general	kernel	multitrack general	oracle_pos.fa	oracle_neg.fa				4	5	-1	0	2	1	0																	

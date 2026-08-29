@@ -201,10 +201,14 @@ def check_multitrack_kernels(bindir, tmp, failures):
              ("mt3", ["ACGT", "NUM"], "dna,=NUM", 5, 3, [None, 3]),
              # Phase 7d, general B: three tracks (r = 3), and four tracks with two 4-symbol tracks (r = 3, T = 4)
              ("three_tracks", ["ACGT", "01", "abc"], "dna,=01,=abc", 3, 4, [None, 5]),
-             ("mt4", ["ACGT", "01", "NUM", "wxyz"], "dna,=01,=NUM,=wxyz", 4, 5, [None, 4])]
+             ("mt4", ["ACGT", "01", "NUM", "wxyz"], "dna,=01,=NUM,=wxyz", 4, 5, [None, 4]),
+             # one track with K > L (undefined for the classical tables): the general-B driver
+             ("oracle", ["ACGT"], "dna", 4, 5, [None, 2])]
     for stem, alphabets, spec, L, K, ds in cases:
         if stem == "three_tracks":
             pos = neg = FIX + "/three_tracks.mfa"
+        elif stem == "oracle":
+            pos, neg = FIX + "/oracle_pos.fa", FIX + "/oracle_neg.fa"
         else:
             pos, neg = FIX + f"/{stem}_pos.mfa", FIX + f"/{stem}_neg.mfa"
         seqs = gb.read_mfa(pos, alphabets) + gb.read_mfa(neg, alphabets)

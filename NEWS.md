@@ -36,7 +36,9 @@ See `dev/REFACTORING_PLAN.md` for the plan and its execution log.
   L = 10 with all 20 mismatch levels, or three tracks) the kernel uses *prefix-split passes*, which
   enumerate the same patterns implicitly through a small (depth, mismatches) DAG and traverse the
   trie without cloning it; the result is identical (the golden corpus and the oracle run both
-  designs). `passDesign` (CLI `-P`) selects a design explicitly.
+  designs). `passDesign` (CLI `-P`) selects a design explicitly. With a single track, `K > L`
+  (an error before) now also runs through the general-B tables, where it is well defined (the
+  filter becomes exact word matching); the records must then be single-line FASTA.
 
 ### Phase 1 — latent-bug fixes
 
