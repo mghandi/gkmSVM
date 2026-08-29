@@ -259,7 +259,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 
 			for(i=0;i<nseqs;i++)
 			{
-				fprintf(fo, "%s\t%f\n",seqname[i], svmScoreunorm(i,c,sctx)/norm[i] - rho);
+				fprintf(fo, "%s\t%f\n",seqname[i], gkmCanon(svmScoreunorm(i,c,sctx)/norm[i] - rho));
 			}
 
 			seqsTS->deleteTree(L, ::globalConverter.b, 0);

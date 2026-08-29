@@ -398,8 +398,10 @@ CSequence *CSequence::getReverseComplement()
 	else
 	{
 		this->reverseComplement->length = length; 
-		snprintf(this->seqName, MAX_LINE_WIDTH,"%s", seqName);
-		snprintf(this->seqLabel, MAX_LINE_WIDTH,"%s",seqLabel); 
+		// copy the name/label to the reverse-complement object (the original code copied seqName onto
+		// itself, which is undefined for overlapping buffers: glibc's snprintf empties the name)
+		snprintf(reverseComplement->seqName, MAX_LINE_WIDTH,"%s", seqName);
+		snprintf(reverseComplement->seqLabel, MAX_LINE_WIDTH,"%s",seqLabel); 
 	}
 	int i;
 
