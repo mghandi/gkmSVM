@@ -17,6 +17,7 @@
  */
 
 #include "LTreeS.h"
+#include <vector>
 #include "Sequence.h"
 #include "globalvar.h"
 
@@ -1310,7 +1311,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
               LTreeSnodeData *nodej=imatchingLmer->daughter[fbid].node;
               if (nodej->n==1)
               {
-                ++mmprofile[curMismatchCnt[i]][nodej->seqIDs.i];
+                { int jj = nodej->seqIDs.i; int in = (jj <= curnodeid); mmprofile[curMismatchCnt[i]][in ? jj : curnodeid] += in; } // Phase 6: rows hold j <= i only; branchless (a data-dependent branch here cost 17%)
                 
               }
               else
@@ -1335,7 +1336,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
               LTreeSnodeData *nodej=imatchingLmer->daughter[fbid].node;
               if (nodej->n==1)
               {
-                ++mmprofile[1+curMismatchCnt[i]][nodej->seqIDs.i];
+                { int jj = nodej->seqIDs.i; int in = (jj <= curnodeid); mmprofile[1+curMismatchCnt[i]][in ? jj : curnodeid] += in; }
                 
               }
               else
@@ -1392,7 +1393,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                   //int *mmprofile_curMismatchCntP1_i=mmprofile[1+curMismatchCnt[i]];
                   aint *mmprofile_curMismatchCnt_i=mmprofile[curMismatchCnt[i]];
                   
-                  ++mmprofile_curMismatchCnt_i[nodej->seqIDs.i];
+                  { int jj = nodej->seqIDs.i; int in = (jj <= curnodeid); mmprofile_curMismatchCnt_i[in ? jj : curnodeid] += in; }
                   
                 }
                 
@@ -1438,7 +1439,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                   
                   aint *mmprofile_curMismatchCntP1_i=mmprofile[1+curMismatchCnt[i]];
                   
-                  ++mmprofile_curMismatchCntP1_i[nodej->seqIDs.i];
+                  { int jj = nodej->seqIDs.i; int in = (jj <= curnodeid); mmprofile_curMismatchCntP1_i[in ? jj : curnodeid] += in; }
                   
                 }
               }
@@ -1606,9 +1607,17 @@ void CLTreeS::DFSTiDL( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
     
     
     int n = listlen * alphabetSize;
-    CLTreeS **newlist = new CLTreeS*[n];
-    int *newMismatchCnt= new int[n];
-    CbinMMtree **newMMtree= new CbinMMtree*[n];
+    // Phase 6: the three scratch arrays of this level come from a per-thread, per-depth buffer that
+    // is reused across visits (the recursion is a DFS: one live frame per depth), instead of three
+    // heap allocations per internal node visit.
+    static thread_local std::vector<std::vector<char> > dfsBufs;
+    if ((int)dfsBufs.size() <= pos) dfsBufs.resize(pos + 1);
+    std::vector<char> &buf = dfsBufs[pos];
+    size_t need = (size_t)n * (sizeof(CLTreeS*) + sizeof(CbinMMtree*) + sizeof(int)) + 16;
+    if (buf.size() < need) buf.resize(need);
+    CLTreeS **newlist = (CLTreeS **)buf.data();
+    CbinMMtree **newMMtree = (CbinMMtree **)(newlist + n);
+    int *newMismatchCnt = (int *)(newMMtree + n);
     
     int newlistlen = 0;
     CLTreeS **newlistnewlistlen = newlist; //&newlist[newlistlen]
@@ -1700,9 +1709,9 @@ void CLTreeS::DFSTiDL( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
     //delete []newlist;
     //delete []newMismatchCnt;
     
-    delete[]newlist;
-    delete[]newMismatchCnt;
-    delete[]newMMtree;
+    // (scratch arrays are per-thread, per-depth buffers now: nothing to free)
+
+
     
   }
 }

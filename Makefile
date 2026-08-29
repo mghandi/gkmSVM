@@ -24,7 +24,7 @@ ifeq ($(ASAN),1)
 endif
 
 CXXFLAGS ?= $(CXXSTD) $(OPT) $(WARN)
-CXXFLAGS += $(SANFLAGS) -Isrc
+CXXFLAGS += $(SANFLAGS) -Isrc -MMD -MP   # -MMD: header/.inl dependency files, so edits to them trigger rebuilds
 LDFLAGS  += $(SANFLAGS) -pthread
 
 # Everything in src/ except the Rcpp glue; each src/cli/*.cpp supplies one main().
@@ -62,4 +62,6 @@ bench: all
 	dev/bench.sh $(BUILD)
 
 clean:
-	rm -rf build build-asan
+	rm -rf build build-asan build-*
+
+-include $(wildcard $(BUILD)/obj/*.d $(BUILD)/obj/libsvm/*.d)
