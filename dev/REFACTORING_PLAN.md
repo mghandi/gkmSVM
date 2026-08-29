@@ -775,3 +775,19 @@ and text-vs-binary kernel size and R load time.
   DNA-only `convertInt2Str` uses a literal `"ACGT"`. `dnidx` is const. Golden 145/145, ASAN clean,
   oracle OK, testthat 27/0. **Last global left:** `globtmpstr` (the message buffer; a `Reporter` sink
   would replace it) — bounded, main-thread only, harmless for sequential calls.
+* **Phase 2d — done (PR: `phase2d/reporter`, stacked on 2c).** `globtmpstr` removed: the 86
+  `snprintf(globtmpstr, …); Printf(globtmpstr);` pairs became `gkmMsg(fmt, …)` (variadic, local
+  buffer, same `Printf` sink → `Rprintf` in the package, `printf` in the CLI). **Phase 2's rule 1 now
+  holds in full: `src/` has no mutable globals** (the per-instantiation DFS scratch went in 2b, the
+  alphabet in 2c). Golden 145/145, ASAN clean, oracle OK (it parses the `c[m] = …` lines, unchanged).
+* **CI benchmark job made advisory.** The same Phase 2d code measured base 12.96 s / new 13.45 s
+  (+3.75 %, "failed") and, re-run minutes later, base 18.70 s / new 16.86 s (−9.8 %); locally the two
+  builds are 6.34 s vs 6.31 s. Shared runners cannot resolve 2 %; the job now prints its numbers with
+  `continue-on-error`, and the 2 % gate is applied to `dev/bench.sh` best-of-5 on this machine,
+  quoted in each PR.
+* **#8 made green on Linux (at the user's request).** Cherry-picked into `phase1/latent-bug-fixes`
+  and forward-merged: the b=2 NaN weights fix (re-frozen two cases, identical to the tip's), the
+  `getReverseComplement` name self-copy (the `sprintf` form), and a new finding — `optind = 1` does
+  not re-initialise glibc's `getopt`, so a later in-process R call could misparse `-R` and return
+  without output (`k_small_noRC_a2` in the R job); glibc needs `optind = 0`, BSD/macOS `optreset = 1`.
+  Moot from Phase 2a on (no argv round-trip) but a real Phase 1 defect. Only #7 remains red on Linux.

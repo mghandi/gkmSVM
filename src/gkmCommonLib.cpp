@@ -182,9 +182,15 @@ int find_str(char **strs, int N, char *str){
   return (-1);
 }
 
-char globtmpstr[GKM_TMPSTR_LEN]; // global temp string;
+#include <stdarg.h>
+void gkmMsg(const char *fmt, ...)
+{
+  char buf[GKM_TMPSTR_LEN];
+  va_list ap; va_start(ap, fmt); vsnprintf(buf, sizeof buf, fmt, ap); va_end(ap);
+  Printf(buf);
+}
 void Printf(const char *str){ // this to replace printf
-  Printf(const_cast<char *>(str)); // no copy through globtmpstr: that made every message a data race
+  Printf(const_cast<char *>(str));
 }
 
 // RPACKAGE is defined by src/Makevars for the R build (output through Rprintf, random numbers from

@@ -46,6 +46,11 @@ Crashes and memory errors fixed (all reproduced before the fix, all now ASAN/UBS
   call could misparse its options and silently write nothing), and the reverse-complement code
   copied a sequence name onto itself (undefined; flagged by AddressSanitizer on Linux).
 
+### Phase 2d — no global message buffer (behaviour-preserving)
+
+* Console messages are formatted through a printf-style `gkmMsg()` into a local buffer instead of
+  a shared global one. No user-visible change.
+
 ### Phase 2c — the alphabet is a per-call object (behaviour-preserving)
 
 * The alphabet (`CConverter`) is created by each `gkmsvm_kernel`/`gkmsvm_classify` call and handed

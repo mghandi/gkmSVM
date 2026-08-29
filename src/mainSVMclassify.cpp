@@ -50,7 +50,7 @@ static int svmClassifySuffixTree(OptsSVMClassify &opt, const CConverter &conv)
 void print_usage_and_exit(const char *prog)
 {
     Printf("\n");
-    snprintf(globtmpstr, GKM_TMPSTR_LEN, " Usage: %s [options] <test_seqfile> <sv_seqfile> <sv_alphafile> <outfile>\n",prog );Printf(globtmpstr);
+    gkmMsg(" Usage: %s [options] <test_seqfile> <sv_seqfile> <sv_alphafile> <outfile>\n",prog );
     Printf("\n");
 	Printf("  given support vectors SVs and corresponding coefficients alphas and a set of \n");
 	Printf("  sequences, calculates the SVM scores for the sequences.\n");
@@ -62,20 +62,20 @@ void print_usage_and_exit(const char *prog)
 	Printf("  outfile: output file name\n");
     Printf("\n");
     Printf(" Options:\n");
-	snprintf(globtmpstr, GKM_TMPSTR_LEN,"  -l L           set word length, default=%d\n",DEF_L); Printf(globtmpstr);
-	snprintf(globtmpstr, GKM_TMPSTR_LEN,"  -k K           set number of informative columns, default=%d\n", DEF_K); Printf(globtmpstr);
-    snprintf(globtmpstr, GKM_TMPSTR_LEN, "  -d maxMismatch set maximum number of mismatches to consider, default=%d\n",DEF_D); Printf(globtmpstr);
+	gkmMsg("  -l L           set word length, default=%d\n",DEF_L);
+	gkmMsg("  -k K           set number of informative columns, default=%d\n", DEF_K);
+    gkmMsg("  -d maxMismatch set maximum number of mismatches to consider, default=%d\n",DEF_D);
 	Printf("  -m maxSeqLen   set maximum sequence length in the sequence files,\n");
-    snprintf(globtmpstr, GKM_TMPSTR_LEN,"                 default=%d\n",DEF_MAXSEQLEN); Printf(globtmpstr);
+    gkmMsg("                 default=%d\n",DEF_MAXSEQLEN);
 	Printf("  -n maxNumSeq   set maximum number of sequences in the sequence files,\n");
-    snprintf(globtmpstr, GKM_TMPSTR_LEN, "                 default=%d\n",DEF_MAXNUMSEQ); Printf(globtmpstr);
+    gkmMsg("                 default=%d\n",DEF_MAXNUMSEQ);
 	Printf("  -t filterType  set filter type: 0(use full filter), 1(use truncated filter:\n");
 	Printf("                 this gaurantees non-negative counts for all L-mers), 2(use h[m],\n");
-	snprintf(globtmpstr, GKM_TMPSTR_LEN, "                 gkm count vector), 3(wildcard), 4(mismatch), default=%d\n",DEF_TGKM); Printf(globtmpstr);
+	gkmMsg("                 gkm count vector), 3(wildcard), 4(mismatch), default=%d\n",DEF_TGKM);
 	Printf("  -a algorithm   set algorithm type: 0(auto), 1(XOR Hashtable), 2(tree),\n");
 	Printf("                 default=0\n");
 	Printf("  -b             set number of sequences to compute scores for in batch, \n");
-	snprintf(globtmpstr, GKM_TMPSTR_LEN, "                 default=%d\n", DEF_BATCHSIZE); Printf(globtmpstr);
+	gkmMsg("                 default=%d\n", DEF_BATCHSIZE);
 	Printf("  -R             if set, reverse complement sequences will NOT be considered\n");
 	Printf("  -p             if set, a constant to count estimates will be added\n");
 	Printf("  -M             max mismatch for Mismatch kernel or wildcard kernel, default=2\n");
@@ -258,10 +258,10 @@ int svmClassifySimple(OptsSVMClassify &opt, const CConverter &conv)
 
     }
 
-    snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n maximumMismatch = %d\n", maxnmm);Printf(globtmpstr);
+    gkmMsg("\n maximumMismatch = %d\n", maxnmm);
 
 	for(int ii=0;ii<=maxnmm;ii++) {
-		snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n c[%d] = %e",ii,c[ii] );Printf(globtmpstr);
+		gkmMsg("\n c[%d] = %e",ii,c[ii] );
 	}
 	Printf("\n");
 
@@ -273,7 +273,7 @@ int svmClassifySimple(OptsSVMClassify &opt, const CConverter &conv)
 
 	CSequenceNames *svsn= new CSequenceNames(); 
 	svsn->readSeqNamesandWeights(SVSeqIDsFN); 
-    snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n  %d SV ids read. \n",svsn->Nseqs);Printf(globtmpstr);
+    gkmMsg("\n  %d SV ids read. \n",svsn->Nseqs);
 
 
 	svsn->openSeqFile(SVSeqsFN, maxseqlen, &conv);
@@ -305,7 +305,7 @@ int svmClassifySimple(OptsSVMClassify &opt, const CConverter &conv)
 
 	if (svsn->error) return 1;
 	double rho = svsn->rho;
-	snprintf(globtmpstr, GKM_TMPSTR_LEN,"  %d SV seqs read \n",nsvseqs);Printf(globtmpstr);
+	gkmMsg("  %d SV seqs read \n",nsvseqs);
 
 	FILE *sfi = fopen(SeqsFN, "r"); 
 	if (sfi == NULL) return gkmCannotOpen(SeqsFN);
