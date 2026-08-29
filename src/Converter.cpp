@@ -131,7 +131,7 @@ tt	15
 */
 
 
-dinuclId CConverter::dnidx(char *dn)
+dinuclId CConverter::dnidx(const char *dn) const
 {
   return cidx[(unsigned char)dn[0]]+b*cidx[(unsigned char)dn[1]];
 }

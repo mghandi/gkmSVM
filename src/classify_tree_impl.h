@@ -20,11 +20,11 @@
 
 namespace GKM_NS {
 
-double calcnorm(CSequence *sgi, int addRC, CLList *tmplist, double *c, int *mmcnt, int L, int maxmm);
+double calcnorm(CSequence *sgi, int addRC, CLList *tmplist, double *c, int *mmcnt, int L, int maxmm, int b);
 double svmScoreunorm(int i, double *c, const ScoreContext &sc); 
 
 //given fasta file for SVs and the corresponding weights, outputs and another file for the test sequences, gives the SVM score
-int svmClassifySuffixTree(OptsSVMClassify &opt)
+int svmClassifySuffixTree(OptsSVMClassify &opt, const CConverter &conv)
 {
 	int i;
 	int L = opt.L; 
@@ -49,7 +49,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 
     char *tmps = new char[maxseqlen+L+2+1000]; 
 
-	CCalcWmML wmc(L, K, ::globalConverter.b);
+	CCalcWmML wmc(L, K, conv.b);
 	double *kernel = wmc.kernelTruncated;
 	(void)kernel; // computed for symmetry with the other paths; not used here
 	if (maxnmm==-1)
@@ -95,13 +95,13 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 	}
     if (useTgkm==3)  //wildcard kernel
     {
-        c = wmc.calcWildcardKernelWeights(L,  opt.wildcardMismatchM, ::globalConverter.b, opt.wildcardLambda, c); // was a literal 4: wrong for b != 4
+        c = wmc.calcWildcardKernelWeights(L,  opt.wildcardMismatchM, conv.b, opt.wildcardLambda, c); // was a literal 4: wrong for b != 4
     	n0 = c[maxnmm]/2;
 
     }
     if (useTgkm==4)  //mismatch kernel
     {
-        c = wmc.calcMismatchKernelWeights(L,  opt.wildcardMismatchM, ::globalConverter.b, c); // was a literal 4: wrong for b != 4
+        c = wmc.calcMismatchKernelWeights(L,  opt.wildcardMismatchM, conv.b, c); // was a literal 4: wrong for b != 4
     	n0 = c[maxnmm]/2;
 
     }
@@ -124,7 +124,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 	svsn->readSeqNamesandWeights(SVSeqIDsFN); 
 	snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n  %d SV ids read. \n",svsn->Nseqs);Printf(globtmpstr);
 
-	svsn->openSeqFile(SVSeqsFN, maxseqlen);
+	svsn->openSeqFile(SVSeqsFN, maxseqlen, &conv);
 
 	CLTreef *tSVs= new CLTreef(); //keeps all the sequences of length L in support vectors
 	
@@ -137,7 +137,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 		{
 			//seqsL[nsvseqs] = new CLList(L, 2*maxseqlen+5, hdist);  
 			
-			double alphaovernorm = sgi->getWeight()/calcnorm(sgi, addRC, &psetL, c, mmcnt,L,maxnmm);
+			double alphaovernorm = sgi->getWeight()/calcnorm(sgi, addRC, &psetL, c, mmcnt,L,maxnmm, conv.b);
 
 			tSVs->addSequence(sgi->getSeqBaseId(), sgi->getLength(),L, alphaovernorm); 
 			if(addRC)
@@ -175,7 +175,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 	int ntotal = 0; //number of lmers
 	int nseqs = 0; 
 
-	sgi = new CSequence(maxseqlen+3);
+	sgi = new CSequence(maxseqlen+3, &conv);
 
 	while (!feof(sfi))
 	{
@@ -208,7 +208,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 				seqsBrc[nseqs]=NULL; 
 			}
 
-			norm[nseqs]=calcnorm(sgi, addRC, &psetL, c, mmcnt,L, maxnmm);
+			norm[nseqs]=calcnorm(sgi, addRC, &psetL, c, mmcnt,L, maxnmm, conv.b);
 			seqname[nseqs] = new char [strlength(sgi->getName())+1]; //XXX: should be freed...
 			strcpy(seqname[nseqs], sgi->getName()); // buffer sized strlength+1 above
 			//seqname[nseqs] = sgi->getNameLink(); //seqsn->seqNames[ii]; 			
@@ -236,7 +236,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 				}
 			}
 
-			int uniqueLmerCnt = seqsTS->leavesCount(0,L, ::globalConverter.b, NULL);
+			int uniqueLmerCnt = seqsTS->leavesCount(0,L, conv.b, NULL);
 
 			int minL2 = L; if (minL2<2) minL2 = 2; 
 			ScoreScratch scratch; // per-batch DFS lists, one per trie level (was gDFSlistT/gDFSMMlist)
@@ -249,7 +249,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 		
 			scratch.listT[0][0] = seqsTS;// with nonEmptyDaughterCnt
 			scratch.mmlist[0][0] = 0; 
-			tSVs->DFST(scratch.listT[0],1, scratch.mmlist[0], 0, ::globalConverter.b, &sctx, &scratch);
+			tSVs->DFST(scratch.listT[0],1, scratch.mmlist[0], 0, conv.b, &sctx, &scratch);
 
 			for(i=0;i<=minL2;i++)
 			{
@@ -262,7 +262,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 				{ double sc = svmScoreunorm(i,c,sctx)/norm[i] - rho; if (sc == 0.0) sc = 0.0; fprintf(fo, "%s\t%f\n",seqname[i], sc); }
 			}
 
-			seqsTS->deleteTree(L, ::globalConverter.b, 0);
+			seqsTS->deleteTree(L, conv.b, 0);
 			seqsTS->initTree();
 
 			for(int i=0;i<nseqs;i++)
@@ -295,9 +295,9 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 	delete []mmcnt; 
 	delete []tmps;
 	delete sgi; 
-	seqsTS->deleteTree(L, ::globalConverter.b, 0);
+	seqsTS->deleteTree(L, conv.b, 0);
 	delete seqsTS;
-	tSVs->deleteTree(L,::globalConverter.b);
+	tSVs->deleteTree(L,conv.b);
 	delete tSVs; 
 	return 0; 
 }
@@ -312,9 +312,9 @@ double svmScoreunorm(int i, double *c, const ScoreContext &sc)
 	return(res); 
 }
 
-double calcnorm(CSequence *sgi, int addRC, CLList *tmplist, double *c, int *mmcnt, int L, int maxnmm)
+double calcnorm(CSequence *sgi, int addRC, CLList *tmplist, double *c, int *mmcnt, int L, int maxnmm, int b)
 {
-		if (::globalConverter.b==4){
+		if (b==4){
 			//calc norm 
 			CLTree *psetT = new CLTree();// keeps all the sequences of length L
 			psetT->addSequence(sgi->getSeqBaseId(), sgi->getLength(),L); 
@@ -347,13 +347,13 @@ double calcnorm(CSequence *sgi, int addRC, CLList *tmplist, double *c, int *mmcn
 		for(int i=0;i<=maxnmm;i++){
 			mmcnt[i]=0;
 		}
-		psetT->iimismatchCountGeneral(psetT,L,mmcnt,maxnmm,::globalConverter.b);
+		psetT->iimismatchCountGeneral(psetT,L,mmcnt,maxnmm,b);
 
 		double s=0;
 		for(int i=0;i<=maxnmm;i++){
 			s += mmcnt[i]*c[i];
 		}
-		psetT->deleteTree(L, ::globalConverter.b);
+		psetT->deleteTree(L, b);
 		delete psetT;
 		return(sqrt(s));
 }

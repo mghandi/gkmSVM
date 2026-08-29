@@ -41,6 +41,12 @@ Crashes and memory errors fixed (all reproduced before the fix, all now ASAN/UBS
 * Errors in the C++ core are now reported to R as errors (`stop()`); previously the R functions
   returned normally with no or partial output.
 
+### Phase 2c — the alphabet is a per-call object (behaviour-preserving)
+
+* The alphabet (`CConverter`) is created by each `gkmsvm_kernel`/`gkmsvm_classify` call and handed
+  to the readers and the computation instead of living in a process-wide global; two calls (or two
+  threads) can no longer see each other's alphabet. Outputs are byte-identical.
+
 ### Phase 2b — no more shared computation state (behaviour-preserving)
 
 * The kernel and classify computations keep their state in per-call objects (`KernelContext`,

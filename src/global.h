@@ -109,8 +109,6 @@ const int YSTCHRSIZE[]={230208,
                         1091289,
                         948062}; 
 
-//static CConverter globalConverter;
-extern CConverter globalConverter;
 
 #define freeMem(x) if(x!=NULL) delete []x
 

@@ -36,7 +36,7 @@ public:
 	int readSeqNames(const char *seqNamesFN); 
 	int readSeqNamesandWeights(const char *seqNamesFN); 
 
-	void openSeqFile( const char *seqFN, int maxSeqLength); 
+	void openSeqFile( const char *seqFN, int maxSeqLength, const CConverter *conv); 
 	CSequence *nextSeq(); 
 
 	CSequence *curSeq; 

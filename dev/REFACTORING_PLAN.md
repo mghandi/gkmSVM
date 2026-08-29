@@ -766,3 +766,12 @@ and text-vs-binary kernel size and R load time.
   **1 006 → 1 172 MB, i.e. worse** — pools held for the whole run coexist with the profile tile,
   while per-pass frees let the allocator reuse that memory. The clone term is bounded by the trie
   size × threads; the honest lever left is fewer threads (`-T`) or a smaller `L`, not allocation.
+* **Phase 2c — done (PR: `phase2c/alphabet-per-call`, stacked on 6b).** `globalConverter` removed
+  (`global.cpp` deleted): `gkmKernelRun`/`svmClassifyRun` create a `CConverter` per call and pass it
+  by reference to `gkmKernelSimple`/`gkmKernelSuffixTree`/`svmClassifySimple`/`svmClassifySuffixTree`,
+  `gkmFillGkmkHeader`, `calcnorm` (as `b`), `task1` (as `b`), and by pointer to `CSequence` (new
+  constructor argument, default = a static built-in DNA converter so the dead `addSequences` helpers
+  and `gkmsvm_train`'s raw reader still compile) and `CSequenceNames::openSeqFile`. `CLList`'s
+  DNA-only `convertInt2Str` uses a literal `"ACGT"`. `dnidx` is const. Golden 145/145, ASAN clean,
+  oracle OK, testthat 27/0. **Last global left:** `globtmpstr` (the message buffer; a `Reporter` sink
+  would replace it) — bounded, main-thread only, harmless for sequential calls.

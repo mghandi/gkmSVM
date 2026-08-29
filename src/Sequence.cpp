@@ -28,8 +28,11 @@
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
 
-CSequence::CSequence(int maxLength,  CSequence *sCopyFrom )
+static const CConverter *defaultConverter() { static const CConverter dna; return &dna; }
+
+CSequence::CSequence(int maxLength, const CConverter *conv, CSequence *sCopyFrom )
 {
+	this->conv = conv ? conv : defaultConverter();
 	static int serialnumber = 0; 
 	
 	this->maxLength = maxLength;
@@ -223,7 +226,7 @@ int CSequence::readFsa(FILE *f, int SkipAlphabetCheck)  // reads one sequence fr
 					(ucase(sline[i])=='T'))
 					*/
 
-				if ((globalConverter.isInAlphabet[(unsigned char)sline[i]])||SkipAlphabetCheck)
+				if ((conv->isInAlphabet[(unsigned char)sline[i]])||SkipAlphabetCheck)
 				{
 					if (length >= maxLength-1) { overflow = 1; break; } // leave room for the terminator
 					this->seq[this->length] = sline[i]; 
@@ -255,11 +258,11 @@ int CSequence::readFsa(FILE *f, int SkipAlphabetCheck)  // reads one sequence fr
 	}
 
 	int i; 
-	int *cidx = globalConverter.cidx;
+	const int *cidx = conv->cidx;
 	for(i=0;i<length-1;i++)
 	{
 		this->seqBaseId[i] = cidx[(unsigned char)seq[i]];
-		this->dinucl[i] = globalConverter.dnidx(seq+i);  // for i==length-1 it is meaningless
+		this->dinucl[i] = conv->dnidx(seq+i);  // for i==length-1 it is meaningless
 	}
 	this->seqBaseId[length-1] = cidx[(unsigned char)seq[length-1]];
 
@@ -315,11 +318,11 @@ int CSequence::readBasic(FILE *f)  // reads one sequence from already opened fil
 	}
 	
 	int i; 
-	int *cidx = globalConverter.cidx;
+	const int *cidx = conv->cidx;
 	for(i=0;i<length-1;i++)
 	{
 		this->seqBaseId[i] = cidx[(unsigned char)seq[i]]; 
-		this->dinucl[i] = globalConverter.dnidx(seq+i);  // for i==length-1 it is meaningless
+		this->dinucl[i] = conv->dnidx(seq+i);  // for i==length-1 it is meaningless
 	}
 	this->seqBaseId[length-1] = cidx[(unsigned char)seq[length-1]];
 
@@ -346,11 +349,11 @@ int CSequence::readString(char *s)  // reads sequence from a string (coverts cha
 	}
 	
 	int i; 
-	int *cidx = globalConverter.cidx;
+	const int *cidx = conv->cidx;
 	for(i=0;i<length-1;i++)
 	{
 		this->seqBaseId[i] = cidx[(unsigned char)seq[i]]; 
-		this->dinucl[i] = globalConverter.dnidx(seq+i);  // for i==length-1 it is meaningless
+		this->dinucl[i] = conv->dnidx(seq+i);  // for i==length-1 it is meaningless
 	}
 	this->seqBaseId[length-1] = cidx[(unsigned char)seq[length-1]];
 
@@ -375,15 +378,15 @@ void CSequence::mutateOneBase(int pos, baseId nwbid)
 		return; 
 	}
 
-	this->seq[pos]= globalConverter.icidx[nwbid]; 
+	this->seq[pos]= conv->icidx[nwbid]; 
 	this->seqBaseId[pos] = nwbid; 
 	if (pos>0)
 	{
-		this->dinucl[pos-1] = globalConverter.dnidx(&seq[pos-1]);
+		this->dinucl[pos-1] = conv->dnidx(&seq[pos-1]);
 	}
 	if (pos<length-1)
 	{
-		this->dinucl[pos] = globalConverter.dnidx(&seq[pos]);
+		this->dinucl[pos] = conv->dnidx(&seq[pos]);
 	}
 
 }
@@ -393,7 +396,7 @@ CSequence *CSequence::getReverseComplement()
 {
 	if (this->reverseComplement==NULL)
 	{
-		this->reverseComplement = new CSequence(this->maxLength, this); 
+		this->reverseComplement = new CSequence(this->maxLength, conv, this); 
 	}
 	else
 	{
@@ -412,7 +415,7 @@ CSequence *CSequence::getReverseComplement()
 	baseId *rseqBaseId = reverseComplement->getSeqBaseId();  	
 	for(i=0;i<length;i++)
 	{
-		rseq[i] = globalConverter.bcompl[(unsigned char)seq[length-1-i]];
+		rseq[i] = conv->bcompl[(unsigned char)seq[length-1-i]];
 	}
 
 	rseq[length] =0; 
@@ -423,10 +426,10 @@ CSequence *CSequence::getReverseComplement()
 
 	for(i=0;i<length-1;i++)
 	{
-		rseqBaseId[i] = globalConverter.cidx[(unsigned char)rseq[i]]; 
-		rdinucl[i] = globalConverter.dnidx(rseq+i);  // for i==length-1 it is meaningless
+		rseqBaseId[i] = conv->cidx[(unsigned char)rseq[i]]; 
+		rdinucl[i] = conv->dnidx(rseq+i);  // for i==length-1 it is meaningless
 	}
-	rseqBaseId[length-1] = globalConverter.cidx[(unsigned char)rseq[length-1]];
+	rseqBaseId[length-1] = conv->cidx[(unsigned char)rseq[length-1]];
 
 	
 	return reverseComplement; 

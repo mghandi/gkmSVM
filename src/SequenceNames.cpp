@@ -140,14 +140,14 @@ int CSequenceNames::readSeqNamesandWeights(const char *seqNamesFN)
 	return Nseqs; 
 }
 
-void CSequenceNames::openSeqFile( const char *seqFN,  int maxSeqLength)
+void CSequenceNames::openSeqFile( const char *seqFN,  int maxSeqLength, const CConverter *conv)
 {
 	this->seqf = fopen(seqFN, "r"); 
 	if (this->seqf == NULL) { snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n ERROR: cannot open %s\n", seqFN); Printf(globtmpstr); }
 
 	if (this->curSeq!=NULL) delete curSeq; 
 
-	this->curSeq = new CSequence(maxSeqLength); 
+	this->curSeq = new CSequence(maxSeqLength, conv); 
 }
 
 // Returns the next FASTA record (in file order) whose name is listed in the alpha file, with its
