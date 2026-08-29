@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3:*)", "Bash(python:*)",
+      "Bash(clang++:*)", "Bash(g++:*)", "Bash(make:*)", "Bash(ar:*)", "Bash(ranlib:*)",
+      "Bash(R:*)", "Bash(Rscript:*)", "Bash(R CMD:*)",
+      "Bash(./dev/baseline.sh:*)", "Bash(dev/baseline.sh:*)",
+      "Bash(git status:*)", "Bash(git add:*)", "Bash(git commit:*)", "Bash(git push:*)",
+      "Bash(git pull:*)", "Bash(git fetch:*)", "Bash(git log:*)", "Bash(git diff:*)",
+      "Bash(git checkout:*)", "Bash(git branch:*)", "Bash(git switch:*)", "Bash(git show:*)",
+      "Bash(git mv:*)", "Bash(git rm:*)", "Bash(git stash:*)", "Bash(git restore:*)",
+      "Bash(gh pr create:*)", "Bash(gh pr view:*)", "Bash(gh pr list:*)", "Bash(gh pr diff:*)",
+      "Bash(gh pr comment:*)", "Bash(gh api:*)", "Bash(gh repo view:*)", "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(curl:*)", "Bash(wget:*)", "Bash(unzip:*)", "Bash(tar:*)", "Bash(gunzip:*)", "Bash(gzip:*)",
+      "Bash(ls:*)", "Bash(cat:*)", "Bash(head:*)", "Bash(tail:*)", "Bash(wc:*)", "Bash(grep:*)",
+      "Bash(rg:*)", "Bash(find:*)", "Bash(sed:*)", "Bash(awk:*)", "Bash(sort:*)", "Bash(uniq:*)",
+      "Bash(cut:*)", "Bash(paste:*)", "Bash(diff:*)", "Bash(cmp:*)", "Bash(comm:*)", "Bash(file:*)",
+      "Bash(mkdir:*)", "Bash(mv:*)", "Bash(cp:*)", "Bash(chmod:*)", "Bash(ln:*)", "Bash(touch:*)",
+      "Bash(du:*)", "Bash(df:*)", "Bash(date:*)", "Bash(time:*)", "Bash(/usr/bin/time:*)",
+      "Bash(pgrep:*)", "Bash(kill:*)", "Bash(nohup:*)", "Bash(bash:*)", "Bash(sh:*)",
+      "Bash(brew install:*)", "Bash(brew list:*)",
+      "WebFetch", "WebSearch", "Read", "Edit", "Write", "Glob", "Grep"
+    ],
+    "deny": [
+      "Bash(rm -rf /:*)",
+      "Bash(sudo:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push origin master:*)",
+      "Bash(git push origin HEAD:master:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git rebase:*)",
+      "Bash(git checkout master:*)",
+      "Bash(git switch master:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh release:*)"
+    ]
+  }
+}
