@@ -2,3 +2,6 @@
 *.Rproj.user
 dev/*.html
 dev/*.pdf
+/build/
+/build-asan/
+tests/golden/actual/
