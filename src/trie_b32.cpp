@@ -3,7 +3,7 @@
  */
 #define MAX_ALPHABET_SIZE 32
 #define GKM_NS gkm_b32
-#include "LTreeS.inl"
-#include "LTreef.inl"
-#include "kernel_tree.inl"
-#include "classify_tree.inl"
+#include "LTreeS_impl.h"
+#include "LTreef_impl.h"
+#include "kernel_tree_impl.h"
+#include "classify_tree_impl.h"

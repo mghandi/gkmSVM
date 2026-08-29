@@ -5,8 +5,9 @@
 \description{Generates a lower triangle of kernel matrix (i.e. pairwise similarities)
   between the sequences.}
 \usage{gkmsvm_kernel(posfile, negfile, outfile, L=10, K=6, maxnmm=3, maxseqlen=10000, 
-maxnumseq=1000000, useTgkm=1, alg=0, addRC=TRUE, usePseudocnt=FALSE, wildcardLambda=1.0,
-wildcardMismatchM=2, alphabetFN="NULL", nmaxThreads=1000, mergeByName=FALSE, format=c("text", "binary"))}
+maxnumseq=1000000, useTgkm=1, alg=2, addRC=TRUE, usePseudocnt=FALSE, wildcardLambda=1.0,
+wildcardMismatchM=2, alphabetFN="NULL", nmaxThreads=1000, mergeByName=FALSE,
+format=c("text", "binary"))}
 
 \arguments{
 \item{posfile}{positive sequences file name (FASTA format)}
@@ -18,7 +19,7 @@ wildcardMismatchM=2, alphabetFN="NULL", nmaxThreads=1000, mergeByName=FALSE, for
 \item{maxseqlen}{maximum sequence length in the sequence files, default=10000}
 \item{maxnumseq}{maximum number of sequences in the sequence files, default=1000000}
 \item{useTgkm}{filter type: 0(use full filter), 1(use truncated filter: this gaurantees non-negative counts for all L-mers), 2(use h[m], gkm count vector), 3(wildcard), 4(mismatch), default=1}
-\item{alg}{algorithm type: 0(auto), 1(XOR Hashtable), 2(tree), default=0}
+\item{alg}{algorithm type: 0(auto), 1(XOR Hashtable), 2(tree), default=2}
 \item{addRC}{adds reverse complement sequences, default=TRUE}
 \item{usePseudocnt}{adds a constant to count estimates, default=FALSE}
 \item{wildcardLambda}{lambda for wildcard kernel, defaul=0.9}

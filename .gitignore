@@ -5,3 +5,8 @@ dev/*.pdf
 /build/
 /build-asan/
 tests/golden/actual/
+*.o
+*.so
+*.dll
+*.Rcheck/
+/gkmSVM_*.tar.gz

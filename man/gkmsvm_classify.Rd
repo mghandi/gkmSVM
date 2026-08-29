@@ -5,7 +5,7 @@
 \description{Given support vectors SVs and corresponding coefficients alphas and a set of 
   sequences, calculates the SVM scores for the sequences.}
 \usage{gkmsvm_classify(seqfile, svmfnprfx, outfile, L=10, K=6, maxnmm=3, 
-maxseqlen=10000, maxnumseq=1000000, useTgkm=1, alg=0, addRC=TRUE, usePseudocnt=FALSE, 
+maxseqlen=10000, maxnumseq=1000000, useTgkm=1, alg=2, addRC=TRUE, usePseudocnt=FALSE, 
 batchSize=100000, wildcardLambda=1.0, wildcardMismatchM=2, alphabetFN="NULL", 
 svseqfile=NA, alphafile=NA)}
 \arguments{
@@ -18,7 +18,7 @@ svseqfile=NA, alphafile=NA)}
 \item{maxseqlen}{maximum sequence length in the sequence files, default=10000}
 \item{maxnumseq}{maximum number of sequences in the sequence files, default=1000000}
 \item{useTgkm}{filter type: 0(use full filter), 1(use truncated filter: this gaurantees non-negative counts for all L-mers), 2(use h[m], gkm count vector), 3(wildcard), 4(mismatch), default=1}
-\item{alg}{algorithm type: 0(auto), 1(XOR Hashtable), 2(tree), default=0}
+\item{alg}{algorithm type: 0(auto), 1(XOR Hashtable), 2(tree), default=2}
 \item{addRC}{adds reverse complement sequences, default=TRUE}
 \item{usePseudocnt}{adds a constant to count estimates, default=FALSE}
 \item{batchSize}{number of sequences to compute scores for in batch, default=100000}

@@ -186,7 +186,7 @@ int find_str(char **strs, int N, char *str){
   return (-1);
 }
 
-char globtmpstr[10000]; // global temp string;
+char globtmpstr[GKM_TMPSTR_LEN]; // global temp string;
 void Printf(const char *str){ // this to replace printf
   Printf(const_cast<char *>(str)); // no copy through globtmpstr: that made every message a data race
 }

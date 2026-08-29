@@ -64,8 +64,16 @@ jobs:
         run: dev/scratch_install.sh "$R_LIBS_USER"
       - name: testthat
         run: Rscript -e 'testthat::test_dir("tests/testthat", package = "gkmSVM", load_package = "installed", stop_on_failure = TRUE)'
-      # A full `R CMD check` is deferred to Phase 0b, when the Bioconductor dependencies move
-      # from Imports to Suggests (CRAN 0.83.0 layout) and the check no longer needs BSgenome.*.
+      - name: R CMD build + check --as-cran (Bioconductor packages are Suggests and not installed)
+        env:
+          _R_CHECK_FORCE_SUGGESTS_: "false"
+          _R_CHECK_CRAN_INCOMING_: "false"
+        run: |
+          R CMD build --no-build-vignettes .
+          R CMD check --as-cran --no-manual gkmSVM_*.tar.gz
+      - name: Show check log on failure
+        if: failure()
+        run: cat gkmSVM.Rcheck/00check.log || true
 
   bench:
     name: Benchmark gate (vs. master, same runner)

@@ -1,6 +1,5 @@
 # R package build only (the standalone CLI uses the top-level Makefile).
 # RPACKAGE routes all output through Rprintf and random numbers through R's RNG (CRAN policy).
+# The vendored LIBSVM in src/libsvm/ is compiled through src/libsvm_svm.cpp (portable make: no wildcard/OBJECTS).
 CXX_STD = CXX17
 PKG_CPPFLAGS = -DRPACKAGE -I.
-SOURCES = $(wildcard *.cpp) libsvm/svm.cpp
-OBJECTS = $(SOURCES:.cpp=.o)

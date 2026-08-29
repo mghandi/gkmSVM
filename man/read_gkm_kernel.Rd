@@ -10,8 +10,9 @@
 }
 \usage{
 read_gkm_kernel(file, verify = TRUE)
-write_gkm_kernel(x, file, format = c("binary", "text"), dtype = c("float32", "float64"),
-                 npos = attr(x, "npos"), index = attr(x, "index"), params = attr(x, "params"))
+write_gkm_kernel(x, file, format = c("binary", "text"),
+                 dtype = c("float32", "float64"), npos = attr(x, "npos"),
+                 index = attr(x, "index"), params = attr(x, "params"))
 is_gkm_binary(file)
 }
 \arguments{

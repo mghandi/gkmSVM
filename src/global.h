@@ -79,7 +79,8 @@ int convertint2intRC(int x, int L);
 
 char *convertInt2Str(int col, char *str, int L); // returns L-mer for idx=col
 
-extern char globtmpstr[]; // global temp string;
+#define GKM_TMPSTR_LEN 10000
+extern char globtmpstr[GKM_TMPSTR_LEN]; // global temp string (messages), always written with snprintf
 void Printf(char *str); // this to replace printf
 void Printf(const char *str); // this to replace printf
 

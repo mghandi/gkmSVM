@@ -1,4 +1,4 @@
-/* kernel_tree.inl : the tree (suffix-trie) kernel driver, compiled once per alphabet size
+/* kernel_tree_impl.h : the tree (suffix-trie) kernel driver, compiled once per alphabet size
  * (see trie_b4.cpp / trie_b32.cpp and the note in global.h). Was the second half of mainGkmKernel.cpp.
  */
 #include <iostream>
@@ -83,7 +83,7 @@ void task1(int L, CiDLPasses *iDL, CLTreeS *seqsTS, int M, std::atomic<int> *nex
     //}
     delete []tmpArray1;
     delete []tmpArray2;
-    //sprintf(globtmpstr,"ended pass %d out of %d.\n",j+1,iDL->M);Printf(globtmpstr);
+    //snprintf(globtmpstr, GKM_TMPSTR_LEN,"ended pass %d out of %d.\n",j+1,iDL->M);Printf(globtmpstr);
     }
   
   }
@@ -172,9 +172,9 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
     
   }
   
-  sprintf(globtmpstr,"\n maximumMismatch = %d\n", maxnmm);Printf(globtmpstr);
+  snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n maximumMismatch = %d\n", maxnmm);Printf(globtmpstr);
   for(int ii=0;ii<=maxnmm;ii++) {
-    sprintf(globtmpstr,"\n c[%d] = %e",ii,c[ii] ); 	Printf(globtmpstr);
+    snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n c[%d] = %e",ii,c[ii] ); 	Printf(globtmpstr);
   }
   Printf("\n");
   
@@ -238,7 +238,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
       }else{
         if (nseqs>=nMAXSEQUENCES) return gkmTooManySequences(nMAXSEQUENCES);
         seqname2[nseqs] = new char[strlen(sgi->getName())+1]; // was a fixed 100 bytes: names >= 100 chars overflowed it
-        sprintf(seqname2[nseqs],"%s", sgi->getName());
+        strcpy(seqname2[nseqs], sgi->getName()); // buffer sized strlen+1 above
         seqname[nseqs]=seqname2[nseqs]; 
         
         seqsB[nseqs] = new int [sgi->getLength()]; 
@@ -294,7 +294,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
       }else{
         if (nseqs>=nMAXSEQUENCES) return gkmTooManySequences(nMAXSEQUENCES);
         seqname2[nseqs] = new char[strlen(sgi->getName())+1];
-        sprintf(seqname2[nseqs],"%s", sgi->getName());
+        strcpy(seqname2[nseqs], sgi->getName()); // buffer sized strlen+1 above
         seqname[nseqs]=seqname2[nseqs];
         
         seqsB[nseqs] = new int [sgi->getLength()];
@@ -352,7 +352,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   }
   
   int uniqueLmerCnt = seqsTS->leavesCount(0,L, globalConverter.b, nodesAtDepthCnt);
-  sprintf(globtmpstr,"\n npos %d \n nneg %d \n  ntotal %d \n nunique %d\n",npos,nneg,ntotal,uniqueLmerCnt);Printf(globtmpstr);
+  snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n npos %d \n nneg %d \n  ntotal %d \n nunique %d\n",npos,nneg,ntotal,uniqueLmerCnt);Printf(globtmpstr);
   {
     // if no IDL bound
     /*
@@ -369,7 +369,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
     */
     // else if IDL bound then
     for(int i=0;i<L; i++){
-      //     sprintf(globtmpstr,"d%d , %d\n", i, nodesAtDepthCnt[i]);Printf(globtmpstr);
+      //     snprintf(globtmpstr, GKM_TMPSTR_LEN,"d%d , %d\n", i, nodesAtDepthCnt[i]);Printf(globtmpstr);
     }
     
     CiDLPasses iDL;
@@ -391,7 +391,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
     /*    int *tmpArray1 = new int[L];
     int *tmpArray2 = new int[L];
     for(int j=0;j<iDL.M;j++){
-    sprintf(globtmpstr,"pass %d out of %d.\n",j+1,iDL.M);Printf(globtmpstr);
+    snprintf(globtmpstr, GKM_TMPSTR_LEN,"pass %d out of %d.\n",j+1,iDL.M);Printf(globtmpstr);
     CLTreeS *seqsTSj= new CLTreeS();
     seqsTS->cloneReorder(seqsTSj, iDL.passOrder[j], L,L,globalConverter.b, tmpArray1, tmpArray2);
     //seqsTS->DFSTiDL(gDFSlistT[0],1, gDFSMMlist[0], iDL.passTrees+j, 0, globalConverter.b);
@@ -429,7 +429,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
     if(nThreads<1){nThreads=1;}
     std::atomic<int> nextPass(0);
     
-    sprintf(globtmpstr,"Running %d passes on %d thread%s.\n", iDL.M, nThreads, (nThreads==1)?"":"s"); Printf(globtmpstr);
+    snprintf(globtmpstr, GKM_TMPSTR_LEN,"Running %d passes on %d thread%s.\n", iDL.M, nThreads, (nThreads==1)?"":"s"); Printf(globtmpstr);
     if (nThreads<=1){
       task1( L, &iDL, seqsTS, iDL.M, &nextPass);
     }else{
@@ -563,7 +563,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   
   if (fo) fclose(fo); 
   else if (bin.write(opt.outfile, records) != 0) return gkmCannotOpen(outFN);
-  if (writeIndexSidecar(opt.outfile, records) != 0) { sprintf(globtmpstr,"\n WARNING: could not write %s.index\n", outFN); Printf(globtmpstr); }
+  if (writeIndexSidecar(opt.outfile, records) != 0) { snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n WARNING: could not write %s.index\n", outFN); Printf(globtmpstr); }
   
   delete []norm;
   delete []LmersCnt;

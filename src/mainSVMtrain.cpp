@@ -79,15 +79,15 @@ static std::string trimmed(const char *s)
 static int readKernel(const std::string &fn, int &N, std::vector<double> &K)
 {
 	FILE *f = fopen(fn.c_str(), "rb");
-	if (f == NULL) { sprintf(globtmpstr, "\n ERROR: cannot open kernel file %s\n", fn.c_str()); Printf(globtmpstr); return 1; }
+	if (f == NULL) { snprintf(globtmpstr, GKM_TMPSTR_LEN, "\n ERROR: cannot open kernel file %s\n", fn.c_str()); Printf(globtmpstr); return 1; }
 	unsigned char magic[4] = {0, 0, 0, 0};
 	size_t got = fread(magic, 1, 4, f);
 	if (got == 4 && memcmp(magic, "GKMK", 4) == 0) {
 		GkmkReader rd;
 		int rc = rd.read(f);
 		fclose(f);
-		if (rc != 0) { sprintf(globtmpstr, "\n ERROR: %s: %s\n", fn.c_str(), rd.error.c_str()); Printf(globtmpstr); return 1; }
-		if (N > 0 && rd.hdr.n != N) { sprintf(globtmpstr, "\n ERROR: kernel has %d rows but the sequence files have %d sequences\n", rd.hdr.n, N); Printf(globtmpstr); return 1; }
+		if (rc != 0) { snprintf(globtmpstr, GKM_TMPSTR_LEN, "\n ERROR: %s: %s\n", fn.c_str(), rd.error.c_str()); Printf(globtmpstr); return 1; }
+		if (N > 0 && rd.hdr.n != N) { snprintf(globtmpstr, GKM_TMPSTR_LEN, "\n ERROR: kernel has %d rows but the sequence files have %d sequences\n", rd.hdr.n, N); Printf(globtmpstr); return 1; }
 		N = rd.hdr.n;
 		K.assign((size_t)N * N, 0.0);
 		size_t k = 0;
@@ -99,12 +99,12 @@ static int readKernel(const std::string &fn, int &N, std::vector<double> &K)
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j <= i; j++) {
 			double v;
-			if (fscanf(f, "%lf", &v) != 1) { sprintf(globtmpstr, "\n ERROR: error reading kernel %s at row %d (expected %d rows)\n", fn.c_str(), i, N); Printf(globtmpstr); fclose(f); return 1; }
+			if (fscanf(f, "%lf", &v) != 1) { snprintf(globtmpstr, GKM_TMPSTR_LEN, "\n ERROR: error reading kernel %s at row %d (expected %d rows)\n", fn.c_str(), i, N); Printf(globtmpstr); fclose(f); return 1; }
 			K[(size_t)i * N + j] = K[(size_t)j * N + i] = v;
 		}
 	}
 	double extra;
-	if (fscanf(f, "%lf", &extra) == 1) { sprintf(globtmpstr, "\n ERROR: kernel %s has more than %d rows\n", fn.c_str(), N); Printf(globtmpstr); fclose(f); return 1; }
+	if (fscanf(f, "%lf", &extra) == 1) { snprintf(globtmpstr, GKM_TMPSTR_LEN, "\n ERROR: kernel %s has more than %d rows\n", fn.c_str(), N); Printf(globtmpstr); fclose(f); return 1; }
 	fclose(f);
 	return 0;
 }
@@ -113,7 +113,7 @@ static int readFasta(const std::string &fn, int maxseqlen, std::vector<std::stri
 {
 	CSequence sgi(maxseqlen + 3);
 	FILE *sfi = fopen(fn.c_str(), "r");
-	if (sfi == NULL) { sprintf(globtmpstr, "\n ERROR: cannot open file %s\n", fn.c_str()); Printf(globtmpstr); return 1; }
+	if (sfi == NULL) { snprintf(globtmpstr, GKM_TMPSTR_LEN, "\n ERROR: cannot open file %s\n", fn.c_str()); Printf(globtmpstr); return 1; }
 	while (!feof(sfi)) {
 		if (sgi.readFsa(sfi, true) < 0) { fclose(sfi); return 1; }
 		if (sgi.getLength() > 0) { names.push_back(sgi.getName()); seqs.push_back(trimmed(sgi.getSeq())); }
@@ -132,7 +132,7 @@ int gkmTrainRun(OptsGkmTrain &opt)
 	if (readFasta(opt.negfile, opt.maxseqlen, names, seqs) != 0) return 1;
 	int N = (int)names.size();
 	int nneg = N - npos;
-	sprintf(globtmpstr, "npos=%d, nneg=%d, N=%d\n", npos, nneg, N); Printf(globtmpstr);
+	snprintf(globtmpstr, GKM_TMPSTR_LEN, "npos=%d, nneg=%d, N=%d\n", npos, nneg, N); Printf(globtmpstr);
 	if (npos == 0 || nneg == 0) { Printf("\n ERROR: both classes must contain sequences.\n"); return 1; }
 
 	std::vector<double> K;
@@ -170,14 +170,14 @@ int gkmTrainRun(OptsGkmTrain &opt)
 	int wlabel[1] = {1}; double wval[1] = {opt.posWeight};
 	if (opt.posWeight != 1.0) { param.nr_weight = 1; param.weight_label = wlabel; param.weight = wval; }
 	const char *perr = svm_check_parameter(&prob, &param);
-	if (perr) { sprintf(globtmpstr, "\n ERROR: %s\n", perr); Printf(globtmpstr); return 1; }
+	if (perr) { snprintf(globtmpstr, GKM_TMPSTR_LEN, "\n ERROR: %s\n", perr); Printf(globtmpstr); return 1; }
 	svm_set_print_string_function(opt.quiet ? &svm_print_quiet : &svm_print_via_Printf);
 
 	if (opt.nfold > 1) {
 		std::vector<double> target(N);
 		svm_cross_validation(&prob, &param, opt.nfold, target.data());
 		int correct = 0; for (int i = 0; i < N; i++) if (target[i] == y[i]) correct++;
-		sprintf(globtmpstr, "Cross validation (%d folds) accuracy = %g%%\n", opt.nfold, 100.0 * correct / N); Printf(globtmpstr);
+		snprintf(globtmpstr, GKM_TMPSTR_LEN, "Cross validation (%d folds) accuracy = %g%%\n", opt.nfold, 100.0 * correct / N); Printf(globtmpstr);
 	}
 
 	svm_model *model = svm_train(&prob, &param);
@@ -187,17 +187,17 @@ int gkmTrainRun(OptsGkmTrain &opt)
 	// sv_coef is y_i*alpha_i with y = +1 for model->label[0]; make +1 the positive class regardless
 	double sign = (model->label[0] == 1) ? 1.0 : -1.0;
 	double rho = sign * model->rho[0];
-	sprintf(globtmpstr, "nSV=%d, rho=%.10e\n", nsv, rho); Printf(globtmpstr);
+	snprintf(globtmpstr, GKM_TMPSTR_LEN, "nSV=%d, rho=%.10e\n", nsv, rho); Printf(globtmpstr);
 
 	std::string alphaFN = opt.outprefix + "_svalpha.out", svFN = opt.outprefix + "_svseq.fa", modelFN = opt.outprefix + ".gkmmodel";
 	FILE *fo_alpha = NULL, *fo_sv = NULL, *fo_model = NULL;
 	if (opt.legacyPair) {
 		fo_alpha = fopen(alphaFN.c_str(), "w"); fo_sv = fopen(svFN.c_str(), "w");
-		if (fo_alpha == NULL || fo_sv == NULL) { sprintf(globtmpstr, "\n ERROR: cannot write %s / %s\n", alphaFN.c_str(), svFN.c_str()); Printf(globtmpstr); svm_free_and_destroy_model(&model); return 1; }
+		if (fo_alpha == NULL || fo_sv == NULL) { snprintf(globtmpstr, GKM_TMPSTR_LEN, "\n ERROR: cannot write %s / %s\n", alphaFN.c_str(), svFN.c_str()); Printf(globtmpstr); svm_free_and_destroy_model(&model); return 1; }
 	}
 	if (opt.modelFile) {
 		fo_model = fopen(modelFN.c_str(), "w");
-		if (fo_model == NULL) { sprintf(globtmpstr, "\n ERROR: cannot write %s\n", modelFN.c_str()); Printf(globtmpstr); svm_free_and_destroy_model(&model); return 1; }
+		if (fo_model == NULL) { snprintf(globtmpstr, GKM_TMPSTR_LEN, "\n ERROR: cannot write %s\n", modelFN.c_str()); Printf(globtmpstr); svm_free_and_destroy_model(&model); return 1; }
 		fprintf(fo_model, "#gkmmodel 1\n#rho %.10e\n#nsv %d\n#npos %d\n#nneg %d\n#C %g\n#solver libsvm-%d\n", rho, nsv, npos, nneg, opt.C, LIBSVM_VERSION);
 	}
 	for (int k = 0; k < nsv; k++) {
@@ -227,10 +227,10 @@ int mainSVMtrain(int argc, char *argv[]) //mainSVMtrain
 		else if (a == "-n" && hasArg) { i++; Printf("Note: -n niter20 belongs to the previous solver and is ignored; use -c C.\n"); }
 		else if (a == "-S") opt.shrinking = false;
 		else if (a == "-q") opt.quiet = true;
-		else if (a.size() > 0 && a[0] == '-') { sprintf(globtmpstr, "\n parameter not recognized: %s \n", argv[i]); Printf(globtmpstr); perr = 1; }
+		else if (a.size() > 0 && a[0] == '-') { snprintf(globtmpstr, GKM_TMPSTR_LEN, "\n parameter not recognized: %s \n", argv[i]); Printf(globtmpstr); perr = 1; }
 		else {
 			if (nfp == 0) opt.kernelfile = a; else if (nfp == 1) opt.posfile = a; else if (nfp == 2) opt.negfile = a; else if (nfp == 3) opt.outprefix = a;
-			else { sprintf(globtmpstr, "\n parameter not recognized: %s \n", argv[i]); Printf(globtmpstr); perr = 1; }
+			else { snprintf(globtmpstr, GKM_TMPSTR_LEN, "\n parameter not recognized: %s \n", argv[i]); Printf(globtmpstr); perr = 1; }
 			nfp++;
 		}
 	}

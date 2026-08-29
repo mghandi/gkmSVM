@@ -6,16 +6,9 @@
 Gapped-Kmer Support Vector Machine
 }
 \description{
-Imports the 'gkmSVM' v2.0 functionalities into R (www.beerlab.org/gkmsvm). It also uses the 'kernlab' library (separate R package by different authors) for various SVM algorithms.   
+Imports the 'gkmSVM' v2.0 functionalities into R <http://www.beerlab.org/gkmsvm/> . It also uses the 'kernlab' library (separate R package by different authors) for various SVM algorithms.   
 }
 \details{
-\tabular{ll}{
-Package: \tab gkmSVM\cr
-Type: \tab Package\cr
-Version: \tab 0.80\cr
-Date: \tab 2016-02-29\cr
-License: \tab GPL (>= 2)\cr
-}
 
   The gkm-SVM provides implementation of a new SVM kernel method using gapped
   k-mers as features for DNA or Protein sequences.
@@ -100,12 +93,12 @@ Tutorial
 \author{
 Mahmoud Ghandi
 
-Maintainer: Mahmoud Ghandi <mghandi@gmail.com>
+Maintainer: Mike Beer <mbeer@jhu.edu>
 }
 \references{
 Ghandi M, Lee D, Mohammad-Noori M, Beer MA. 2014. Enhanced Regulatory Sequence Prediction Using Gapped k-mer Features. PLoS Comput Biol 10: e1003711. 
 
-Ghandi M, Mohammad-Noori M, Ghareghani N, Lee D, Garraway LA, and Beer MA. gkmSVM an R package for gapped-kmer SVM, Bioinformatics (under review)
+Ghandi M, Mohammad-Noori M, Ghareghani N, Lee D, Garraway LA, and Beer MA. 2016. gkmSVM an R package for gapped-kmer SVM, Bioinformatics 32 (14), 2205-2207.
 }
 \keyword{package}
 \keyword{gkmSVM}

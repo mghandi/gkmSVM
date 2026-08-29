@@ -126,5 +126,18 @@ Crashes and memory errors fixed (all reproduced before the fix, all now ASAN/UBS
 * The mismatch profile is stored as a lower triangle: half the memory for the dominant `n²·(d+1)`
   term (e.g. 7.5 GB → 3.7 GB at 20 000 sequences).
 
+### Phase 0b — CRAN 0.83.0 reconciliation
+
+* The Bioconductor packages used only by `genNullSeqs` (`GenomicRanges`, `rtracklayer`, `BSgenome`,
+  `BSgenome.Hsapiens.UCSC.hg1{8,9}.masked`, `BiocGenerics`, `Biostrings`, `GenomeInfoDb`, `IRanges`,
+  `S4Vectors`) moved from `Imports` to `Suggests`, as on CRAN since 0.83.0: the package installs
+  without them and `genNullSeqs` tells you what is missing. `useDynLib(..., .registration = TRUE)`.
+* All `sprintf` calls in the C++ sources are bounded `snprintf`/`strcpy` on buffers sized for the
+  content (CRAN's compiler-warning policy).
+* CRAN's `.Rd` fixes for `genNullSeqs`, `gkmsvm_delta` and the package page are folded in; the
+  version is 0.90.0 (development), above CRAN's 0.83.0.
+* Kept from this tree where the two lineages differed: multithreading (`nmaxThreads`), `alg = 2` as
+  the R default, `normalizePath` on file arguments, and the identity handling of Phase 3.
+
 Build: C++17 (`SystemRequirements: C++17`, `src/Makevars`). The R package routes all console output
 through `Rprintf` and random numbers through R's RNG (`-DRPACKAGE`); the standalone CLI is unchanged.
