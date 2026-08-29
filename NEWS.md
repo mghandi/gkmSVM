@@ -40,6 +40,8 @@ Crashes and memory errors fixed (all reproduced before the fix, all now ASAN/UBS
   `delete`/`delete[]` mismatches; several leaks per call.
 * Errors in the C++ core are now reported to R as errors (`stop()`); previously the R functions
   returned normally with no or partial output.
+* The mismatch kernel (`useTgkm=4`) with a 2-letter alphabet produced NaN weights (`0^negative`
+  in the weight formula); it now produces finite ones. No other alphabet is affected.
 
 ### Phase 2a — core extraction (behaviour-preserving)
 
