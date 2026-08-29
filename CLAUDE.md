@@ -17,9 +17,11 @@ numerical oracle for this refactor, and its theory is the target of Phase 7.
 
 ## 2. Current state (2026-08-29)
 
-* `master` = **0.80 (2018)**, commit `222cc50`. Untouched by the refactor so far.
-* Branch `refactor/plan`, **PR #5** (open): `dev/REFACTORING_PLAN.md`, `dev/baseline.sh`,
-  `.Rbuildignore`, `.gitignore`. Documentation only — no code changes.
+* `master` = **0.80**, plus the refactor scaffolding merged from PR #5 (`ebd50e9`):
+  `dev/REFACTORING_PLAN.md`, `dev/baseline.sh`, `CLAUDE.md`, `.claude/settings.json`,
+  `.Rbuildignore`, `.gitignore`. **No source code has been changed yet** — `src/` and `R/` are
+  untouched at `222cc50`.
+* The stale branch `refactor/plan` can be ignored (its content is on `master`).
 * **The plan is approved.** All seven decisions are recorded in §5 of the plan. Execute the phases
   in order starting with Phase 0.
 * CRAN ships **0.83.0 (2023)**, a diverged lineage: it has packaging hardening (`snprintf`,
@@ -77,9 +79,9 @@ Measured on this machine; `dev/baseline.sh` reproduces all of them.
 
 ## 6. Conventions
 
-* **Never commit to `master` and never push to it.** Every phase = its own branch + PR.
-  Base phase branches on `refactor/plan` until PR #5 is merged (so the plan travels with them);
-  after it is merged, base them on `master`.
+* **Never commit to `master` and never push to it.** Every phase = its own branch + PR, branched
+  from `master`. A `pre-push` hook in `.git/hooks/` on this clone refuses pushes to `master`
+  outright; if you hit it, that is working as intended — open a PR.
 * Commit messages in imperative mood, ending with the `Co-Authored-By: Claude` and `Claude-Session`
   trailers used in the existing history.
 * **Do not `git add -A`** — it has already swept in `.DS_Store` and a pandoc-rendered
