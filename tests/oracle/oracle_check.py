@@ -9,7 +9,10 @@ no code with src/. Two levels:
      counts) as printed by gkmsvm_kernel, for a grid of (L, K) and alphabet sizes b in {2, 4};
   2. whole kernel matrices on the small oracle fixtures (6+6 x 60 bp), with and without reverse
      complement, both algorithms, t in {0, 1, 2}, compared entry by entry to the normalised exact
-     kernel.
+     kernel;
+  3. gkmsvm_classify scores for the fixed SV model (sv_svseq.fa / sv_svalpha.out) against the exact
+     score  sum_j alpha_j <x_i,x_j>_d / (|x_i|_d |x_j|_d), where <.,.>_d keeps mismatch levels
+     m <= d only (the -d option; norm and score truncated alike, Phase 1 decision 4), for d in {3, L}.
 
 Tolerance: gkmsvm_kernel prints %e (7 significant digits), so agreement is required to a relative
 1e-6 for tables and 2e-6 for kernel entries (absolute 1e-7 near zero).
@@ -108,6 +111,56 @@ def check_kernels(bindir, tmp, failures):
     return n
 
 
+def exact_scores(test, svs, alphas, L, K, kind, d, rc, B):
+    bl = gb.Blocks(B)
+    coeffs = {m: (v if m[0] <= d else gb.Fraction(0)) for m, v in gb.kernel_coefficients(B, K, kind).items()}
+    wt = [s.lmers(L, rc) for s in test]
+    ws = [s.lmers(L, rc) for s in svs]
+    nsv = [gb.inner_product(w, w, coeffs, bl) for w in ws]
+    out = []
+    for w in wt:
+        nt = gb.inner_product(w, w, coeffs, bl)
+        s = sum((gb.Fraction(a) * gb.inner_product(w, wj, coeffs, bl) / gb.Fraction(float((nt * nj) ** 0.5)) if nt * nj > 0 else 0
+                 for wj, nj, a in zip(ws, nsv, alphas)), gb.Fraction(0))
+        out.append(float(s))
+    return out
+
+
+def check_classify(bindir, tmp, failures):
+    n = 0
+    setups = [("test_seqs.fa", "sv_svseq.fa", "sv_svalpha.out", ["ACGT"], None, [(10, 6), (8, 5)]),
+              ("test_b2.fa", "sv_b2_svseq.fa", "sv_b2_svalpha.out", ["AB"], FIX + "/alphabet_b2.txt", [(8, 5)])]
+    for tf, svf, af, alphabets, alpha_file, LKs in setups:
+        test = gb.read_mfa(FIX + "/" + tf, alphabets)
+        svs = gb.read_mfa(FIX + "/" + svf, alphabets)
+        alphas = [float(ln.split()[1]) for ln in open(FIX + "/" + af) if ln.strip()]
+        for L, K in LKs:
+            for rc in ((True, False) if alpha_file is None else (False,)):
+                for t, kind in KINDS.items():
+                    for d in (3, L):
+                        for alg in (1, 2):
+                            exact = exact_scores(test, svs, alphas, L, K, kind, d, rc, (len(alphabets[0]),) * L)
+                            out = os.path.join(tmp, "s.txt")
+                            argv = [os.path.join(bindir, "gkmsvm_classify"), "-l", str(L), "-k", str(K), "-d", str(d), "-t", str(t), "-a", str(alg)]
+                            if not rc:
+                                argv.append("-R")
+                            if alpha_file:
+                                argv += ["-A", alpha_file]
+                            argv += [FIX + "/" + tf, FIX + "/" + svf, FIX + "/" + af, out]
+                            p = subprocess.run(argv, capture_output=True, text=True)
+                            if p.returncode != 0:
+                                failures.append(f"classify {tf} L={L} K={K} t={t} d={d} rc={rc} alg={alg}: exit {p.returncode}")
+                                continue
+                            got = [float(ln.split()[1]) for ln in open(out) if ln.strip()]
+                            if alg == 1 and d < L:
+                                continue  # the XOR/hash-table path (-a 1) sums all mismatch levels regardless of -d; documented
+                            for i, (g, e) in enumerate(zip(got, exact)):
+                                n += 1
+                                if abs(g - e) > 2e-6:  # scores are printed with %f (6 decimals)
+                                    failures.append(f"classify {tf} L={L} K={K} t={t} d={d} rc={rc} alg={alg}: seq {i} C++ {g} vs exact {e:.7f}")
+    return n
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--bin", default="build")
@@ -119,6 +172,8 @@ def main():
         print(f"coefficient tables: {nt} values compared")
         nk = check_kernels(bindir, tmp, failures)
         print(f"kernel entries:     {nk} values compared")
+        nc = check_classify(bindir, tmp, failures)
+        print(f"classify scores:    {nc} values compared")
     for f in failures[:50]:
         print("FAIL", f)
     if len(failures) > 50:

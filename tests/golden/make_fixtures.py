@@ -19,6 +19,8 @@ expected outputs stay small, and each file exercises one edge of the FASTA reade
   b5_{pos,neg}.fa          6+6 x 60 over "ACGTN" as a 5-letter alphabet (alphabet_b5.txt)  (crashes today; Phase 5)
   test_seqs.fa             10 x 100 bp DNA test sequences for gkmsvm_classify
   sv_svseq.fa / sv_svalpha.out  a hand-made support-vector model: 5 pos + 5 neg from dna_small with fixed alphas
+  sv_longnames_* / test_longnames.fa  the same model and 10 test sequences with 120-character names   (Phase 1)
+  sv_b2_* / test_b2.fa     a fixed model and 8 test sequences over the "AB" alphabet                  (Phase 1)
 """
 import argparse, os, random, sys
 
@@ -89,6 +91,21 @@ def build():
     alphas = [0.9, 0.35, 1.0, 0.12, 0.6, -0.8, -0.25, -1.0, -0.4, -0.72]
     files["sv_svseq.fa"] = fasta(sv)
     files["sv_svalpha.out"] = "".join(f"{n}\t{a:11.6e}\n" for (n, _), a in zip(sv, alphas))
+    # --- added in Phase 1 (new PRNG draws come after everything above, so older fixtures are unchanged)
+    # the same SV model with 120-character names, and long-named test sequences (name-buffer overflow)
+    ln = lambda n: "N" * 110 + "_" + n
+    files["sv_longnames_svseq.fa"] = fasta([(ln(n), s) for n, s in sv])
+    files["sv_longnames_svalpha.out"] = "".join(f"{ln(n)}\t{a:11.6e}\n" for (n, _), a in zip(sv, alphas))
+    files["test_longnames.fa"] = fasta([("T" * 118 + f"_{i}", s) for i, (_, s) in enumerate(
+        [(f"t{i}", s) for i, s in enumerate(seqs(rng, 10, 100, motif=MOTIF))])])
+    # a fixed SV model over the two-letter alphabet (classify with -A; exercises the b != 4 weights)
+    b2p = [(f"b2p{i}", s) for i, s in enumerate(seqs(rng, 10, 80, alpha="AB", motif="ABBABAA"))]
+    b2n = [(f"b2n{i}", s) for i, s in enumerate(seqs(rng, 10, 80, alpha="AB"))]
+    svb2 = [b2p[i] for i in (0, 3, 6, 9)] + [b2n[i] for i in (1, 4, 7)]
+    ab2 = [0.7, 1.0, 0.2, 0.55, -0.9, -0.3, -1.0]
+    files["sv_b2_svseq.fa"] = fasta(svb2)
+    files["sv_b2_svalpha.out"] = "".join(f"{n}\t{a:11.6e}\n" for (n, _), a in zip(svb2, ab2))
+    files["test_b2.fa"] = fasta([(f"tb{i}", s) for i, s in enumerate(seqs(rng, 8, 80, alpha="AB", motif="ABBABAA"))])
     return files
 
 

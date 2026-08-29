@@ -2133,7 +2133,7 @@ void CLTreeS::deleteTree(int n, int alphabetSize, int DontDeleteNodeData)
         {
           if (daughter[i].node->n>1)
           {
-            delete daughter[i].node->seqIDs.p;
+            delete []daughter[i].node->seqIDs.p;
           }
           delete daughter[i].node;
         }

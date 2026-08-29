@@ -20,8 +20,9 @@ numerical oracle for this refactor, and its theory is the target of Phase 7.
 * `master` = **0.80**, plus the refactor scaffolding merged from PR #5 (`ebd50e9`):
   `dev/REFACTORING_PLAN.md`, `dev/baseline.sh`, `CLAUDE.md`, `.claude/settings.json`,
   `.Rbuildignore`, `.gitignore`. `src/` and `R/` are untouched at `222cc50`.
-* **Phase 0 is implemented on branch `phase0/baseline-safety-net` (PR open, not merged).** See §7 of
-  the plan for what it contains. Key commands: `make`, `make test` (golden), `make oracle`,
+* **Phase 0 is on branch `phase0/baseline-safety-net` (PR #7, not merged) and Phase 1 on
+  `phase1/latent-bug-fixes` (stacked on it, PR open, not merged).** See §7 of the plan for what each
+  contains and `NEWS.md` for user-visible changes. Key commands: `make`, `make test` (golden), `make oracle`,
   `make bench`, `dev/scratch_install.sh` then `Rscript -e 'testthat::test_dir("tests/testthat",
   package="gkmSVM", load_package="installed")'`. Later phases branch from `master` but need Phase 0's
   files — until it is merged, branch from the Phase 0 branch and say so in the PR.
@@ -69,11 +70,9 @@ Measured on this machine; `dev/baseline.sh` reproduces all of them.
   kernel file works (5-fold accuracy 0.725 at C=0.1 vs 0.775 at C=1).
 * kernlab's `ksvm(type="C-svc")` **is** libsvm's `Solver`; coefficients agree to 7.2e-07 at
   `tol=1e-8`. Validate on decision values/AUC, not alphas (dual degeneracy).
-* ~38 consecutive `gkmsvm_kernel()` calls in one R session **abort R** (SIGABRT, heap corruption
-  from the reader bugs); 120-char names abort R immediately (exit 134) while the CLI survives them.
-  Both are Phase 1 items; the testthat golden runner uses one `Rscript` per case until then.
-* An empty FASTA record crashes `gkmsvm_kernel` (SIGBUS, `seqBaseId[-1]`); tracked as the
-  `k_emptyrec` xfail golden case.
+* Before Phase 1: ~38 consecutive `gkmsvm_kernel()` calls in one R session aborted R (heap
+  corruption), 120-char names aborted R, an empty FASTA record crashed with SIGBUS. All fixed in
+  Phase 1 and covered by golden/testthat cases; the whole corpus is ASAN+UBSAN clean since then.
 
 ## 5. Environment and tooling on this Mac
 

@@ -147,18 +147,15 @@ int mainSVMtrain(int argc, char * argv[]) //mainSVMtrain
 	//read positive sequence file
 	nseqs = 0;
 	FILE *sfi = fopen(posSeqFN, "r"); 
-	if (sfi == NULL)
-	{
-		perror ("error occurred while opening a file");
-		return 0;
-	}
+	if (sfi == NULL) { sprintf(globtmpstr,"\n ERROR: cannot open file %s\n", posSeqFN); Printf(globtmpstr); return 1; }
 
 	while (!feof(sfi))
 	{
-		sgi->readFsa(sfi,true);
+		if (sgi->readFsa(sfi,true) < 0) return 1;
 		if(sgi->getLength()>0)
 		{
-			seqname[nseqs] = new char[100]; 
+			if (nseqs>=NMAXNSEQUENCES-1) { Printf("\n ERROR: too many sequences.\n"); return 1; }
+			seqname[nseqs] = new char[strlen(sgi->getName())+1]; 
 			sprintf(seqname[nseqs],"%s", sgi->getName()); 
 			seqs[nseqs] = new char[sgi->getLength()+1];
 			sprintf(seqs[nseqs],"%s", sgi->getSeq());
@@ -170,12 +167,14 @@ int mainSVMtrain(int argc, char * argv[]) //mainSVMtrain
 
 	//read negative sequence file
 	sfi = fopen(negSeqFN, "r"); 
+	if (sfi == NULL) { sprintf(globtmpstr,"\n ERROR: cannot open file %s\n", negSeqFN); Printf(globtmpstr); return 1; }
 	while (!feof(sfi))
 	{
-		sgi->readFsa(sfi,true);
+		if (sgi->readFsa(sfi,true) < 0) return 1;
 		if(sgi->getLength()>0)
 		{
-			seqname[nseqs] = new char[100]; 
+			if (nseqs>=NMAXNSEQUENCES-1) { Printf("\n ERROR: too many sequences.\n"); return 1; }
+			seqname[nseqs] = new char[strlen(sgi->getName())+1]; 
 			sprintf(seqname[nseqs],"%s", sgi->getName()); 
 			seqs[nseqs] = new char[sgi->getLength()+1];
 			sprintf(seqs[nseqs],"%s", sgi->getSeq());
@@ -196,11 +195,7 @@ int mainSVMtrain(int argc, char * argv[]) //mainSVMtrain
 	}
 
 	FILE *fi = fopen(kernelFN,"r"); 
-	if (fi == NULL)
-	{
-		perror ("error occurred while opening a file");
-		return 0;
-	}
+	if (fi == NULL) { sprintf(globtmpstr,"\n ERROR: cannot open file %s\n", kernelFN); Printf(globtmpstr); return 1; }
 
 	for(i=0;i<N;i++)
 	{
@@ -248,16 +243,8 @@ int mainSVMtrain(int argc, char * argv[]) //mainSVMtrain
 
 	FILE *fo_alpha = fopen(alphaFN, "w"); 
 	FILE *fo_sv = fopen(svFN, "w");
-	if (fo_alpha == NULL)
-	{
-		perror ("error occurred while opening a file");
-		return 0;
-	}
-	if (fo_sv == NULL)
-	{
-		perror ("error occurred while opening a file");
-		return 0;
-	}
+	if (fo_alpha == NULL) { sprintf(globtmpstr,"\n ERROR: cannot open file %s\n", alphaFN); Printf(globtmpstr); return 1; }
+	if (fo_sv == NULL) { sprintf(globtmpstr,"\n ERROR: cannot open file %s\n", svFN); Printf(globtmpstr); return 1; }
 	for(i=0;i<npos;i++)
 	{
 		if (lambdas[i]>1e-10)

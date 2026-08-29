@@ -32,6 +32,7 @@ run_golden_case_R <- function(case, outfile) {
   fx <- function(f) file.path(golden_dir(), "fixtures", f)
   alphabetFN <- if (nzchar(case$A)) fx(case$A) else "NULL"
   common <- list(L = num_or(case$L, 10), K = num_or(case$K, 6), maxnmm = num_or(case$d, 3),
+                 maxseqlen = num_or(case$m, 10000), maxnumseq = num_or(case$n, 1000000),
                  useTgkm = num_or(case$t, 1), alg = num_or(case$alg, 2), addRC = case$RC != "0",
                  usePseudocnt = case$p == "1", wildcardLambda = num_or(case$lam, 1.0),
                  wildcardMismatchM = num_or(case$M, 2), alphabetFN = alphabetFN)
@@ -49,22 +50,4 @@ run_golden_case_R <- function(case, outfile) {
 
 read_bytes <- function(path) readBin(path, "raw", n = file.info(path)$size)
 
-# Run one case in a fresh R process. Until Phase 1 lands, ~38 consecutive gkmsvm_kernel() calls in
-# one R session abort the process (heap corruption from the known reader bugs: seqBaseId[-1] is
-# written at every EOF, names >= 100 chars overflow, ...; measured 2026-08-29 on macOS/R 4.5.3,
-# the same call succeeds on its own). Phase 1 switches the golden tests back to in-process calls.
-run_golden_case_subprocess <- function(case, outfile) {
-  script <- tempfile(fileext = ".R")
-  rds <- tempfile(fileext = ".rds")
-  saveRDS(case, rds)
-  writeLines(sprintf('
-    suppressPackageStartupMessages(library(gkmSVM))
-    Sys.setenv(GKMSVM_GOLDEN_DIR = "%s")
-    source("%s")
-    case <- readRDS("%s")
-    invisible(capture.output(run_golden_case_R(case, "%s")))
-  ', golden_dir(), file.path(golden_dir(), "..", "testthat", "helper-golden.R"), rds, outfile), script)
-  rc <- system2(file.path(R.home("bin"), "Rscript"), c("--vanilla", script), stdout = FALSE, stderr = FALSE)
-  if (rc != 0) stop(sprintf("case %s: Rscript exited with status %d", case$name, rc))
-  outfile
-}
+has_tag <- function(case, tag) tag %in% strsplit(case$tags, " ")[[1]]

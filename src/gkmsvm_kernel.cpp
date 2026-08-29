@@ -35,14 +35,6 @@ void gkmsvm_kernel(SEXP params){
   std::string alphabetFN = Rcpp::as<std::string>(rparam["alphabetFN"]);
   int nmaxThreads= Rcpp::as<int>(rparam["nmaxThreads"]);
   
-  /*
-   * 
-   if(rparam["alphabetFN"]==NULL){
-    printf("\n alphabetFN=null "); 
-  }else{
-    printf("\n alphabetFN=NOTnull "); 
-  }
-   */ 
     int argc=0; 
     char** argv = new char *[50]; 
     for(int i=0;i<50;i++){
@@ -104,12 +96,13 @@ void gkmsvm_kernel(SEXP params){
 
     
     
-   mainGkmKernel( argc, argv); 
+   int status = mainGkmKernel( argc, argv); 
    
    for(int i=0;i<50;i++){
      delete []argv[i]; 
    }
    delete[]argv;   
+   if (status != 0) Rcpp::stop("gkmsvm_kernel failed (see the messages above)");
    
   }
   

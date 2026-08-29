@@ -91,12 +91,13 @@ void gkmsvm_classify(SEXP params){
     sprintf(argv[argc++], "%s", alphafile.c_str()); 
     sprintf(argv[argc++], "%s", outfile.c_str()); 
 
-    mainSVMclassify( argc, argv); 
+    int status = mainSVMclassify( argc, argv); 
    
    for(int i=0;i<30;i++){
      delete []argv[i]; 
    }
    delete[]argv;   
+   if (status != 0) Rcpp::stop("gkmsvm_classify failed (see the messages above)");
    
 }
   

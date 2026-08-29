@@ -201,20 +201,19 @@ int find_str(char **strs, int N, char *str){
 
 char globtmpstr[10000]; // global temp string;
 void Printf(const char *str){ // this to replace printf
-  sprintf(globtmpstr, "%s", str);
-  Printf(globtmpstr);
+  Printf(const_cast<char *>(str)); // no copy through globtmpstr: that made every message a data race
 }
 
-//#define RPACKAGE
+// RPACKAGE is defined by src/Makevars for the R build (output through Rprintf, random numbers from
+// R's RNG); the standalone CLI (Makefile) leaves it undefined and uses stdio / rand().
 #ifdef RPACKAGE
 #include "R_ext/Print.h"
+#include "R_ext/Random.h"
 void Printf(char *str){ // this to replace printf
   Rprintf("%s", str);
 }
-unsigned int locrseed = 123456789;
-int myrandom(int M) {
-  locrseed = (1103515245 * locrseed + 12345) % (1<<31);
-  return locrseed%M;
+int myrandom(int M) { // uniform integer in 0..M-1 from R's RNG (the callers run inside an Rcpp RNGScope)
+  return (int)R_unif_index((double)M);
 }
 #else
 void Printf(char *str){ // this to replace printf

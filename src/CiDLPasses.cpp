@@ -321,6 +321,7 @@ void CiDLPasses::newIDLPasses(int L, int Dmax){
     initPassOrderIDL(L);
   }
   
+  deletePassTrees();
   passTrees = new CbinMMtree *[M];
   for(int i=0;i<M;i++){
     passTrees[i] = new CbinMMtree();
@@ -374,6 +375,7 @@ void CiDLPasses::newGreedyIDLPasses(int L, int M,  int Dmax, int *nodesAtDepthCn
     // w[i]=1.0;
   }
   
+  deletePassTrees();
   passTrees = new CbinMMtree *[M];
   for(int i=0;i<M;i++){
     passTrees[i] = new CbinMMtree();
@@ -461,6 +463,7 @@ void CiDLPasses::newGreedy2IDLPasses(int L, int M,  int Dmax, int *nodesAtDepthC
     w[i]=(1.0*nodesAtDepthCnt[i])*nodesAtDepthCnt[i];
   }
   
+  deletePassTrees();
   passTrees = new CbinMMtree *[M];
   for(int i=0;i<M;i++){
     passTrees[i] = new CbinMMtree();
@@ -560,6 +563,17 @@ void CiDLPasses::deletePassOrder(){
 }
 
 
+void CiDLPasses::deletePassTrees(){
+  if(passTrees!=NULL){
+    for(int i=0;i<M;i++){
+      if(passTrees[i]!=NULL){ passTrees[i]->deleteTree(); delete passTrees[i]; }
+    }
+    delete []passTrees;
+    passTrees=NULL;
+  }
+}
+
 CiDLPasses::~CiDLPasses(void){
+  deletePassTrees();
   deletePassOrder();
 }
