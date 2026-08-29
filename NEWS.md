@@ -42,6 +42,9 @@ Crashes and memory errors fixed (all reproduced before the fix, all now ASAN/UBS
   returned normally with no or partial output.
 * The mismatch kernel (`useTgkm=4`) with a 2-letter alphabet produced NaN weights (`0^negative`
   in the weight formula); it now produces finite ones. No other alphabet is affected.
+* Two Linux-only defects: `getopt` was not re-initialised between calls from R on glibc (a later
+  call could misparse its options and silently write nothing), and the reverse-complement code
+  copied a sequence name onto itself (undefined; flagged by AddressSanitizer on Linux).
 
 ### Phase 2a — core extraction (behaviour-preserving)
 
