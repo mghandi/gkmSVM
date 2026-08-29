@@ -366,12 +366,40 @@ pattern for SVMs.
   none. Carry `rho` in the new model format and apply it there; keep the legacy two-file output
   bias-free. Ranking metrics (AUC, and the `gkmsvm_delta` difference) are unaffected by a constant
   offset, so this is safe.
-* **Not bit-identical to kernlab.** Different solver and stopping rule, so alphas will differ even
-  where the models are equivalent. `gkmsvm_train` therefore gains
-  `backend = c("kernlab", "libsvm")`, defaulting to `"kernlab"` for this release — the same
-  opt-in-then-flip pattern as the binary format (decision 3) — so the two can be compared on real
-  data before the default moves. If `libsvm` becomes the default, the heavy `kernlab` dependency
-  can be dropped from `Imports`.
+* **kernlab and libsvm are the *same solver*, so agreement should be tight.** `ksvm(type="C-svc")`
+  dispatches to `.Call(smo_optim, …)`, which is libsvm's `Solver` class; a source diff shows only two
+  substantive differences (a dropped `info()` warning and one extra disjunct in
+  `select_working_set`'s stopping test). Second-order working-set selection, shrinking,
+  `reconstruct_gradient`, `calculate_rho` and `Qfloat=float` are identical. Measured head-to-head on
+  the same Gram matrix with `shrinking=FALSE` on both sides, the coefficient vectors agree to
+  **7.2e-07 at `tol=1e-8` and 1.5e-09 at `tol=1e-10`** — the gap scales with the stopping slack,
+  which is the signature of one solver run twice, not two solvers. So expect **agreement to the
+  stopping tolerance**, not merely "similar".
+  *Caveat:* where the dual optimum is non-unique (many bounded SVs) individual alphas can differ a
+  lot while the model does not — in one linear-kernel case `max|Δcoef| = 0.70` yet decision values
+  correlated 0.9999992. **Validate on decision values and AUC, not on alphas.**
+* **Sign/label convention differs.** libsvm makes the first-seen label `+1`; kernlab makes the higher
+  sorted factor level `+1`. kernlab's reported `b` is `rho` (its docs call it "the negative
+  intercept"). The migration must pin the convention explicitly or the whole model flips sign.
+* **`shrinking` needs care — and there may be a kernlab bug here.** Both libraries share a
+  byte-identical `Kernel::swap_index` that permutes the `x` pointers only. libsvm's `PRECOMPUTED`
+  kernel is permutation-safe by construction, because row identity travels *inside the data*
+  (`kernel_precomputed` reads `x[i][(int)(x[j][0].value)]`). kernlab's `kernelMatrix` path instead
+  indexes positionally (`*(K + m*i + j)`) into an R matrix that `swap_index` never permutes, so with
+  shrinking enabled the solver appears to read permuted indices into an unpermuted `K`. Measured on
+  the same data, `ksvm(K, shrinking=TRUE)` gave a different objective, `b`, nSV and training error
+  than the feature-space fit, while `shrinking=FALSE` reproduced it to 6.4e-15.
+  **This is source reading plus one measurement, not a confirmed upstream bug — verify it
+  independently before relying on it, and if it holds, report it to the kernlab maintainers.**
+  Two consequences either way: (i) any "reproduce the old numbers" test must keep
+  `shrinking=FALSE` on the kernlab side; (ii) gkmSVM already sets `shrinking=FALSE` as its own
+  default at both call sites (`gkmsvm_train.R:2,48`, `gkmsvm_trainCV.R:177`) — against kernlab's
+  default of `TRUE` — so existing results are sound, but every training run has been paying the full
+  no-shrinking cost. libsvm's `PRECOMPUTED` path can safely turn shrinking back **on**, which is a
+  free speed-up kernlab cannot currently offer.
+* Because the solvers agree, `gkmsvm_train` still gains `backend = c("kernlab", "libsvm")`
+  defaulting to `"kernlab"` for one release — but the bar for flipping the default is low, and once
+  it flips the heavy `kernlab` dependency can leave `Imports` entirely.
 * **CLI.** `gkmsvm_train` keeps its positional arguments and gains `-c C` (and `-w` class weights,
   `-v nfold` for CV). `-n niter20` is accepted and ignored with a deprecation notice.
 
