@@ -22,13 +22,19 @@ should be fixed on the way:
 | 2 | Text data files | The kernel matrix is `%e`-formatted text. *(measured, n=5000: 155 MB text vs 47.7 MB binary float32; R load 16.5 s via `read.table` vs 0.25 s via `readBin` — **3.2× smaller, 65× faster**.)* A `-b`/`OutputBinary` flag is already parsed but does nothing. |
 | 3 | DNA-only optimisation | Not merely "optimised for b=4": with the shipped `MAX_ALPHABET_SIZE 4`, any alphabet larger than 4 **segfaults** *(measured: `-A` with a 5-letter and a 20-letter alphabet both exit 139)*. `readAlphabetFile` prints an error and `return`s **without aborting**, so execution continues writing past the end of every trie node. From R this kills the whole session. |
 
-Two further findings shape the plan:
+Three further findings shape the plan:
 
 * **The GitHub tree and CRAN have diverged.** CRAN ships **0.83.0 (2023-08-20, maintainer Mike Beer)**;
   this repo is **0.80 (2018)**. CRAN has the packaging/`snprintf` hardening, `useDynLib(..., .registration=TRUE)`
   and Bioconductor deps demoted to `Suggests`; **it does not have** this repo's multithreading
-  (`std::thread`, `std::atomic`, `-T`), the duplicate-ID checks, or `normalizePath`. Refactoring
-  either tree in isolation would strand the other. **Reconciling them is step one.**
+  (`std::thread`, `std::atomic`, `-T`), the duplicate-ID checks, or `normalizePath`. The useful CRAN
+  changes get folded into this tree as a low-priority parallel track (Phase 0b) — it does not gate
+  the refactor, but it should not be forgotten either.
+* **The standalone CLI cannot be built from this repo.** `src/` has no `main()` and no Makefile — it
+  produces only the R shared object. The published `gkmsvm_kernel` / `gkmsvm_classify` binaries come
+  from a separate `gkmsvm-2.0.tar.gz`, i.e. a third lineage. Since those binaries stay supported,
+  Phase 0 adds `main()` shims and a Makefile so one tree builds the package *and* the CLI — which
+  also gives the golden tests something to drive.
 * **`CCalcWmML::calcKernel` reads out of bounds on every single run.** `wm` is `new double[K+1]`
   but the loop indexes `wm[i]` for `i ≤ m ≤ L` (`src/CalcWmML.cpp:30` vs `:145-150`). With the
   defaults L=10, K=6 that is a 4-double overread, ASAN-confirmed on a plain DNA run. It is normally
@@ -38,7 +44,7 @@ Two further findings shape the plan:
   is a zero-risk one-line fix. With it applied, the next finding to surface is the 100-character name
   overflow at `mainGkmKernel.cpp:696`, which ASAN otherwise never reaches.)*
 
-The plan is **eight phases**, ordered so that every phase is independently reviewable, keeps the
+The plan is **eight phases (plus a low-priority CRAN track)**, ordered so that every phase is independently reviewable, keeps the
 test suite green, and can be released on its own. Phases 0–2 change no behaviour.
 
 ---
@@ -120,27 +126,48 @@ Three cross-cutting rules for the new code:
 
 Each phase = one PR. "Gate" = what must hold before merging.
 
-### Phase 0 — Baseline, safety net, decisions (no code changes)
+### Phase 0 — Baseline and safety net (no code changes to the algorithms)
 
-1. **Reconcile CRAN 0.83.0 with `master`.** Import the CRAN 0.83.0 tree as a branch, diff, and
-   produce a single reconciled `master` that has *both* lineages' improvements: CRAN's `snprintf`
-   hardening / native-routine registration / `Suggests` demotion **and** this repo's threading,
-   duplicate-ID handling and `normalizePath`. Decide with Mike Beer who releases to CRAN afterwards.
+1. **Build the standalone CLI binaries from this repo.** Today `src/` contains **no `main()` and no
+   Makefile** — it only builds the R shared object, so `gkmsvm_kernel` / `gkmsvm_classify` cannot be
+   produced here at all; the published binaries come from the separate `gkmsvm-2.0.tar.gz` on
+   beerlab.org, i.e. a *third* lineage that will keep drifting. Add `src/cli/main_kernel.cpp` and
+   `src/cli/main_classify.cpp` (thin `main()` shims over the existing `mainGkmKernel` /
+   `mainSVMclassify`) plus a `Makefile`, so one source tree produces both the R package and the two
+   binaries. `dev/baseline.sh` already prototypes exactly this shim.
+   This lands **first** because the golden tests below need a way to drive the code from a shell,
+   and because it makes the CLI a permanently supported artefact rather than a fork.
 2. **Golden-test corpus.** Fixture FASTAs (DNA small/medium, duplicate names, names >100 chars,
    empty records, lowercase, `N`s, CRLF, b=2 alphabet) × a parameter grid
    (L ∈ {6,8,10,12}, K ∈ {4,6,8}, d ∈ {-1,2,3,4}, t ∈ {0,1,2,3,4}, alg ∈ {1,2}, ±RC, ±pseudocount).
    Freeze the current outputs as reference; compare exactly for text and to 1e-12 for values.
-   `testthat` for the R layer, a small C++ harness for the core.
+   `testthat` for the R layer, the CLI binaries for the core.
 3. **Independent numerical oracle.** Cross-check `c[m]`, `h[m]`, `kernel[m]`, `kernelTruncated[m]`
    and whole small kernels against the exact-arithmetic pure-Python implementation in
    `gkmsvm3/generalb/generalb_gkm.py` (uses `fractions.Fraction`, already unit-tested). This is a
    genuinely independent oracle, and it is also the bridge to Phase 7.
 4. **CI**: GitHub Actions matrix (macOS/Linux, gcc/clang, R release/devel) running R CMD check,
-   the golden tests, an **ASAN+UBSAN** job, and a **benchmark gate** (DNA kernel wall-clock, fail on
-   >2 % regression).
+   the golden tests, a CLI build + smoke test, an **ASAN+UBSAN** job, and a **benchmark gate**
+   (DNA kernel wall-clock, fail on >2 % regression).
 5. **Baseline measurements** committed (`dev/baseline.sh`, this document's *(measured)* numbers).
 
-*Gate:* golden tests reproduce today's output byte-for-byte on both lineages.
+*Gate:* golden tests reproduce today's output byte-for-byte; both CLI binaries build and run in CI.
+
+### Phase 0b — CRAN 0.83.0 reconciliation *(parallel track, low priority, non-blocking)*
+
+CRAN ships **0.83.0 (2023-08-20, maintainer Mike Beer)** while this repo is **0.80 (2018)**; the two
+have diverged (see §0). The useful CRAN changes should be folded in here, but this does **not** gate
+the refactor and can happen whenever convenient:
+
+* `snprintf` hardening throughout, `useDynLib(gkmSVM, .registration = TRUE)`, Bioconductor
+  dependencies demoted from `Imports` to `Suggests`, the duplicated `GenomeInfoDb` entry removed,
+  and the `.Rd` fixes — all straightforwardly good and worth taking.
+* Where the two conflict, **this tree wins**: CRAN 0.83.0 has no multithreading (`int ***gMMProfile`,
+  no `std::thread`, no `-T`), no duplicate-ID handling and no `normalizePath`. Those are this repo's
+  improvements and must survive the merge.
+* Best done right after Phase 1, so the CRAN hardening lands on top of the latent-bug fixes rather
+  than being re-litigated during them. Worth a note to Mike Beer about who publishes the next CRAN
+  release once the refactor produces one.
 
 ### Phase 1 — Build hygiene and latent-bug fixes (behaviour-preserving)
 
@@ -172,6 +199,7 @@ before/after documentation.
 ### Phase 2 — Core extraction: kill the globals, one path per job
 
 * Introduce `KernelContext`/`ScoreContext`; delete the `g*` globals and the `[1000]` scratch arrays.
+* Move the Phase 0 CLI shims into `cli/` proper and give them the `Options` struct below.
 * Replace the **argv round-trip** (`R list → sprintf into 50×5000-char buffers → getopt`) with a
   direct `struct Options` call. The CLI keeps `getopt` and fills the same struct. This removes the
   silent path-length overflow at 5000 chars and makes parameter validation reportable to R
@@ -357,7 +385,8 @@ bit-identical.
 
 | Phase | Content | Rough size | Risk | Depends on |
 |---|---|---|---|---|
-| 0 | Reconcile CRAN/GitHub, golden tests, CI, ASAN | ~1 week | low | — |
+| 0 | CLI build, golden tests, CI, ASAN, numerical oracle | ~1 week | low | — |
+| 0b | Fold in the useful CRAN 0.83.0 changes *(low priority, non-blocking)* | ~2 days | low | 1 |
 | 1 | Latent-bug fixes | ~3 days | low | 0 |
 | 2 | De-globalise, RAII, quarantine dead code | ~1–2 weeks | medium (large diff, zero behaviour change) | 0,1 |
 | 3 | Sequence identity | ~1 week | medium (one deliberate default change) | 2 |
@@ -367,26 +396,40 @@ bit-identical.
 | 7 | Two-block → general B | project-sized | high | 5,6 |
 
 Phases 3, 4 and 5 are independent of each other once 2 has landed and can be done in parallel or
-reordered by priority.
+reordered by priority. Phase 0b is independent of everything after Phase 1.
 
 ---
 
-## 5. Decisions needed before starting
+## 5. Decisions taken (2026-08-29)
 
-1. **CRAN reconciliation** — do we merge the CRAN 0.83.0 changes into this repo and take the
-   maintainership question to Mike Beer first? Everything else builds on the answer.
-2. **`mergeByName` default** — confirm that "one FASTA record = one kernel row" is the right new
-   default (with the old behaviour opt-in). This is the only intentional result change in Phases 0–5.
-3. **Binary by default, and when** — keep `format="text"` until a minor bump, or flip immediately
-   with a compatibility reader?
-4. **Two fixes change results** (classify wildcard/mismatch weights with b≠4; `b==4` norm
-   truncation). Both are current bugs; confirm we fix rather than preserve them.
-5. **C++ standard** — moving to C++17 (`std::string_view`, `if constexpr`, structured bindings)
-   makes the templated-trie code substantially cleaner. CRAN accepts C++17 unconditionally now.
-6. **Scope of the standalone CLI** — keep shipping `gkmsvm_kernel`/`gkmsvm_classify` binaries from
-   this repo (they mirror gkmsvm-2.0), or let the R package be the only artefact?
+All six open questions are resolved; the phases above already reflect them.
 
----
+1. **CRAN reconciliation — do it, but it is not high priority.** Fold the useful and reasonable
+   0.83.0 changes into this tree (Phase 0b), where this tree's own improvements — multithreading,
+   duplicate-ID handling, `normalizePath` — take precedence on conflict. It does **not** gate the
+   refactor; best scheduled right after Phase 1.
+2. **`mergeByName` default OFF** — one FASTA record = one kernel row. Today's silent merging of
+   same-named records becomes opt-in via `mergeByName=TRUE`, with a NEWS entry. (No R user can be
+   relying on it today: the wrapper `stop()`s on duplicates before C++ is reached.)
+3. **Binary output is opt-in first, default later.** Implement the long-dead `-b` flag and add
+   `format = c("text","binary")` with `"text"` as the default for this release; the auto-detecting
+   reader lands at the same time, so flipping the default at the next minor bump is a one-line
+   change and old kernels keep working forever.
+4. **Fix both result-changing bugs** — the classify path passing a literal `4` instead of `b` to the
+   wildcard/mismatch weights, and the `b==4` norm summing all mismatch levels while the score
+   truncates at `maxnmm`. Both are defects; document the before/after in NEWS.
+5. **Move to C++17** — `Makevars` with `CXX_STD = CXX17` and `SystemRequirements: C++17` in
+   DESCRIPTION (CRAN accepts it unconditionally). `if constexpr`, `std::string_view` and structured
+   bindings make the templated-trie code in Phase 5 substantially cleaner.
+6. **Keep shipping the standalone CLI** — `gkmsvm_kernel` and `gkmsvm_classify` binaries stay a
+   supported artefact so the C++ version can be run without R. Because they cannot be built from
+   this repo at all today (no `main()`, no Makefile), adding them is the *first* item of Phase 0,
+   where they also serve as the driver for the golden tests.
+
+**One small residual question**, not blocking: `mainSVMtrain.cpp` still exists but is unreachable
+(R trains via kernlab), while the published gkmsvm-2.0 also shipped a third `gkmsvm_train` binary.
+Recommendation: quarantine it with the rest of the dead code in Phase 2 and ship only the two
+binaries named above — say so if you would rather revive it as a third CLI target.
 
 ## 6. Reproducing the measurements
 
