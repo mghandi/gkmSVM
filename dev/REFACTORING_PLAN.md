@@ -657,3 +657,14 @@ and text-vs-binary kernel size and R load time.
   (empty, tab, non-ASCII, 200 chars, cross-file duplicates) frozen with their sidecars. Not done: the
   model file that stores SVs by id is Phase 4's `.gkmmodel`; the full `SequenceSet` class (readers
   returning records) is folded into Phase 2b's reader rewrite.
+* **Phase 4 — done (PR: `phase4/binary-formats`, stacked on Phase 3).** `src/KernelFile.h` (`.gkmk` v1
+  writer exactly as specified in §3, plus per-row `length`/`nlmers` in the names table) and
+  `src/crc32.h`; `-b` implemented on both kernel paths; `R/gkm_kernel_io.R` with `read_gkm_kernel`
+  (auto-detect, CRC check via an exported `.gkm_crc32_cpp`), `write_gkm_kernel` (binary float32/float64
+  and text + sidecar; the R writer reproduces the C++ file byte-for-byte) and `is_gkm_binary`;
+  `gkmsvm_kernel(format=)`; `gkmsvm_train`/`trainCV` on `read_gkm_kernel`. Model: `.gkmmodel` = FASTA with
+  `>id<TAB>alpha` headers and `#rho` (kernlab's `b`), written by `gkmsvm_train` alongside the legacy pair,
+  read by `CSequenceNames` (same file for names+alphas and sequences), bias applied in classify; the R
+  wrapper prefers it. Golden: 4 binary cases frozen and validated with an independent Python parser
+  (float32 vs `%e`: max rel diff 4.4e-7). Not done: gzip for the text path (zlib) — low value once
+  binary exists; the CLI `gkmsvm_train` does not write `.gkmmodel` yet (Phase 4b, with the solver swap).

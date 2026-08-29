@@ -2,8 +2,8 @@
 #include "gkmOptions.h"
 using namespace Rcpp;
 
-// [[Rcpp::export]]
-void gkmsvm_classify(SEXP params){
+// [[Rcpp::export(name = ".gkm_classify_cpp")]]
+void gkm_classify_cpp(SEXP params){
   Rcpp::List rparam(params); // Get parameters in params.
 
   OptsSVMClassify opt;

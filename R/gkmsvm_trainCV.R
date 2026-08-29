@@ -111,7 +111,8 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
         
         pos = seqinr::read.fasta(posfn)
         neg = seqinr::read.fasta(negfn)
-        idx = .gkm_read_index(kernelfn)
+        mat = read_gkm_kernel(kernelfn)   # text or binary (.gkmk), auto-detected
+        idx = attr(mat, "index")
         if (!is.null(idx)) {
           npos = sum(idx$label > 0); nneg = sum(idx$label < 0); nseq = nrow(idx)
           seqnames = idx$name
@@ -120,9 +121,7 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
           seqnames = c(unique(names(pos)), unique(names(neg)))
         }
         
-        mat <- data.matrix( utils::read.table(file=kernelfn, fill=TRUE, col.names=paste("V", 1:nseq)))
-        mat[upper.tri(mat)] <- t(mat)[upper.tri(mat)]
-        rownames(mat)=colnames(mat)
+        if (nrow(mat) != nseq) stop(sprintf("kernel %s has %d rows but the sequence files have %d sequences", kernelfn, nrow(mat), nseq))
         
         y = c(rep(1, npos), rep(0, nneg)); names(y)=rownames(mat)
         #       cv= sample(nCV, nseq, replace =TRUE)

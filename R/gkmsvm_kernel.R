@@ -15,7 +15,9 @@ gkmsvm_kernel <- function( posfile,
                            wildcardMismatchM=2,
                            alphabetFN="NULL",
                            nmaxThreads=1000,
-                           mergeByName=FALSE){
+                           mergeByName=FALSE,
+                           format=c("text", "binary")){
+  format <- match.arg(format)
   
   params = list(L=L, 
                 K=K, 
@@ -26,7 +28,7 @@ gkmsvm_kernel <- function( posfile,
                 alg=alg, 
                 addRC=addRC, 
                 usePseudocnt=usePseudocnt, 
-                OutputBinary=FALSE, 
+                OutputBinary=(format == "binary"), 
                 posfile=normalizePath(posfile, mustWork = TRUE), 
                 negfile=normalizePath(negfile, mustWork = TRUE),
                 outfile=normalizePath(outfile, mustWork = FALSE),
@@ -49,7 +51,7 @@ gkmsvm_kernel <- function( posfile,
                     length(dups), dups[1], outfile, if (mergeByName) "; records with the same name within a file are merged" else ""))
   }
 
- invisible(.Call('gkmSVM_gkmsvm_kernel', PACKAGE = 'gkmSVM', params))
+ invisible(.gkm_kernel_cpp(params))
 }
 
 # First whitespace-delimited token of every FASTA header (what the C++ reader uses as the name).

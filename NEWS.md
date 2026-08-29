@@ -75,5 +75,22 @@ Crashes and memory errors fixed (all reproduced before the fix, all now ASAN/UBS
   or present twice in `_svseq.fa`. It used to print "the sequences for only N out of M ... were
   found" and score with a partial model.
 
+### Phase 4 — binary formats (additive)
+
+* **Binary kernel files.** `gkmsvm_kernel(..., format = "binary")` (CLI `-b`, which was parsed
+  but did nothing since 2.0) writes the `.gkmk` v1 format: magic `GKMK`, parameters, alphabet, the
+  row-identity table, the lower triangle as float32 and a CRC-32. About 3x smaller than the text
+  file and far faster to load. `gkmsvm_train` / `gkmsvm_trainCV` read both formats transparently
+  (detected by the magic bytes). New helpers `read_gkm_kernel()`, `write_gkm_kernel()`,
+  `is_gkm_binary()`. The default stays `"text"` for this release.
+* **Single-file model.** `gkmsvm_train` now also writes `<prefix>.gkmmodel` — a FASTA file with
+  `>id<TAB>alpha` headers and `#rho <bias>` in its header — next to the legacy
+  `_svalpha.out`/`_svseq.fa` pair, which is still written. `gkmsvm_classify(seqfile, svmfnprfx)`
+  prefers the `.gkmmodel` when it exists and then **applies the SVM bias** (`score − rho`, kernlab's
+  `b`); the legacy pair stays bias-free as before, so rankings and `gkmsvm_delta` are unaffected.
+  The C++ classifier accepts a `.gkmmodel` as both `<sv_seqfile>` and `<sv_alphafile>`.
+* FASTA lines starting with `#` are now treated as comments (like `;`).
+* The R/C++ bridge uses registered routines (`Rcpp::compileAttributes()` output).
+
 Build: C++17 (`SystemRequirements: C++17`, `src/Makevars`). The R package routes all console output
 through `Rprintf` and random numbers through R's RNG (`-DRPACKAGE`); the standalone CLI is unchanged.

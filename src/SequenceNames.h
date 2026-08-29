@@ -48,5 +48,7 @@ private:
 	std::vector<char> used;                         // which alpha entries have been matched
 public:
 	int error;      // set when a name in the alpha file is duplicated, missing from the FASTA, or repeated in the FASTA
+	double rho;     // bias from a .gkmmodel file (0 for the legacy alpha file): score = sum_j alpha_j K(x, x_j) - rho
+	int isModelFile; // 1 when the alpha file was a .gkmmodel (then the same file also holds the sequences)
 };
 

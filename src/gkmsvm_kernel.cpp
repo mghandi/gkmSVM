@@ -2,8 +2,8 @@
 #include "gkmOptions.h"
 using namespace Rcpp;
 
-// [[Rcpp::export]]
-void gkmsvm_kernel(SEXP params){
+// [[Rcpp::export(name = ".gkm_kernel_cpp")]]
+void gkm_kernel_cpp(SEXP params){
   Rcpp::List rparam(params); // Get parameters in params.
 
   OptsGkmKernel opt;
