@@ -38,7 +38,8 @@ run_golden_case_R <- function(case, outfile) {
                  wildcardMismatchM = num_or(case$M, 2), alphabetFN = alphabetFN)
   if (case$tool == "kernel") {
     args <- c(list(posfile = fx(case$pos), negfile = fx(case$neg), outfile = outfile), common,
-              list(nmaxThreads = num_or(case$T, 1000), mergeByName = identical(case$N, "1")))
+              list(nmaxThreads = num_or(case$T, 1000), mergeByName = identical(case$N, "1"),
+                   format = if (identical(case$bin, "1")) "binary" else "text"))
     do.call(gkmSVM::gkmsvm_kernel, args)
   } else {
     args <- c(list(seqfile = fx(case$seq), svmfnprfx = NA, outfile = outfile), common,

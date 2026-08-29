@@ -19,8 +19,15 @@ gkmsvm_classify <- function( seqfile,
                            alphafile=NA){
 
                              if(is.na(svseqfile)){
-                               svseqfile= paste(svmfnprfx, 'svseq.fa', sep='_')
-                               alphafile= paste(svmfnprfx, 'svalpha.out', sep='_')
+                               # a single-file model (Phase 4) is preferred over the legacy pair; it
+                               # carries the bias rho, which is applied to the scores
+                               model = paste0(svmfnprfx, '.gkmmodel')
+                               if (file.exists(model)) {
+                                 svseqfile = model; alphafile = model
+                               } else {
+                                 svseqfile= paste(svmfnprfx, 'svseq.fa', sep='_')
+                                 alphafile= paste(svmfnprfx, 'svalpha.out', sep='_')
+                               }
                              }    
                              
                              params = list(seqfile=normalizePath(seqfile, mustWork =  TRUE), 
@@ -43,7 +50,7 @@ gkmsvm_classify <- function( seqfile,
                              ); 
                              # print(params)
                              
-                             invisible(.Call('gkmSVM_gkmsvm_classify', PACKAGE = 'gkmSVM', params))
+                             invisible(.gkm_classify_cpp(params))
                            }
 
 

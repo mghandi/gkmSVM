@@ -213,7 +213,7 @@ int CSequence::readFsa(FILE *f, int SkipAlphabetCheck)  // reads one sequence fr
 		}
 		int i=0; 
 
-		if (sline[0]!=';') // ignore comment lines starting with ";"
+		if (sline[0]!=';' && sline[0]!='#') // ignore comment lines starting with ";" or "#" (the .gkmmodel header)
 		{
 			while (sline[i]!=0)
 			{

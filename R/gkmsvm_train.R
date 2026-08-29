@@ -18,7 +18,8 @@ gkmsvm_train = function (kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, 
     
     pos = seqinr::read.fasta(posfn)
     neg = seqinr::read.fasta(negfn)
-    idx = .gkm_read_index(kernelfn)
+    mat = read_gkm_kernel(kernelfn)   # text or binary (.gkmk), auto-detected
+    idx = attr(mat, "index")
     if (!is.null(idx)) {
       # rows are identified by position (Phase 3): the sidecar is authoritative
       npos = sum(idx$label > 0); nneg = sum(idx$label < 0); nseq = nrow(idx)
@@ -29,9 +30,7 @@ gkmsvm_train = function (kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, 
       seqnames = c(unique(names(pos)), unique(names(neg)))
     }
     
-    mat <- data.matrix( utils::read.table(file=kernelfn, fill=TRUE, col.names=paste("V", 1:nseq)))
-    mat[upper.tri(mat)] <- t(mat)[upper.tri(mat)]
-    rownames(mat)=colnames(mat)
+    if (nrow(mat) != nseq) stop(sprintf("kernel %s has %d rows but the sequence files have %d sequences", kernelfn, nrow(mat), nseq))
     K <- kernlab::as.kernelMatrix(mat)
     y = c(rep(1, npos), rep(0, nneg)); names(y)=rownames(mat)
   
@@ -62,6 +61,15 @@ gkmsvm_train = function (kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, 
         svseqs = seqs[match(seqnames[ii], names(seqs))]    # merged rows: first record with that name
       }
       seqinr::write.fasta(svseqs, svnames[ii],  file.out= paste(svmfnprfx, 'svseq.fa', sep='_'))
+      
+      # single-file model (Phase 4): FASTA with ">id<TAB>alpha" headers, "#" header lines carry the
+      # bias rho = svp@b (kernlab's b), which gkmsvm_classify subtracts from the scores
+      con = file(paste0(svmfnprfx, '.gkmmodel'), "w")
+      writeLines(c("#gkmmodel 1", sprintf("#rho %.10e", svp@b), sprintf("#nsv %d", length(ii)), sprintf("#npos %d", npos), sprintf("#nneg %d", nneg)), con)
+      for (s in seq_along(ii)) {
+        writeLines(c(sprintf(">%s\t%11.6e", svnames[ii[s]], alpha[s]), toupper(paste(svseqs[[s]], collapse = ""))), con)
+      }
+      close(con)
     }
   }
 }

@@ -30,6 +30,7 @@
 #include "globalvar.h"
 #include "gkmOptions.h"
 #include "SequenceSet.h"
+#include "KernelFile.h"
 #include <vector>
 
 #include "Sequence.h"
@@ -81,6 +82,7 @@ void print_usage_and_exit_gkmKernel(const char *prog)
     sprintf(globtmpstr,"%s", "  -A             alphabets file name, if not specified, it is assumed the inputs are DNA sequences \n"); Printf(globtmpstr);
     sprintf(globtmpstr,"%s", "  -T             maximum number of threads, defaul=2*l\n"); Printf(globtmpstr);
     sprintf(globtmpstr,"%s", "  -N             merge records that share a name within a file into one row (default: one record = one row)\n"); Printf(globtmpstr);
+    sprintf(globtmpstr,"%s", "  -b             write the kernel in the binary .gkmk format (float32) instead of text\n"); Printf(globtmpstr);
     
     Printf(" \n");
 }
@@ -192,6 +194,14 @@ int gkmKernelRun(OptsGkmKernel &opt)
 		default:
 			return gkmKernelSuffixTree(opt);
 	}
+}
+
+static void fillGkmkHeader(GkmkWriter &w, const OptsGkmKernel &opt, int maxnmm, int n, int npos)
+{
+	w.hdr.n = n; w.hdr.npos = npos;
+	w.hdr.L = opt.L; w.hdr.K = opt.K; w.hdr.maxnmm = maxnmm; w.hdr.useTgkm = opt.useTgkm;
+	w.hdr.b = globalConverter.b; w.hdr.addRC = opt.addRC ? 1 : 0; w.hdr.usePseudocnt = opt.usePseudocnt ? 1 : 0;
+	w.hdr.alphabet.assign(globalConverter.alphabet, globalConverter.alphabet + globalConverter.b);
 }
 
 static int cannotOpen(const char *fn)
@@ -384,26 +394,24 @@ int gkmKernelSimple(OptsGkmKernel &opt)  //Use XOR precomputed hash table
 		norm[i] = sqrt(seqsL[i]->calcInnerProd(seqsL[i],c,mmcnt));
 	}
 
-	FILE *fo = fopen(outFN, "w"); 
-	if (fo == NULL) return cannotOpen(outFN);
+	GkmkWriter bin;
+	FILE *fo = NULL;
+	if (opt.OutputBinary) { fillGkmkHeader(bin, opt, maxnmm, nseqs, npos); bin.values.reserve((size_t)nseqs*(nseqs+1)/2); }
+	else { fo = fopen(outFN, "w"); if (fo == NULL) return cannotOpen(outFN); }
 
 	for(i=0;i<nseqs;i++)
 	{
-		for(int j=0;j<nseqs;j++)
+		for(int j=0;j<=i;j++)
 		{
-			if(i>j)
-			{
-				fprintf(fo, "%e\t",(norm[i]*norm[j]<1E-50)?0.0:seqsL[i]->calcInnerProd(seqsL[j],c,mmcnt)/(norm[i]*norm[j]));
-			}
-			else if (i==j)
-			{
-				fprintf(fo, "1.0\t");
-			}
+			double v = (i==j) ? 1.0 : ((norm[i]*norm[j]<1E-50)?0.0:seqsL[i]->calcInnerProd(seqsL[j],c,mmcnt)/(norm[i]*norm[j]));
+			if (fo) { if (i==j) fprintf(fo, "1.0\t"); else fprintf(fo, "%e\t", v); }
+			else bin.add(v);
 		}
-		fprintf(fo, "\n"); 
+		if (fo) fprintf(fo, "\n"); 
 	}
 
-	fclose(fo); 
+	if (fo) fclose(fo); 
+	else if (bin.write(opt.outfile, records) != 0) return cannotOpen(outFN);
 	if (writeIndexSidecar(opt.outfile, records) != 0) { sprintf(globtmpstr,"\n WARNING: could not write %s.index\n", outFN); Printf(globtmpstr); }
 	//delete []tmps; 
 	delete []mmcnt;
@@ -872,8 +880,10 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   double btL=pow(1.0*globalConverter.b,L);
   double *norm = new double [nseqs]; 
   
-  FILE *fo = fopen(outFN, "w"); 
-  if (fo == NULL) return cannotOpen(outFN);
+  GkmkWriter bin;
+  FILE *fo = NULL;
+  if (opt.OutputBinary) { fillGkmkHeader(bin, opt, maxnmm, nseqs, npos); bin.values.reserve((size_t)nseqs*(nseqs+1)/2); }
+  else { fo = fopen(outFN, "w"); if (fo == NULL) return cannotOpen(outFN); }
   /*
   if (OutputMismatchProfileOnly)
   {
@@ -937,30 +947,21 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
       //	fprintf(fo, "%s\t", seqname[i]);
       //}
       
-      for(int j=0;j<nseqs;j++)
+      for(int j=0;j<=i;j++)
       {
-        if(i>j)
-        {
-          if (usePseudocnt)
-          {
-            fprintf(fo, "%e\t",(norm[i]*norm[j]<1E-50)?0.0:calcinnerprod(i,j,c, n0,C,LmersCnt[i], LmersCnt[j], btL)/(norm[i]*norm[j]));
-          }
-          else
-          {
-            fprintf(fo, "%e\t",(norm[i]*norm[j]<1E-50)?0.0:calcinnerprod(i,j,c)/(norm[i]*norm[j]));
-          }
-          
-        }
-        else if (i==j) 
-        {
-          fprintf(fo, "1.0\t");
-        }
+        double v;
+        if (i==j) v = 1.0;
+        else if (usePseudocnt) v = (norm[i]*norm[j]<1E-50)?0.0:calcinnerprod(i,j,c, n0,C,LmersCnt[i], LmersCnt[j], btL)/(norm[i]*norm[j]);
+        else v = (norm[i]*norm[j]<1E-50)?0.0:calcinnerprod(i,j,c)/(norm[i]*norm[j]);
+        if (fo) { if (i==j) fprintf(fo, "1.0\t"); else fprintf(fo, "%e\t", v); }
+        else bin.add(v);
       }
-      fprintf(fo, "\n"); 
+      if (fo) fprintf(fo, "\n"); 
     }
   }
   
-  fclose(fo); 
+  if (fo) fclose(fo); 
+  else if (bin.write(opt.outfile, records) != 0) return cannotOpen(outFN);
   if (writeIndexSidecar(opt.outfile, records) != 0) { sprintf(globtmpstr,"\n WARNING: could not write %s.index\n", outFN); Printf(globtmpstr); }
   
   delete []norm;

@@ -28,7 +28,7 @@ CXXFLAGS += $(SANFLAGS) -Isrc
 LDFLAGS  += $(SANFLAGS) -pthread
 
 # Everything in src/ except the Rcpp glue; each src/cli/*.cpp supplies one main().
-LIB_SRCS := $(filter-out src/RcppExports.cpp src/gkmsvm_kernel.cpp src/gkmsvm_classify.cpp,$(wildcard src/*.cpp))
+LIB_SRCS := $(filter-out src/RcppExports.cpp $(wildcard src/gkmsvm_*.cpp),$(wildcard src/*.cpp))
 LIB_OBJS := $(patsubst src/%.cpp,$(BUILD)/obj/%.o,$(LIB_SRCS))
 
 BINS := $(BUILD)/gkmsvm_kernel $(BUILD)/gkmsvm_classify $(BUILD)/gkmsvm_train

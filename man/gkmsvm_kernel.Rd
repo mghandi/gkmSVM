@@ -6,7 +6,7 @@
   between the sequences.}
 \usage{gkmsvm_kernel(posfile, negfile, outfile, L=10, K=6, maxnmm=3, maxseqlen=10000, 
 maxnumseq=1000000, useTgkm=1, alg=0, addRC=TRUE, usePseudocnt=FALSE, wildcardLambda=1.0,
-wildcardMismatchM=2, alphabetFN="NULL", nmaxThreads=1000, mergeByName=FALSE)}
+wildcardMismatchM=2, alphabetFN="NULL", nmaxThreads=1000, mergeByName=FALSE, format=c("text", "binary"))}
 
 \arguments{
 \item{posfile}{positive sequences file name (FASTA format)}
@@ -25,6 +25,7 @@ wildcardMismatchM=2, alphabetFN="NULL", nmaxThreads=1000, mergeByName=FALSE)}
 \item{wildcardMismatchM}{max mismatch for Mismatch kernel or wildcard kernel, default=2}
 \item{alphabetFN}{alphabets file name, if not specified, it is assumed the inputs are DNA sequences}
 \item{nmaxThreads}{maximum number of threads, defaul=2*L}
+\item{format}{"text" (default) writes the historical tab-separated lower-triangle text file; "binary" writes the compact \code{.gkmk} format (float32, about 3x smaller and much faster to load; see \code{\link{read_gkm_kernel}}). \code{gkmsvm_train} and \code{gkmsvm_trainCV} read both.}
 \item{mergeByName}{if TRUE, records that share a name within one FASTA file are merged into a single kernel row (the behaviour of versions before 0.90). Default FALSE: one record = one row. Row identity (id, name, label, length) is written to \code{<outfile>.index}.}
 
 }

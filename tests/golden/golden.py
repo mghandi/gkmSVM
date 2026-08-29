@@ -49,6 +49,8 @@ def build_argv(c, bindir, outfile):
         argv.append("-p")
     if c.get("N", "") == "1":
         argv.append("-N")
+    if c.get("bin", "") == "1" and c["tool"] == "kernel":
+        argv.append("-b")
     if c["tool"] == "kernel":
         argv += [os.path.join(FIX, c["pos"]), os.path.join(FIX, c["neg"]), outfile]
     else:

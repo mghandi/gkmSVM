@@ -30,6 +30,8 @@ CSequenceNames::CSequenceNames(void)
 	nextSeqtoRead=0;
 	curSeq=NULL; 
 	error=0;
+	rho=0;
+	isModelFile=0;
 }
 
 
@@ -107,10 +109,18 @@ int CSequenceNames::readSeqNamesandWeights(const char *seqNamesFN)
 	
 	FILE *f = fopen(seqNamesFN, "r") ; 
 	if (f == NULL) { sprintf(globtmpstr,"\n ERROR: cannot open %s\n", seqNamesFN); Printf(globtmpstr); return 0; }
+	// A .gkmmodel file (Phase 4) is a FASTA file whose headers are ">id<TAB>alpha" and whose
+	// comment lines "#key value" carry the bias: "#gkmmodel 1" must be the first line.
 	while (!feof(f))
 	{
 		if (fgets(stmp, 10000-5, f)) 
 		{
+			if (Nseqs==0 && !isModelFile && strncmp(stmp, "#gkmmodel", 9)==0) { isModelFile = 1; continue; }
+			if (isModelFile) {
+				if (stmp[0]=='#') { double v; if (sscanf(stmp, "#rho %lf", &v)==1) rho = v; continue; }
+				if (stmp[0]!='>') continue; // sequence lines
+				memmove(stmp, stmp+1, strlen(stmp)); // drop the '>' and parse "id alpha" below
+			}
 			if (stmp[0]!=0) {
 				char *name = new char[strlen(stmp)+1];  // a %s token can never be longer than the line (was a fixed 100 bytes)
 				double w = 0;
