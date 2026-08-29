@@ -19,7 +19,6 @@
 #pragma once
 #include "global.h"
 #include "LList.h"
-#include "GTree2.h"
 #include "CbinMMtree.h"
 
 union CLTreeSptr {
@@ -55,7 +54,6 @@ public:
   void initTree(); //initialize the tree
   
   int addToList(LTreeSnodeData **list, int n, int single, int listlen, int alphabetSize);
-  void addToGTree(GTree2 *gtree, int n,int *tmpArray,int alphabetSize,int L);
   
   
   //void DFS( LTreeSnodeData **matchingLmers, int listlen,  int *curMismatchCnt, int pos);

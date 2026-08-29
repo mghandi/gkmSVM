@@ -30,21 +30,13 @@
 #include "globalvar.h"
 
 #include "Sequence.h"
-#include "CountKLmers.h"
-#include "CountKLmersGeneral.h"
-#include "CountKLmersH.h"
 #include "CalcWmML.h"
-#include "MLEstimKLmers.h"
-#include "MLEstimKLmersLog.h"
-#include "KLmer.h"
 #include "SequenceNames.h"
-#include "EstimLogRatio.h"
 #include "LTree.h"
 #include "LTreef.h"
 #include "LTreeS.h"
 #include "LList.h"
 #include "CiDLPasses.h"
-#include "GTree2.h"
 
 using namespace std;
 
@@ -627,20 +619,8 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   int nneg=0;
   
   gMAXMM=maxnmm; //MaxMismatch
-  int UseGTree = 0; // GTree algorithm for speed
-  //if(UseGTree){
-  //int maxn=(1<<(2*L)) * ::Combinations(L, gMAXMM);
-  // if(maxn>100000000){maxn=100000000;};
-  // int maxn=100000000;
-  // gGTreeLeaves=new GTreeLeafData[maxn]; // list of all the leaf nodes
-  // gGTreeLeavesCnt=0; // number of all leaf nodes
-  
-  //}
-  
   
   CLTreeS *seqsTS= new CLTreeS();
-  //    GTree *seqsGTree= new GTree();
-  //   GTree2 *seqsGTree2= new GTree2();
   
   
   
@@ -802,24 +782,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   
   int uniqueLmerCnt = seqsTS->leavesCount(0,L, globalConverter.b, nodesAtDepthCnt);
   sprintf(globtmpstr,"\n npos %d \n nneg %d \n  ntotal %d \n nunique %d\n",npos,nneg,ntotal,uniqueLmerCnt);Printf(globtmpstr);
-  int minL2 = L; if (minL2<2) minL2 = 2; 
-#ifdef USE_GLOBAL
-  for(int i=0;i<=minL2;i++)
   {
-    //gDFSlist[i] = new LTreeSnodeData *[uniqueLmerCnt];
-    //	gDFSlistT[i] = new CLTreeSptr *[uniqueLmerCnt];  // without nonEmptyDaughterCnt
-    gDFSlistT[i] = new CLTreeS *[uniqueLmerCnt];  // with nonEmptyDaughterCnt
-    gDFSMMlist[i] = new int[uniqueLmerCnt]; 
-    gDFSMMtree[i] = new CbinMMtree *[uniqueLmerCnt];
-  }
-  //int *curmmcnt = gDFSMMlist[0];
-  
-  //gDFSlistT[0][0] = seqsTS->daughter; // without nonEmptyDaughterCnt
-  gDFSlistT[0][0] = seqsTS; // with nonEmptyDaughterCnt
-  gDFSMMlist[0][0] = 0; 
-#endif
-  //   int UseGTree = 1;
-  if (!UseGTree){
     // if no IDL bound
     /*
     seqsTS->DFST(gDFSlistT[0],1, gDFSMMlist[0], 0, globalConverter.b);
@@ -917,74 +880,10 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
       delete []myThreads;
     }
     
-  }else{
-    gGTreeLeaves2=new GTreeLeafData2[uniqueLmerCnt * ::Combinations(L, gMAXMM)]; // list of all the leaf nodes
-    gGTreeLeavesCnt=0; // number of all leaf nodes
-    GTree2 *seqsGTree2= new GTree2();
-    int *tmpArray1 = new int[L];
-    
-    seqsTS->addToGTree(seqsGTree2, L,tmpArray1, MAX_ALPHABET_SIZE, L);
-    delete []tmpArray1;
-    sprintf(globtmpstr," gGTreeLeavesCnt = %d \n",gGTreeLeavesCnt);Printf(globtmpstr);
-    
-    for(int i=0;i<gGTreeLeavesCnt;i++){
-      gGTreeLeaves2[i].process();
-    }
-    // normalize
-    
-    for(int i=0;i<nseqs;i++)
-    {
-      
-      //            gMMProfile[i][0][i]/=Combinations(L, gMAXMM);;
-      
-      for (int j=0;j<=gMAXMM;j++)
-      {
-        //              int s=::Combinations(L-j, L-gMAXMM);
-        for(int k=0;k<=i;k++)
-        {
-          int mmijk = (gMMProfile[i][j][k]+gMMProfile[k][j][i]);
-          //                mmijk=mmijk/s;
-          gMMProfile[i][j][k]=gMMProfile[k][j][i]=mmijk;
-        }
-      }
-    }
-    
-    for(int i=0;i<nseqs;i++)
-    {
-      
-      //            gMMProfile[i][0][i]/=Combinations(L, gMAXMM);;
-      
-      for (int j=0;j<=gMAXMM;j++)
-      {
-        int s=::Combinations(L-j, L-gMAXMM);
-        //                int s=::Combinations(gMAXMM, j);
-        for(int k=0;k<nseqs;k++)
-        {
-          //                    gMMProfile[i][j][k]*=2;
-          int z=gMMProfile[i][j][k]/s;gMMProfile[i][j][k]=z;
-        }
-      }
-    }
-    
-    
-    for(int i=0;i<nseqs;i++)
-    {
-      
-      gMMProfile[i][0][i]+=LmersCnt[i];//self;
-    }
   }
   
   delete []nodesAtDepthCnt;
   
-  //
-#ifdef USE_GLOBAL
-  for(int i=0;i<=minL2;i++)
-  {
-    delete []gDFSlistT[i];
-    delete []gDFSMMlist[i];
-    delete []gDFSMMtree[i];
-  }
-#endif
   /*
   for(int i=0;i<nseqs;i++)
   {

@@ -186,30 +186,6 @@ void CLTreeS::addLTreeSnodeData(int *bid, int n, LTreeSnodeData* nodeData, int m
   }
 }
 
-void CLTreeS::addToGTree(GTree2 *gtree, int n,int *tmpArray,int alphabetSize, int L){
-  if (n==1)
-  {
-    for(int bid=0;bid<alphabetSize;bid++)
-    {
-      
-      if (this->daughter[bid].t==NULL) continue;
-      tmpArray[L-n]=bid;
-      gtree->addLTreeSnodeData(tmpArray, L, daughter[bid].node, gMAXMM, 0);
-    }
-  }
-  else
-  {
-    for(int bid=0;bid<alphabetSize;bid++)
-    {
-      if (this->daughter[bid].t != NULL)
-      {
-        tmpArray[L-n]=bid;
-        daughter[bid].t->addToGTree(gtree, n-1,tmpArray, alphabetSize,L);
-      }
-    }
-  }
-  
-}
 
 
 int CLTreeS::addToList(LTreeSnodeData **list, int n, int single, int listlen, int alphabetSize) // // adds all the Lmers (that are (not) present in single sequence) to a list

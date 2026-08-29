@@ -33,14 +33,10 @@
 #define DEF_MAXNUMSEQ 1000000
 #define DEF_TGKM 1
 #define DEF_BATCHSIZE 100000
-#ifndef MULTI_THREAD_SAFE
-//    #define USE_GLOBAL /* may improve speed in some cases. but may make is slower in other cases.  */
-#endif
 
 #define TALK 0
 //#define DEBUG 0 /*0 1*/
 //#define TALK DEBUG /*1*/
-//#define FAST_TRACK  // if enabled, it may make the algorithm faster for sparse trees.
 #define PI 3.141593
 #include <stdio.h>
 #include <stdlib.h>
@@ -152,14 +148,6 @@ union LTreeSnodeDataptr {
 };
 
 
-/*
- struct GTreeLeafData {
- int n;
- intintptr seqIDs_gbits; //if n==1, it is int and contains the ID, otherwise it is int* and is the array of IDs;
- //  LPTr Lmers; //pointer to the starts of the sequences
- int first_gbits; // gbits for the case n==1, otherwise, seqIDs and gapped_bits are both written in seqIDs_gbits (2 numbers for each L-mer)
- };
- */
 
 
 #define myFlt double
