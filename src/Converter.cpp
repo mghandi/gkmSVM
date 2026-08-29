@@ -157,7 +157,7 @@ void CConverter::resetToDNA(){
   init();
 }
 
-int CConverter::readAlphabetFile(char *FN, int MAX_ALPHABET_SIZE_copy){
+int CConverter::readAlphabetFile(const char *FN, int MAX_ALPHABET_SIZE_copy){
   FILE *f= fopen(FN,"r");
   if (f==NULL){
     sprintf(globtmpstr,"\n ERROR: cannot open alphabet file %s\n", FN);Printf(globtmpstr);

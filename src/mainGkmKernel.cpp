@@ -28,6 +28,7 @@
 
 #include "global.h"
 #include "globalvar.h"
+#include "gkmOptions.h"
 
 #include "Sequence.h"
 #include "CalcWmML.h"
@@ -42,29 +43,10 @@ using namespace std;
 
 //#include "stdafx.h"
 
-typedef struct {
-	int L;
-	int K;
-	int maxnmm;
-	int maxseqlen;
-	int maxnumseq;
-	int useTgkm;
-	bool addRC;
-	bool usePseudocnt;
-	bool OutputBinary;
-	char *posfile;
-	char *negfile;
-	char *outfile;
-    double wildcardLambda;  //parameter lambda for (LK2004)
-    int wildcardMismatchM;  //parameter M for wildcard or mismatch kernels (LK2004)
-    char *alphabetFN; //alphabets file name
-    int maxnThread; // max number of threads
-} OptsGkmKernel;
-
 int gkmKernelSimple(OptsGkmKernel &opt);
 int gkmKernelSuffixTree(OptsGkmKernel &opt);
 
-void print_usage_and_exit_gkmKernel(char *prog)
+void print_usage_and_exit_gkmKernel(const char *prog)
 {
     Printf("\n");
     sprintf(globtmpstr, " Usage: %s [options] <pos_seqfile> <neg_seqfile> <outfile>\n",prog );Printf(globtmpstr);
@@ -92,126 +74,94 @@ void print_usage_and_exit_gkmKernel(char *prog)
 	sprintf(globtmpstr,"%s", "                 default=0\n"); Printf(globtmpstr);
 	sprintf(globtmpstr,"%s", "  -R             if set, reverse complement sequences will NOT be considered\n"); Printf(globtmpstr);
 	sprintf(globtmpstr,"%s", "  -p             if set, a constant to will be added to the count estimates\n"); Printf(globtmpstr);
-	//cout << "  -b             if set, the output matrix will be stored in a binary format" << endl;
 	sprintf(globtmpstr,"%s", "  -M             max mismatch for Mismatch kernel or wildcard kernel, default=2\n"); Printf(globtmpstr);
 	sprintf(globtmpstr,"%s", "  -L             lambda for wildcard kernel, defaul=1.0\n"); Printf(globtmpstr);
     sprintf(globtmpstr,"%s", "  -A             alphabets file name, if not specified, it is assumed the inputs are DNA sequences \n"); Printf(globtmpstr);
     sprintf(globtmpstr,"%s", "  -T             maximum number of threads, defaul=2*l\n"); Printf(globtmpstr);
     
     Printf(" \n");
-
-	//exit(0);
 }
-int mainGkmKernel(int argc, char** argv) //mainGkmKernel
+
+// Parse argv into opt. Returns 0 on success, 1 if usage was printed (nothing to run).
+static int gkmKernelParseArgs(int argc, char** argv, OptsGkmKernel &opt)
 {
-    /*printf("welcome!\n");
-    printf("\n argc = %d \n", argc);
-    for(int i=0;i<argc;i++){
-        printf("%s\n",argv[i]);
-    }*/
-    
-
-	OptsGkmKernel opt;
-    
     ::optind=1; // reset getopt()
-
     int c;
-
-	opt.L = DEF_L; 
-	opt.K = DEF_K; 
-	opt.maxnmm = DEF_D;
-	opt.maxseqlen = DEF_MAXSEQLEN; 
-	opt.maxnumseq = DEF_MAXNUMSEQ; 
-	opt.useTgkm = DEF_TGKM; 
-	opt.addRC = true; 
-	opt.usePseudocnt=false; 
-	opt.OutputBinary=false; 
-    
-    opt.wildcardMismatchM= 2;
-    opt.wildcardLambda = 1.0;
-    opt.alphabetFN = NULL;
-    opt.maxnThread = 1000;
-    
-	int alg = 0;
-    
-    if (argc == 1) { print_usage_and_exit_gkmKernel(argv[0]); return 0;}
+    if (argc == 1) { print_usage_and_exit_gkmKernel(argv[0]); return 1;}
 
 	while ((c = getopt (argc, argv, "l:k:d:m:n:t:a:L:M:A:T:Rpb")) != -1)
 	{
 		switch (c) 
 		{
-			case 'l':
-                //printf("\ngetopt  l = %s = %d\n",optarg,atoi(optarg)  );
-				opt.L = atoi(optarg);
-				break;
-			case 'k':
-				opt.K = atoi(optarg);
-				break;
-			case 'd':
-				opt.maxnmm = atoi(optarg);
-				break;
-			case 'm':
-				opt.maxseqlen = atoi(optarg);
-				break;
-			case 'n':
-				opt.maxnumseq = atoi(optarg);
-				break;
-			case 't':
-				opt.useTgkm = atoi(optarg);
-				break;
-			case 'a':
-				alg = atoi(optarg);
-				break;
-			case 'R':
-				opt.addRC = false;
-				break;
-			case 'p':
-				opt.usePseudocnt = true;
-				break;
-			case 'b':
-				opt.OutputBinary = true;
-				break;
-			case 'M':
-				opt.wildcardMismatchM = atoi(optarg);
-				break;
-			case 'L':
-				opt.wildcardLambda = atof(optarg);
-				break;
-			case 'A':
-				opt.alphabetFN = optarg;
-				break;
-  		case 'T':
-  		  opt.maxnThread = atoi(optarg);
-  		  break;
-  		default:
-                print_usage_and_exit_gkmKernel(argv[0]);return 0;
+			case 'l': opt.L = atoi(optarg); break;
+			case 'k': opt.K = atoi(optarg); break;
+			case 'd': opt.maxnmm = atoi(optarg); break;
+			case 'm': opt.maxseqlen = atoi(optarg); break;
+			case 'n': opt.maxnumseq = atoi(optarg); break;
+			case 't': opt.useTgkm = atoi(optarg); break;
+			case 'a': opt.alg = atoi(optarg); break;
+			case 'R': opt.addRC = false; break;
+			case 'p': opt.usePseudocnt = true; break;
+			case 'b': opt.OutputBinary = true; break;
+			case 'M': opt.wildcardMismatchM = atoi(optarg); break;
+			case 'L': opt.wildcardLambda = atof(optarg); break;
+			case 'A': opt.alphabetFN = optarg; break;
+			case 'T': opt.maxnThread = atoi(optarg); break;
+			default: print_usage_and_exit_gkmKernel(argv[0]); return 1;
 		}
 	}
 
-	if (argc-optind != 3) { print_usage_and_exit_gkmKernel(argv[0]); return 0;}
+	if (argc-optind != 3) { print_usage_and_exit_gkmKernel(argv[0]); return 1;}
 
 	int index = optind;
 	opt.posfile = argv[index++];
 	opt.negfile = argv[index++];
 	opt.outfile = argv[index++];
+	return 0;
+}
 
+int mainGkmKernel(int argc, char** argv) //mainGkmKernel
+{
+	OptsGkmKernel opt;
+	if (gkmKernelParseArgs(argc, argv, opt) != 0) return 1;
+	return gkmKernelRun(opt);
+}
+
+// Validate, load the alphabet, dispatch. Shared by the CLI and the R binding.
+int gkmKernelRun(OptsGkmKernel &opt)
+{
 	//check parameters
+	if (opt.L < 1 || opt.K < 1)
+	{
+		Printf("\n ERROR: L and K must be positive.\n"); return 1;
+	}
 	if ((opt.K > opt.L) &&(opt.useTgkm<3))
 	{
-		Printf("K must be less than or equal to L!\n\n");
-        print_usage_and_exit_gkmKernel(argv[0]); return 0;
+		Printf("\n ERROR: K must be less than or equal to L!\n"); return 1;
 	}
 
 	if ((opt.maxnmm > 0) && (opt.L < opt.maxnmm))
 	{
-		Printf("maxMismatch must be less than or equal to L!\n\n");
-        print_usage_and_exit_gkmKernel(argv[0]); return 0;
+		Printf("\n ERROR: maxMismatch must be less than or equal to L!\n"); return 1;
+	}
+	if (opt.useTgkm < 0 || opt.useTgkm > 4)
+	{
+		Printf("\n ERROR: filter type (-t) must be between 0 and 4.\n"); return 1;
+	}
+	if (opt.alg < 0 || opt.alg > 2)
+	{
+		Printf("\n ERROR: algorithm (-a) must be 0, 1 or 2.\n"); return 1;
+	}
+	if (opt.maxseqlen < opt.L || opt.maxnumseq < 1)
+	{
+		Printf("\n ERROR: maxSeqLen must be at least L and maxNumSeq at least 1.\n"); return 1;
 	}
 
 	// the alphabet lives in a global that outlives this call: start every call from DNA
 	globalConverter.resetToDNA();
-	if (opt.alphabetFN!=NULL){
-		if (globalConverter.readAlphabetFile(opt.alphabetFN, MAX_ALPHABET_SIZE)!=0) return 1;
+	int alg = opt.alg;
+	if (!opt.alphabetFN.empty()){
+		if (globalConverter.readAlphabetFile(opt.alphabetFN.c_str(), MAX_ALPHABET_SIZE)!=0) return 1;
 		if (opt.addRC&&(globalConverter.b!=4)&&(::globalConverter.b!=16)){
 			opt.addRC=false;
 			Printf("\nAdd Reverse Complement option is turned off.\n");
@@ -235,10 +185,8 @@ int mainGkmKernel(int argc, char** argv) //mainGkmKernel
 			}
 		case 1:
 			return gkmKernelSimple(opt);
-		case 2:
-			return gkmKernelSuffixTree(opt);
 		default:
-            print_usage_and_exit_gkmKernel(argv[0]); return 0;
+			return gkmKernelSuffixTree(opt);
 	}
 }
 
@@ -267,9 +215,9 @@ int gkmKernelSimple(OptsGkmKernel &opt)  //Use XOR precomputed hash table
 	bool addRC = opt.addRC;
 	//bool usePseudocnt= opt.usePseudocnt; 
 
-	char *posSeqsFN = opt.posfile;
-	char *negSeqsFN = opt.negfile;
-	char *outFN = opt.outfile;
+	const char *posSeqsFN = opt.posfile.c_str();
+	const char *negSeqsFN = opt.negfile.c_str();
+	const char *outFN = opt.outfile.c_str();
 
 	CLList **seqsL = new CLList *[nMAXSEQUENCES];
 	double *norm = new double [nMAXSEQUENCES];
@@ -537,9 +485,9 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   bool addRC = opt.addRC;
   bool usePseudocnt= opt.usePseudocnt; 
   
-  char *posSeqsFN = opt.posfile;
-  char *negSeqsFN = opt.negfile;
-  char *outFN = opt.outfile;
+  const char *posSeqsFN = opt.posfile.c_str();
+  const char *negSeqsFN = opt.negfile.c_str();
+  const char *outFN = opt.outfile.c_str();
   
   int i = 1; 
   

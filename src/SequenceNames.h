@@ -20,8 +20,7 @@
 #include "global.h"
 #include "Sequence.h"
 
-#define MAXNSeqs 1000000 
-#define MAXSeqnameLENGTH 100 
+#include <vector>
 
 class CSequenceNames
 {
@@ -29,14 +28,13 @@ public:
 	CSequenceNames(void);
 	~CSequenceNames(void);
 	int Nseqs; 
-	char *seqNames[MAXNSeqs]; 
+	std::vector<char *> seqNames; 
+	std::vector<double> weight; 
 
-	double weight[MAXNSeqs]; 
+	int readSeqNames(const char *seqNamesFN); 
+	int readSeqNamesandWeights(const char *seqNamesFN); 
 
-	int readSeqNames(char *seqNamesFN); 
-	int readSeqNamesandWeights(char *seqNamesFN); 
-
-	void openSeqFile( char *seqFN, int maxSeqLength); 
+	void openSeqFile( const char *seqFN, int maxSeqLength); 
 	CSequence *nextSeq(); 
 
 	CSequence *curSeq; 

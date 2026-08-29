@@ -1,108 +1,30 @@
 #include <Rcpp.h>
-#include <string.h>
+#include "gkmOptions.h"
 using namespace Rcpp;
 
-// This is a simple example of exporting a C++ function to R. You can
-// source this function into an R session using the Rcpp::sourceCpp 
-// function (or via the Source button on the editor toolbar). Learn
-// more about Rcpp at:
-//
-//   http://www.rcpp.org/
-//   http://adv-r.had.co.nz/Rcpp.html
-//   http://gallery.rcpp.org/
-//
-int mainGkmKernel(int argc, char** argv); 
-  
 // [[Rcpp::export]]
 void gkmsvm_kernel(SEXP params){
   Rcpp::List rparam(params); // Get parameters in params.
 
-  int L = Rcpp::as<int>(rparam["L"]);
-  int K = Rcpp::as<int>(rparam["K"]);
-  int maxnmm= Rcpp::as<int>(rparam["maxnmm"]);
-  int maxseqlen= Rcpp::as<int>(rparam["maxseqlen"]);
-  int maxnumseq= Rcpp::as<int>(rparam["maxnumseq"]);
-  int useTgkm= Rcpp::as<int>(rparam["useTgkm"]);
-  int alg= Rcpp::as<int>(rparam["alg"]);
-  bool addRC= Rcpp::as<bool>(rparam["addRC"]);
-  bool usePseudocnt= Rcpp::as<bool>(rparam["usePseudocnt"]);
-  bool OutputBinary= Rcpp::as<bool>(rparam["OutputBinary"]);
-  std::string posfile = Rcpp::as<std::string>(rparam["posfile"]);
-  std::string negfile = Rcpp::as<std::string>(rparam["negfile"]);
-  std::string outfile = Rcpp::as<std::string>(rparam["outfile"]);
-  double wildcardLambda= Rcpp::as<double>(rparam["wildcardLambda"]);
-  int wildcardMismatchM= Rcpp::as<int>(rparam["wildcardMismatchM"]);
+  OptsGkmKernel opt;
+  opt.L = Rcpp::as<int>(rparam["L"]);
+  opt.K = Rcpp::as<int>(rparam["K"]);
+  opt.maxnmm = Rcpp::as<int>(rparam["maxnmm"]);
+  opt.maxseqlen = Rcpp::as<int>(rparam["maxseqlen"]);
+  opt.maxnumseq = Rcpp::as<int>(rparam["maxnumseq"]);
+  opt.useTgkm = Rcpp::as<int>(rparam["useTgkm"]);
+  opt.alg = Rcpp::as<int>(rparam["alg"]);
+  opt.addRC = Rcpp::as<bool>(rparam["addRC"]);
+  opt.usePseudocnt = Rcpp::as<bool>(rparam["usePseudocnt"]);
+  opt.OutputBinary = Rcpp::as<bool>(rparam["OutputBinary"]);
+  opt.posfile = Rcpp::as<std::string>(rparam["posfile"]);
+  opt.negfile = Rcpp::as<std::string>(rparam["negfile"]);
+  opt.outfile = Rcpp::as<std::string>(rparam["outfile"]);
+  opt.wildcardLambda = Rcpp::as<double>(rparam["wildcardLambda"]);
+  opt.wildcardMismatchM = Rcpp::as<int>(rparam["wildcardMismatchM"]);
   std::string alphabetFN = Rcpp::as<std::string>(rparam["alphabetFN"]);
-  int nmaxThreads= Rcpp::as<int>(rparam["nmaxThreads"]);
-  
-    int argc=0; 
-    char** argv = new char *[50]; 
-    for(int i=0;i<50;i++){
-      argv[i]=new char[5000]; 
-    }
-    
-    sprintf(argv[argc++], "gkmsvm_kernel"); 
-    
-    sprintf(argv[argc++], "-l"); 
-    sprintf(argv[argc++], "%d", L); 
-    
-    sprintf(argv[argc++], "-k"); 
-    sprintf(argv[argc++], "%d", K); 
-    
-    sprintf(argv[argc++], "-d"); 
-    sprintf(argv[argc++], "%d", maxnmm); 
-    
-    sprintf(argv[argc++], "-m"); 
-    sprintf(argv[argc++], "%d", maxseqlen); 
-    
-    sprintf(argv[argc++], "-n"); 
-    sprintf(argv[argc++], "%d", maxnumseq); 
-    
-    sprintf(argv[argc++], "-t"); 
-    sprintf(argv[argc++], "%d", useTgkm); 
-    
-    sprintf(argv[argc++], "-a"); 
-    sprintf(argv[argc++], "%d", alg); 
-    
+  if (alphabetFN != "NULL") opt.alphabetFN = alphabetFN; // the R default is the string "NULL"
+  opt.maxnThread = Rcpp::as<int>(rparam["nmaxThreads"]);
 
-    sprintf(argv[argc++], "-M"); 
-    sprintf(argv[argc++], "%d", wildcardMismatchM); 
-    
-    sprintf(argv[argc++], "-L"); 
-    sprintf(argv[argc++], "%lf", wildcardLambda); 
-    
-    if(strcmp(alphabetFN.c_str(), "NULL")!=0){
-      sprintf(argv[argc++], "-A"); 
-      sprintf(argv[argc++], "%s", alphabetFN.c_str()); 
-    }
-
-    sprintf(argv[argc++], "-T"); 
-    sprintf(argv[argc++], "%d", nmaxThreads); 
-    
-    if(addRC==false){
-      sprintf(argv[argc++], "-R"); 
-    }
-    if(usePseudocnt==true){
-      sprintf(argv[argc++], "-p"); 
-    }
-    
-    if(OutputBinary==true){
-      sprintf(argv[argc++], "-b"); 
-    }
-    
-    sprintf(argv[argc++], "%s", posfile.c_str()); 
-    sprintf(argv[argc++], "%s", negfile.c_str()); 
-    sprintf(argv[argc++], "%s", outfile.c_str()); 
-
-    
-    
-   int status = mainGkmKernel( argc, argv); 
-   
-   for(int i=0;i<50;i++){
-     delete []argv[i]; 
-   }
-   delete[]argv;   
-   if (status != 0) Rcpp::stop("gkmsvm_kernel failed (see the messages above)");
-   
-  }
-  
+  if (gkmKernelRun(opt) != 0) Rcpp::stop("gkmsvm_kernel failed (see the messages above)");
+}

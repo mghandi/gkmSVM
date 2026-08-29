@@ -24,6 +24,7 @@
 
 #include "global.h"
 #include "globalvar.h"
+#include "gkmOptions.h"
 
 #include "Sequence.h"
 #include "CalcWmML.h"
@@ -36,33 +37,13 @@
 
 using namespace std;
 
-typedef struct {
-	int L;
-	int K;
-	int maxnmm;
-	int maxseqlen;
-	int maxnumseq;
-	int useTgkm;
-	int batchSize;
-	bool addRC;
-	bool usePseudocnt;
-	char *seqfile;
-	char *svseqfile;
-	char *alphafile;
-	char *outfile;
-    double wildcardLambda;  //parameter lambda for (LK2004)
-    int wildcardMismatchM;  //parameter M for wildcard or mismatch kernels (LK2004)
-    char *alphabetFN; //alphabets file name
-
-} OptsSVMClassify;
-
 double calcnorm(CSequence *sgi, int addRC, CLList *tmplist, double *c, int *mmcnt, int L, int maxmm);
 double svmScoreunorm(int i, double *c); 
 
 int svmClassifySuffixTree(OptsSVMClassify &opt);
 int svmClassifySimple(OptsSVMClassify &opt);
 
-void print_usage_and_exit(char *prog)
+void print_usage_and_exit(const char *prog)
 {
     Printf("\n");
     sprintf(globtmpstr, " Usage: %s [options] <test_seqfile> <sv_seqfile> <sv_alphafile> <outfile>\n",prog );Printf(globtmpstr);
@@ -77,115 +58,86 @@ void print_usage_and_exit(char *prog)
 	Printf("  outfile: output file name\n");
     Printf("\n");
     Printf(" Options:\n");
-	sprintf(globtmpstr,"  -l L           set word length, default=%d\n",DEF_L);
-	sprintf(globtmpstr,"  -k K           set number of informative columns, default=%d\n", DEF_K);
-    sprintf(globtmpstr, "  -d maxMismatch set maximum number of mismatches to consider, default=%d\n",DEF_D);
+	sprintf(globtmpstr,"  -l L           set word length, default=%d\n",DEF_L); Printf(globtmpstr);
+	sprintf(globtmpstr,"  -k K           set number of informative columns, default=%d\n", DEF_K); Printf(globtmpstr);
+    sprintf(globtmpstr, "  -d maxMismatch set maximum number of mismatches to consider, default=%d\n",DEF_D); Printf(globtmpstr);
 	Printf("  -m maxSeqLen   set maximum sequence length in the sequence files,\n");
-    sprintf(globtmpstr,"                 default=%d\n",DEF_MAXSEQLEN);
+    sprintf(globtmpstr,"                 default=%d\n",DEF_MAXSEQLEN); Printf(globtmpstr);
 	Printf("  -n maxNumSeq   set maximum number of sequences in the sequence files,\n");
-	sprintf(globtmpstr, "                 default=%d\n",DEF_MAXNUMSEQ);
+    sprintf(globtmpstr, "                 default=%d\n",DEF_MAXNUMSEQ); Printf(globtmpstr);
 	Printf("  -t filterType  set filter type: 0(use full filter), 1(use truncated filter:\n");
 	Printf("                 this gaurantees non-negative counts for all L-mers), 2(use h[m],\n");
-	sprintf(globtmpstr, "                 gkm count vector), 3(wildcard), 4(mismatch), default=%d\n",DEF_TGKM);
+	sprintf(globtmpstr, "                 gkm count vector), 3(wildcard), 4(mismatch), default=%d\n",DEF_TGKM); Printf(globtmpstr);
 	Printf("  -a algorithm   set algorithm type: 0(auto), 1(XOR Hashtable), 2(tree),\n");
 	Printf("                 default=0\n");
 	Printf("  -b             set number of sequences to compute scores for in batch, \n");
-	sprintf(globtmpstr, "                 default=%d\n", DEF_BATCHSIZE);
+	sprintf(globtmpstr, "                 default=%d\n", DEF_BATCHSIZE); Printf(globtmpstr);
 	Printf("  -R             if set, reverse complement sequences will NOT be considered\n");
 	Printf("  -p             if set, a constant to count estimates will be added\n");
 	Printf("  -M             max mismatch for Mismatch kernel or wildcard kernel, default=2\n");
 	Printf("  -L             lambda for wildcard kernel, defaul=0.9\n");
 	Printf("  -A             alphabets file name, if not specified, it is assumed the inputs are DNA sequences\n");
-
-
     Printf("\n");
-
-	//exit(0);
 }
 
-int mainSVMclassify(int argc, char** argv) // mainSVMclassify
+static int svmClassifyParseArgs(int argc, char** argv, OptsSVMClassify &opt)
 {
-	OptsSVMClassify opt;
     ::optind=1; // reset getopt()
 	int c;
-
-	opt.L = DEF_L; 
-	opt.K = DEF_K; 
-	opt.maxnmm = DEF_D;
-	opt.maxseqlen = DEF_MAXSEQLEN; 
-	opt.maxnumseq = DEF_MAXNUMSEQ; 
-	opt.useTgkm = DEF_TGKM; 
-	opt.batchSize = DEF_BATCHSIZE;
-	opt.addRC = true; 
-	opt.usePseudocnt=false;
-
-    opt.wildcardMismatchM= 2;
-    opt.wildcardLambda = 1.0;
-    opt.alphabetFN = NULL;
-
-	int alg = 0;
-
     if (argc == 1) { print_usage_and_exit(argv[0]); return 1; }
 
 	while ((c = getopt (argc, argv, "l:k:d:m:n:t:a:b:M:L:A:Rp")) != -1)
 	{
 		switch (c) 
 		{
-			case 'l':
-				opt.L = atoi(optarg);
-				break;
-			case 'k':
-				opt.K = atoi(optarg);
-				break;
-			case 'd':
-				opt.maxnmm = atoi(optarg);
-				break;
-			case 'm':
-				opt.maxseqlen = atoi(optarg);
-				break;
-			case 'n':
-				opt.maxnumseq = atoi(optarg);
-				break;
-			case 't':
-				opt.useTgkm = atoi(optarg);
-				break;
-			case 'a':
-				alg = atoi(optarg);
-				break;
-			case 'b':
-				opt.batchSize= atoi(optarg);
-				break;
-			case 'R':
-				opt.addRC = false;
-				break;
-			case 'p':
-				opt.usePseudocnt = true;
-				break;
-			case 'M':
-				opt.wildcardMismatchM = atoi(optarg);
-				break;
-			case 'L':
-				opt.wildcardLambda = atof(optarg);
-				break;
-			case 'A':
-				opt.alphabetFN = optarg;
-				break;
-			default:
-				print_usage_and_exit(argv[0]);return 1;
+			case 'l': opt.L = atoi(optarg); break;
+			case 'k': opt.K = atoi(optarg); break;
+			case 'd': opt.maxnmm = atoi(optarg); break;
+			case 'm': opt.maxseqlen = atoi(optarg); break;
+			case 'n': opt.maxnumseq = atoi(optarg); break;
+			case 't': opt.useTgkm = atoi(optarg); break;
+			case 'a': opt.alg = atoi(optarg); break;
+			case 'b': opt.batchSize= atoi(optarg); break;
+			case 'R': opt.addRC = false; break;
+			case 'p': opt.usePseudocnt = true; break;
+			case 'M': opt.wildcardMismatchM = atoi(optarg); break;
+			case 'L': opt.wildcardLambda = atof(optarg); break;
+			case 'A': opt.alphabetFN = optarg; break;
+			default: print_usage_and_exit(argv[0]); return 1;
 		}
 	}
 
-	if (argc-optind != 4) { print_usage_and_exit(argv[0]);return 1; }
+	if (argc-optind != 4) { print_usage_and_exit(argv[0]); return 1; }
 
 	int index = optind;
 	opt.seqfile = argv[index++];
 	opt.svseqfile = argv[index++];
 	opt.alphafile = argv[index++];
 	opt.outfile = argv[index++];
+	return 0;
+}
+
+int mainSVMclassify(int argc, char** argv) // mainSVMclassify
+{
+	OptsSVMClassify opt;
+	if (svmClassifyParseArgs(argc, argv, opt) != 0) return 1;
+	return svmClassifyRun(opt);
+}
+
+int svmClassifyRun(OptsSVMClassify &opt)
+{
+	if (opt.L < 1 || opt.K < 1) { Printf("\n ERROR: L and K must be positive.\n"); return 1; }
+	if ((opt.K > opt.L) && (opt.useTgkm < 3)) { Printf("\n ERROR: K must be less than or equal to L!\n"); return 1; }
+	if ((opt.maxnmm > 0) && (opt.L < opt.maxnmm)) { Printf("\n ERROR: maxMismatch must be less than or equal to L!\n"); return 1; }
+	if (opt.useTgkm < 0 || opt.useTgkm > 4) { Printf("\n ERROR: filter type (-t) must be between 0 and 4.\n"); return 1; }
+	if (opt.alg < 0 || opt.alg > 2) { Printf("\n ERROR: algorithm (-a) must be 0, 1 or 2.\n"); return 1; }
+	if (opt.batchSize < 1) { Printf("\n ERROR: batch size must be at least 1.\n"); return 1; }
+	if (opt.maxseqlen < opt.L || opt.maxnumseq < 1) { Printf("\n ERROR: maxSeqLen must be at least L and maxNumSeq at least 1.\n"); return 1; }
 
 	::globalConverter.resetToDNA(); // the alphabet is a global that outlives this call
-	if (opt.alphabetFN!=NULL){
-		if (::globalConverter.readAlphabetFile(opt.alphabetFN, MAX_ALPHABET_SIZE)!=0) return 1;
+	int alg = opt.alg;
+	if (!opt.alphabetFN.empty()){
+		if (::globalConverter.readAlphabetFile(opt.alphabetFN.c_str(), MAX_ALPHABET_SIZE)!=0) return 1;
 		if (opt.addRC&&(::globalConverter.b!=4)&&(::globalConverter.b!=16)){
 			opt.addRC=false;
 			Printf("\nAdd Reverse Complement option is turned off.\n");
@@ -216,10 +168,8 @@ int mainSVMclassify(int argc, char** argv) // mainSVMclassify
 			}
 		case 1:
 			return svmClassifySimple(opt);
-		case 2:
-			return svmClassifySuffixTree(opt);
 		default:
-			print_usage_and_exit(argv[0]);return 1;
+			return svmClassifySuffixTree(opt);
 	}
 }
 
@@ -247,10 +197,10 @@ int svmClassifySimple(OptsSVMClassify &opt)
 	bool addRC = opt.addRC; 
 	//int batchSize = opt.batchSize; //batch size 
 
-	char *SeqsFN = opt.seqfile;
-	char *SVSeqsFN = opt.svseqfile;
-	char *SVSeqIDsFN = opt.alphafile;
-	char *outFN = opt.outfile;
+	const char *SeqsFN = opt.seqfile.c_str();
+	const char *SVSeqsFN = opt.svseqfile.c_str();
+	const char *SVSeqIDsFN = opt.alphafile.c_str();
+	const char *outFN = opt.outfile.c_str();
 
 	CLList **seqsL = new CLList *[nMAXSEQUENCES];
 	double *norm = new double [nMAXSEQUENCES];
@@ -446,10 +396,10 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 	bool addRC = opt.addRC; 
 	int batchSize = opt.batchSize; //batch size 
 
-	char *SeqsFN = opt.seqfile;
-	char *SVSeqsFN = opt.svseqfile;
-	char *SVSeqIDsFN = opt.alphafile;
-	char *outFN = opt.outfile;
+	const char *SeqsFN = opt.seqfile.c_str();
+	const char *SVSeqsFN = opt.svseqfile.c_str();
+	const char *SVSeqIDsFN = opt.alphafile.c_str();
+	const char *outFN = opt.outfile.c_str();
     
 //	CLList **seqsL = new CLList *[nMAXSEQUENCES];
 	double *norm = new double [nMAXSEQUENCES];
