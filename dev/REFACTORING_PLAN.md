@@ -760,3 +760,9 @@ and text-vs-binary kernel size and R load time.
   original code's undefined behaviour (uninitialised `h[]` in the `t=2` cases, the empty-record
   case not crashing under glibc), which #8 fixes; the Phase 0 corpus is a macOS snapshot of `222cc50`.
   Tip after the fixes: ubuntu gcc/clang, ASAN+UBSAN, macOS and the R job all green.
+* **Tried and rejected (not committed): a per-thread node arena for the per-pass clones.** Internal
+  clone nodes from a reusable pool instead of `new`/`delete` per node per pass. Measured on the tip
+  (best of 3): T=1 6.26 s (unchanged), T=20 0.83 s (unchanged), and peak RSS at n=12 000 (T=8)
+  **1 006 → 1 172 MB, i.e. worse** — pools held for the whole run coexist with the profile tile,
+  while per-pass frees let the allocator reuse that memory. The clone term is bounded by the trie
+  size × threads; the honest lever left is fewer threads (`-T`) or a smaller `L`, not allocation.
