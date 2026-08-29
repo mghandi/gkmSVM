@@ -73,13 +73,11 @@ public:
   
   //	void DFST( CLTreeSptr **matchingLmers, int listlen, int *curMismatchCnt, int pos, int alphabetSize);// without nonEmptyDaughterCnt
   //	void DFSTn(CLTreeSptr **matchingLmers, int listlen, int *curMismatchCnt, int alphabetSize);// without nonEmptyDaughterCnt
-  void DFST( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, int pos, int alphabetSize);
   
   void DFSTiDL( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt,CbinMMtree **curMMtree, int pos, int alphabetSize); // this version has iDL (or more generally MMtree bound)
   
   
   
-  void DFSTn(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, int alphabetSize);
   void DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, CbinMMtree **curMMtree, int alphabetSize); // this version has iDL (or more generally MMtree bound)
   
   //void DFSTf( CLTreeSptr **matchingLmers, int listlen, int *curMismatchCnt, int pos);  // this is for fast version -- yet to be implemented
