@@ -44,7 +44,7 @@ Three further findings shape the plan:
   is a zero-risk one-line fix. With it applied, the next finding to surface is the 100-character name
   overflow at `mainGkmKernel.cpp:696`, which ASAN otherwise never reaches.)*
 
-The plan is **eight phases (plus a low-priority CRAN track)**, ordered so that every phase is independently reviewable, keeps the
+The plan is **nine phases (plus a low-priority CRAN track)**, ordered so that every phase is independently reviewable, keeps the
 test suite green, and can be released on its own. Phases 0–2 change no behaviour.
 
 ---
@@ -100,6 +100,8 @@ src/
   cli/
     main_kernel.cpp           getopt front-end, byte-compatible with today
     main_classify.cpp
+    main_train.cpp            C-SVC training on the kernel matrix (Phase 4b)
+  libsvm/                     vendored LIBSVM 3.33 (BSD-3): svm.cpp, svm.h, COPYRIGHT
   r/
     RcppExports.cpp
     api.cpp                   R -> core via a params struct (no argv round-trip)
@@ -133,8 +135,9 @@ Each phase = one PR. "Gate" = what must hold before merging.
    produced here at all; the published binaries come from the separate `gkmsvm-2.0.tar.gz` on
    beerlab.org, i.e. a *third* lineage that will keep drifting. Add `src/cli/main_kernel.cpp` and
    `src/cli/main_classify.cpp` (thin `main()` shims over the existing `mainGkmKernel` /
-   `mainSVMclassify`) plus a `Makefile`, so one source tree produces both the R package and the two
-   binaries. `dev/baseline.sh` already prototypes exactly this shim.
+   `mainSVMclassify`) plus a `Makefile`, so one source tree produces both the R package and the
+   binaries (three, once Phase 4b adds `gkmsvm_train`). `dev/baseline.sh` already prototypes
+   exactly this shim.
    This lands **first** because the golden tests below need a way to drive the code from a shell,
    and because it makes the CLI a permanently supported artefact rather than a fork.
 2. **Golden-test corpus.** Fixture FASTAs (DNA small/medium, duplicate names, names >100 chars,
@@ -208,7 +211,7 @@ before/after documentation.
 * Rewrite the FASTA reader without `static` look-ahead state (`Sequence.cpp:183-186`), so two files
   can be read concurrently and the reader is thread-safe.
 * **Quarantine dead code.** Unreachable from both R entry points, with evidence:
-  `mainSVMtrain.cpp` + `SVMtrain`, `CountKLmers`, `CountKLmersGeneral`, `CountKLmersH`,
+  `CountKLmers`, `CountKLmersGeneral`, `CountKLmersH`,
   `MLEstimKLmers`, `MLEstimKLmersLog`, `KLmer`, `EstimLogRatio`, `SequenceData` (empty stubs),
   `LKTree`, `CLTreeMemorize`, `GTree`/`GTreeLeafData` (never constructed), `GTree2`/`GTreeLeafData2`
   (guarded by the literal `int UseGTree = 0;`), `CLTreeS::DFST/DFSTn` (dead **and** containing an
@@ -216,6 +219,8 @@ before/after documentation.
   `LTreeS.cpp` that is commented-out history. Move to `legacy/` in this phase (git keeps the history),
   delete in Phase 6. Expected: **~13 k → ~5 k lines**.
 * Fold `FAST_TRACK` / `USE_GLOBAL` (never defined) and the `-b` no-op flag out of the live path.
+* `mainSVMtrain.cpp` is **kept and rewired** rather than quarantined: Phase 4b replaces its solver
+  (`SVMtrain.{h,cpp}` is deleted) while keeping its CLI and output format.
 
 *Gate:* golden tests bit-identical; benchmark within 2 %; ASAN/UBSAN clean.
 
@@ -294,6 +299,83 @@ offset  field
 
 *Gate:* round-trip tests (text→binary→text is identity to `%e` precision); a golden binary file
 committed as a fixture so future format changes are caught; cross-endian read test.
+
+### Phase 4b — SVM training in C++ (`gkmsvm_train`)
+
+**Why replace the current trainer.** `CSVMtrain::train` (`src/SVMtrain.cpp:41-101`) is not an SVM
+solver. It is the iterative heuristic of Jaakkola, Diekhans & Haussler (2000): a fixed number of
+coordinate sweeps (`niter20 = 5`, i.e. 100·N updates) with the multipliers clipped to `[0,1]`,
+started from `myrandom()` values. It therefore has
+
+* **no `C` parameter** — the box is hard-coded to `[0,1]`, so the regularisation cannot be changed
+  (the CLI's only option is `-n niter20`);
+* **no bias/intercept**;
+* **no convergence criterion** — it stops after a fixed iteration count whatever the KKT state;
+* **no portability of results** — the initialisation calls `rand()`, which is never seeded, so a
+  given build is deterministic but the answer depends on the platform's libc `rand()`;
+* **a dense model** — *(measured on the 60+60 fixture: all 120 training sequences come out with
+  |alpha| > 1e-10, i.e. every sequence is written to `svseq.fa` as a "support vector")*.
+
+That is materially weaker than what R users get from `kernlab::ksvm(type="C-svc", C=...)`.
+
+**What already works.** `mainSVMtrain` is otherwise a complete CLI: it reads the kernel matrix and
+both FASTA files and writes `{prefix}_svalpha.out` + `{prefix}_svseq.fa` in **exactly the format the
+R/kernlab path produces** (name TAB alpha, negative-class alphas negated, SVs thresholded at
+`|alpha| > 1e-10`). So this is a **solver swap inside an existing, format-compatible tool**, not a
+new pipeline. It is dead today only because nothing can call it (no `main()`; fixed in Phase 0).
+
+**Library: LIBSVM, vendored into `src/libsvm/`.** Verified against the 3.33 release tarball:
+
+| requirement | libsvm 3.33 |
+|---|---|
+| license | **BSD-3-Clause** — permissive, compatible with this package's GPL (≥2) |
+| footprint | `svm.cpp` 3 312 lines + `svm.h` 105 lines + `COPYRIGHT`; **no dependencies**, no build system needed |
+| precomputed kernel | `kernel_type = PRECOMPUTED` — exactly our case, since gkmSVM computes its own kernel |
+| output capture | `svm_set_print_string_function()` — routes solver output to `Rprintf`, fixing one of the current R CMD check violations |
+| cross-validation | `svm_cross_validation()` — gives `gkmsvm_trainCV` a C++ equivalent for free |
+| class weights | `nr_weight`/`weight_label`/`weight` — useful for imbalanced positive/negative sets |
+| validation | `svm_check_parameter()` — real error messages instead of silent misbehaviour |
+
+*Spike (verified, not hypothetical):* a ~60-line driver reading the lower-triangle kernel file that
+`gkmsvm_kernel` writes today, feeding it to libsvm as a `PRECOMPUTED` kernel, trains C-SVC on the
+motif fixture at C = 0.1 / 1 / 10 and returns sensible alphas bounded by ±C, a proper `rho`, and
+perfect separation. So the integration is a small, well-understood piece of work.
+
+Alternatives considered and rejected: **ThunderSVM** (Apache-2.0 — incompatible with GPL-2, would
+force GPL-3-only; plus a CUDA/OpenMP build), **LIBLINEAR** (linear only, no precomputed kernels),
+**dlib / Shark / mlpack** (large dependency trees — Boost, Armadillo — hostile to a CRAN package),
+**SVMlight** (non-free licence). Vendoring a single BSD file pair is also the established CRAN
+pattern for SVMs.
+
+**Integration in two stages.**
+
+* **4b-1 — precomputed matrix (drop-in).** Read the kernel (text or the Phase-4 binary format),
+  hand it to libsvm as `PRECOMPUTED`, write both the legacy two-file output and the new single-file
+  model. Memory stays O(n²) exactly as today: *(computed)* the `double**` matrix is 0.2 GB at
+  n = 5 000, **3.0 GB at n = 20 000**, 18.6 GB at n = 50 000.
+* **4b-2 — kernel on the fly (later, with Phase 6).** Give libsvm a kernel callback backed by the
+  L-mer trie plus its LRU cache, so the n² matrix never has to exist. This is the same move as
+  dropping the mismatch profile from the hot path in Phase 6, and together they remove the memory
+  wall that currently caps the method at a few thousand sequences.
+
+**Compatibility decisions.**
+
+* **Bias.** libsvm returns `rho`; today's pipeline has no intercept and `gkmsvm_classify` applies
+  none. Carry `rho` in the new model format and apply it there; keep the legacy two-file output
+  bias-free. Ranking metrics (AUC, and the `gkmsvm_delta` difference) are unaffected by a constant
+  offset, so this is safe.
+* **Not bit-identical to kernlab.** Different solver and stopping rule, so alphas will differ even
+  where the models are equivalent. `gkmsvm_train` therefore gains
+  `backend = c("kernlab", "libsvm")`, defaulting to `"kernlab"` for this release — the same
+  opt-in-then-flip pattern as the binary format (decision 3) — so the two can be compared on real
+  data before the default moves. If `libsvm` becomes the default, the heavy `kernlab` dependency
+  can be dropped from `Imports`.
+* **CLI.** `gkmsvm_train` keeps its positional arguments and gains `-c C` (and `-w` class weights,
+  `-v nfold` for CV). `-n niter20` is accepted and ignored with a deprecation notice.
+
+*Gate:* on the tutorial CTCF dataset the libsvm backend reproduces the kernlab AUC within noise;
+the R backend and the CLI produce the same model from the same kernel; model-file round-trip tests;
+`CSVMtrain` deleted rather than quarantined.
 
 ### Phase 5 — Alphabet generalisation, single B (**issue 3, part 1**)
 
@@ -391,6 +473,7 @@ bit-identical.
 | 2 | De-globalise, RAII, quarantine dead code | ~1–2 weeks | medium (large diff, zero behaviour change) | 0,1 |
 | 3 | Sequence identity | ~1 week | medium (one deliberate default change) | 2 |
 | 4 | Binary formats | ~1 week | low (additive) | 3 |
+| 4b | C++ SVM training via vendored libsvm | ~1 week | low–medium | 0, 4 |
 | 5 | Runtime alphabet, templated trie | ~1–2 weeks | medium | 2 |
 | 6 | Performance | ~1–2 weeks | medium (numerics must be pinned) | 2,5 |
 | 7 | Two-block → general B | project-sized | high | 5,6 |
@@ -421,15 +504,13 @@ All six open questions are resolved; the phases above already reflect them.
 5. **Move to C++17** — `Makevars` with `CXX_STD = CXX17` and `SystemRequirements: C++17` in
    DESCRIPTION (CRAN accepts it unconditionally). `if constexpr`, `std::string_view` and structured
    bindings make the templated-trie code in Phase 5 substantially cleaner.
-6. **Keep shipping the standalone CLI** — `gkmsvm_kernel` and `gkmsvm_classify` binaries stay a
-   supported artefact so the C++ version can be run without R. Because they cannot be built from
-   this repo at all today (no `main()`, no Makefile), adding them is the *first* item of Phase 0,
-   where they also serve as the driver for the golden tests.
+6. **Keep shipping the standalone CLI** — `gkmsvm_kernel`, `gkmsvm_classify` and (per decision 7)
+   `gkmsvm_train` stay supported artefacts so the C++ version can be run without R. Because they
+   cannot be built from this repo at all today (no `main()`, no Makefile), adding them is the
+   *first* item of Phase 0, where they also serve as the driver for the golden tests.
 
-**One small residual question**, not blocking: `mainSVMtrain.cpp` still exists but is unreachable
-(R trains via kernlab), while the published gkmsvm-2.0 also shipped a third `gkmsvm_train` binary.
-Recommendation: quarantine it with the rest of the dead code in Phase 2 and ship only the two
-binaries named above — say so if you would rather revive it as a third CLI target.
+7. **Train in C++ too** — `gkmsvm_train` becomes a third supported binary, with the hand-rolled
+   `CSVMtrain` heuristic replaced by **vendored LIBSVM** (BSD-3, no dependencies). See Phase 4b.
 
 ## 6. Reproducing the measurements
 
