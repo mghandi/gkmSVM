@@ -111,5 +111,15 @@ Crashes and memory errors fixed (all reproduced before the fix, all now ASAN/UBS
 * Protein and 5-letter kernels are verified against the exact-arithmetic reference
   (`tests/oracle`), and frozen as golden cases.
 
+### Phase 6 — performance (results bit-identical)
+
+* Multithreaded kernel computation scales better: passes are handed to threads dynamically
+  instead of by a fixed `pass % nThreads` assignment (on 20 threads, 0.98 s → 0.84 s for the
+  reference workload; single-threaded 6.45 s → 6.26 s).
+* The recursion no longer performs three heap allocations per internal trie node (per-thread,
+  per-depth reusable buffers).
+* The mismatch profile is stored as a lower triangle: half the memory for the dominant `n²·(d+1)`
+  term (e.g. 7.5 GB → 3.7 GB at 20 000 sequences).
+
 Build: C++17 (`SystemRequirements: C++17`, `src/Makevars`). The R package routes all console output
 through `Rprintf` and random numbers through R's RNG (`-DRPACKAGE`); the standalone CLI is unchanged.

@@ -3,6 +3,7 @@
  */
 #include <iostream>
 #include <thread>
+#include <atomic>
 #include <vector>
 #include <stdlib.h>
 #include <stdio.h>
@@ -44,9 +45,12 @@ double calcinnerprod(int i, int j, double *c, double n0, double C, int nA, int n
 	return(res); 
 }
 
-void task1(int L, int j0, CiDLPasses *iDL, CLTreeS *seqsTS, int M, int nThreads){
-  //    sprintf(globtmpstr,"started pass %d out of %d.\n",j+1,iDL->M);Printf(globtmpstr);
-  for(int j=0;j<M;j++) if((j%nThreads)==j0){
+// One worker: takes passes from the shared counter until none are left (Phase 6: passes have
+// unequal cost, so a static j % nThreads assignment left threads idle).
+void task1(int L, CiDLPasses *iDL, CLTreeS *seqsTS, int M, std::atomic<int> *nextPass){
+  for(;;){
+    int j = nextPass->fetch_add(1);
+    if (j >= M) break;
     
     int *tmpArray1 = new int[L];
     int *tmpArray2 = new int[L];
@@ -326,14 +330,16 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   // global vars init: 
   gLM1=L-1;
   gMAXMM=maxnmm; //MaxMismatch
+  // Phase 6: the mismatch profile is only ever read for j <= i (calcinnerprod is called for i >= j and
+  // the leaf code only records pairs with j <= i), so row i holds i+1 entries: half the memory.
   gMMProfile=new aint **[nseqs];
   for(int i=0;i<nseqs;i++)
   {
     gMMProfile[i] = new aint*[gMAXMM+1];
     for (int j=0;j<=gMAXMM;j++)
     {
-      gMMProfile[i][j]=new aint[nseqs];
-      for(int k=0;k<nseqs;k++)
+      gMMProfile[i][j]=new aint[i+1];
+      for(int k=0;k<=i;k++)
       {
         gMMProfile[i][j][k]=0;
       }
@@ -419,12 +425,13 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
     int nThreads=std::thread::hardware_concurrency();
     if(nThreads==0){nThreads = iDL.M;}
     if(nThreads>iDL.M){nThreads =iDL.M;}
-    nThreads = iDL.M/(int)(iDL.M/nThreads);
     if(opt.maxnThread<nThreads){nThreads=opt.maxnThread;}
+    if(nThreads<1){nThreads=1;}
+    std::atomic<int> nextPass(0);
     
     sprintf(globtmpstr,"Running %d passes on %d thread%s.\n", iDL.M, nThreads, (nThreads==1)?"":"s"); Printf(globtmpstr);
     if (nThreads<=1){
-      task1( L, 0, &iDL, seqsTS, iDL.M, 1);
+      task1( L, &iDL, seqsTS, iDL.M, &nextPass);
     }else{
       
 #ifndef MULTI_THREAD_SAFE
@@ -436,7 +443,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
       int j;
       
       for(j=0;j<nThreads;j++){
-        myThreads[j] = std::thread(task1, L, j, &iDL, seqsTS, iDL.M, nThreads);
+        myThreads[j] = std::thread(task1, L, &iDL, seqsTS, iDL.M, &nextPass);
         // myThreads[j].join();
       }
       for(j=0;j<nThreads;j++){

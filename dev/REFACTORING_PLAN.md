@@ -694,3 +694,19 @@ and text-vs-binary kernel size and R load time.
   6.43 s vs 6.46 s for the 4b build measured back-to-back (best of 7). A true dynamic-`b` trie
   (`LmerTrieDyn`) and a separate B=2 instantiation were not needed for the gate and are left for
   Phase 7, where the per-position alphabet makes the node layout dynamic anyway.
+* **Phase 6 (part) — done (PR: `phase6/performance`, stacked on Phase 5).** Three exact changes, golden
+  140/140 byte-identical and ASAN-clean: (1) dynamic pass scheduling (`std::atomic` counter instead of
+  `j % nThreads`); (2) per-thread, per-depth reusable scratch buffers in `DFSTiDL` instead of three
+  `new[]` per internal node visit; (3) lower-triangle mismatch profile (row `i` holds `i+1` counters —
+  every read is for `j ≤ i` and the multi-id leaf writes already stopped at `j > i`; the four single-id
+  writes are made **branchless** (`row[in ? j : i] += in`) because a data-dependent `if (j <= i)` in
+  the innermost loop cost 17 % from mispredictions). Measured on the reference workload (250+250 ×
+  500 bp, L=10 K=6 d=3, best of 3, back-to-back with the Phase 5 build): T=1 **6.45 → 6.26 s**, T=20
+  **0.98 → 0.84 s**; peak RSS at n=500 unchanged (dominated by the per-thread tree clones). Also fixed:
+  the Makefile had no header/`.inl` dependency tracking (`-MMD -MP` now), which produced a stale-object
+  build that crashed and cost an hour of false bisecting — every from-scratch build was fine.
+  **Not done** (remaining Phase 6 items): dropping the profile from the hot path (accumulating `c[m]`
+  directly at the leaves changes floating-point summation order, so it cannot meet the bit-identical
+  gate; the exact alternative *is* the per-`m` count, i.e. the profile), tiling for bounded memory,
+  the per-pass tree clone, and 4b-2 (kernel on the fly). Suggested next step: keep integer per-`m`
+  counts but accumulate them per *tile* of sequence pairs, which keeps exactness and bounds memory.

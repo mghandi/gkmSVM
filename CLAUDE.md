@@ -21,7 +21,7 @@ numerical oracle for this refactor, and its theory is the target of Phase 7.
   `dev/REFACTORING_PLAN.md`, `dev/baseline.sh`, `CLAUDE.md`, `.claude/settings.json`,
   `.Rbuildignore`, `.gitignore`. `src/` and `R/` are untouched at `222cc50`.
 * **Branch stack (none merged): `phase0/baseline-safety-net` (PR #7) ← `phase1/latent-bug-fixes`
-  (PR #8) ← `phase2/core-extraction` (PR #9, Phase 2a) ← `phase3/sequence-identity` (PR #10) ← `phase4/binary-formats` (PR #11) ← `phase4b/libsvm-train` (PR #12) ← `phase5/alphabet-generalisation`.** See §7 of the plan for what each contains and what
+  (PR #8) ← `phase2/core-extraction` (PR #9, Phase 2a) ← `phase3/sequence-identity` (PR #10) ← `phase4/binary-formats` (PR #11) ← `phase4b/libsvm-train` (PR #12) ← `phase5/alphabet-generalisation` (PR #13) ← `phase6/performance`.** See §7 of the plan for what each contains and what
   is left (Phase 2b = the context object), and `NEWS.md` for user-visible changes. Merge in order and
   retarget each PR to `master` after its base merges. Key commands: `make`, `make test` (golden), `make oracle`,
   `make bench`, `dev/scratch_install.sh` then `Rscript -e 'testthat::test_dir("tests/testthat",
