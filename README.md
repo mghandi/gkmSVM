@@ -29,6 +29,12 @@ If you use it, please cite
   tutorial at <https://www.beerlab.org/gkmsvm/gkmsvm-tutorial.htm> describes. The current version
   produces identical kernels; the classifier scores are normalised slightly differently, and
   `gkmsvm_classify(..., legacyNorm = TRUE)` reproduces the v0.80 scores exactly (see the tutorial).
+* **Several tracks per sequence (DNA + methylation, protein + structure, sensor channels, …):**
+  [`tutorials/gkmsvm-multitrack-tutorial.md`](tutorials/gkmsvm-multitrack-tutorial.md) — the
+  gapped k-mer kernel over words whose positions come from alphabets of different sizes
+  (M. Mohammad-Noori, N. Ghareghani, M. Ghandi, *Generalized Gapped k-mer Filters for Robust
+  Frequency Estimation*), `gkmsvm_kernel(..., alphabets = c("dna", "01"))`; the design is in
+  [`dev/PHASE7_PLAN.md`](dev/PHASE7_PLAN.md).
 * **What changed since 0.80:** [`NEWS.md`](NEWS.md); the refactoring plan and its execution log are
   in [`dev/REFACTORING_PLAN.md`](dev/REFACTORING_PLAN.md).
 
