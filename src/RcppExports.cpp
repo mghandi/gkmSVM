@@ -41,11 +41,22 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// gkm_train_cpp
+void gkm_train_cpp(SEXP params);
+RcppExport SEXP _gkmSVM_gkm_train_cpp(SEXP paramsSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type params(paramsSEXP);
+    gkm_train_cpp(params);
+    return R_NilValue;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_gkmSVM_gkm_classify_cpp", (DL_FUNC) &_gkmSVM_gkm_classify_cpp, 1},
     {"_gkmSVM_gkm_crc32_cpp", (DL_FUNC) &_gkmSVM_gkm_crc32_cpp, 1},
     {"_gkmSVM_gkm_kernel_cpp", (DL_FUNC) &_gkmSVM_gkm_kernel_cpp, 1},
+    {"_gkmSVM_gkm_train_cpp", (DL_FUNC) &_gkmSVM_gkm_train_cpp, 1},
     {NULL, NULL, 0}
 };
 

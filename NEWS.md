@@ -92,5 +92,17 @@ Crashes and memory errors fixed (all reproduced before the fix, all now ASAN/UBS
 * FASTA lines starting with `#` are now treated as comments (like `;`).
 * The R/C++ bridge uses registered routines (`Rcpp::compileAttributes()` output).
 
+### Phase 4b — SVM training in C++ (LIBSVM)
+
+* The standalone `gkmsvm_train` binary is now a real C-SVC solver: it embeds **LIBSVM 3.37**
+  (`src/libsvm/`, BSD-3-Clause, `COPYRIGHT` retained) with `kernel_type = PRECOMPUTED`. It reads
+  text or binary kernels, takes `-c C`, `-w` (positive-class weight), `-e eps`, `-v nfold`
+  (cross-validation accuracy), `-S` (no shrinking), `-q`; `-n niter20` is accepted and ignored.
+  It writes the legacy `_svalpha.out`/`_svseq.fa` pair and `<prefix>.gkmmodel` (with `rho`). The
+  previous solver (`CSVMtrain`, a fixed-iteration heuristic with no `C` and no stopping criterion)
+  is deleted.
+* `gkmsvm_train(..., backend = "libsvm")` calls the same code from R; the default `backend =
+  "kernlab"` is unchanged for this release.
+
 Build: C++17 (`SystemRequirements: C++17`, `src/Makevars`). The R package routes all console output
 through `Rprintf` and random numbers through R's RNG (`-DRPACKAGE`); the standalone CLI is unchanged.

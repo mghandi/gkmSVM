@@ -2,8 +2,9 @@
 \alias{gkmsvm_train}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{Training the SVM model}
-\description{Using the kernel matrix created by 'gkmsvm_kernel', this function trains the SVM classifier. Here we rely on the 'kernlab' package, and merely provide a wrapper function.}
-\usage{gkmsvm_train(kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, shrinking=FALSE, ...)}
+\description{Using the kernel matrix created by 'gkmsvm_kernel', this function trains the SVM classifier, either through the 'kernlab' package (default) or through the LIBSVM solver embedded in the package (\code{backend="libsvm"}).}
+\usage{gkmsvm_train(kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, shrinking=FALSE,
+             backend=c("kernlab", "libsvm"), posWeight=1, eps=0.001, nfold=0, quiet=TRUE, ...)}
 \arguments{
   \item{kernelfn}{kernel matrix file name}
   \item{posfn}{positive sequences file name}
@@ -12,9 +13,14 @@
   \item{Type}{optional: SVM type (default='C-svc'), see 'kernlab' documentation for more details.}
   \item{C}{optional: SVM parameter C (default=1), see 'kernlab' documentation for more details.}
   \item{shrinking}{optional: shrinking parameter for kernlab (default=FALSE), see 'kernlab' documentation for more details.}
+  \item{backend}{"kernlab" (default) or "libsvm": the C-SVC solver of LIBSVM 3.37 embedded in the package, the same solver family that kernlab uses; it reads text and binary kernels directly and is what the standalone \code{gkmsvm_train} binary runs.}
+  \item{posWeight}{libsvm backend only: weight of the positive class (the negative class has weight 1), default 1}
+  \item{eps}{libsvm backend only: stopping tolerance, default 0.001}
+  \item{nfold}{libsvm backend only: if > 1, the nfold cross-validation accuracy is printed before training}
+  \item{quiet}{libsvm backend only: suppress the solver's progress output (default TRUE)}
   \item{...}{optional: additional SVM parameters, see 'kernlab' documentation for more details.}
 }
-\details{Trains SVM classifier and generates two files: [svmfnprfx]_svalpha.out for SVM alphas and the other for the corresponding SV sequences ([svmfnprfx]_svseq.fa) }
+\details{Trains SVM classifier and generates three files: [svmfnprfx]_svalpha.out for SVM alphas, [svmfnprfx]_svseq.fa for the corresponding SV sequences, and the single-file model [svmfnprfx].gkmmodel (support vectors with their alphas and the bias rho), which \code{gkmsvm_classify} prefers when present. The kernel file may be in the text or the binary (\code{.gkmk}) format.}
 \author{Mahmoud Ghandi}
 \examples{
   #Input file names:  

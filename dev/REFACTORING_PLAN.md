@@ -668,3 +668,14 @@ and text-vs-binary kernel size and R load time.
   wrapper prefers it. Golden: 4 binary cases frozen and validated with an independent Python parser
   (float32 vs `%e`: max rel diff 4.4e-7). Not done: gzip for the text path (zlib) — low value once
   binary exists; the CLI `gkmsvm_train` does not write `.gkmmodel` yet (Phase 4b, with the solver swap).
+* **Phase 4b-1 — done (PR: `phase4b/libsvm-train`, stacked on Phase 4).** LIBSVM **3.37** vendored
+  verbatim into `src/libsvm/` except one delimited `RPACKAGE` patch in `svm.cpp` (`rand` →
+  `R_unif_index`, stdout → `Rprintf`, stderr → `REprintf`; documented in `README-gkmsvm.md`);
+  `src/Makevars` lists `libsvm/svm.cpp` via `SOURCES`/`OBJECTS`. `mainSVMtrain.cpp` rewritten around
+  `svm_train` with `PRECOMPUTED` (rows fed as `svm_node` arrays; `svm_get_sv_indices` maps SVs back;
+  sign pinned so +1 is the positive class regardless of `model->label[0]`); reads text and `.gkmk`
+  kernels (`GkmkReader` in `KernelFile.h`); writes the legacy pair, `.gkmmodel` with `rho`; ids
+  replace names when names repeat. `CSVMtrain` deleted. R: `gkmsvm_train(backend=c("kernlab","libsvm"),
+  posWeight, eps, nfold, quiet)`. Golden `train` cases compare numerically (rel 1e-5) because the
+  solver's last digits may differ between compilers. 4b-2 (kernel on the fly) is untouched: it belongs
+  with Phase 6.

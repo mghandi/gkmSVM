@@ -50,6 +50,22 @@ struct OptsSVMClassify {
 	std::string alphabetFN;
 };
 
+struct OptsGkmTrain {
+	std::string kernelfile, posfile, negfile, outprefix;
+	double C = 1.0;             // C-SVC regularisation
+	double posWeight = 1.0;     // class weight for the positive class (negative class weight = 1)
+	double eps = 0.001;         // stopping tolerance
+	bool shrinking = true;
+	int nfold = 0;              // > 1: report nfold cross-validation accuracy before training
+	int cacheMB = 200;
+	int maxseqlen = 1000000;
+	bool legacyPair = true;     // write {prefix}_svalpha.out + {prefix}_svseq.fa
+	bool modelFile = true;      // write {prefix}.gkmmodel
+	bool quiet = false;
+};
+int gkmTrainRun(OptsGkmTrain &opt);
+int mainSVMtrain(int argc, char *argv[]);
+
 // Validate the options, load the alphabet, run. Return 0 on success, non-zero on error (a message
 // has been printed through Printf). These are the entry points used by the R package.
 int gkmKernelRun(OptsGkmKernel &opt);

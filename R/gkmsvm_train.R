@@ -1,7 +1,17 @@
 
-gkmsvm_train = function (kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, shrinking=FALSE, ...){
-#TODO: add bootstrapping and cv capabilities -- also autyomatic choise of C  . check if kernlab does that 
-  
+gkmsvm_train = function (kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, shrinking=FALSE,
+                         backend=c("kernlab", "libsvm"), posWeight=1, eps=0.001, nfold=0, quiet=TRUE, ...){
+  backend <- match.arg(backend)
+  if (backend == "libsvm") {
+    # Phase 4b: the C++ trainer (vendored LIBSVM, precomputed kernel). Same solver family as
+    # kernlab's C-svc; writes the legacy pair and <prefix>.gkmmodel (with rho) itself.
+    if (Type != "C-svc") stop("backend='libsvm' supports Type='C-svc' only")
+    params <- list(kernelfn = normalizePath(kernelfn, mustWork = TRUE), posfn = normalizePath(posfn, mustWork = TRUE),
+                   negfn = normalizePath(negfn, mustWork = TRUE), svmfnprfx = svmfnprfx,
+                   C = as.numeric(C), posWeight = as.numeric(posWeight), eps = as.numeric(eps),
+                   shrinking = isTRUE(shrinking), nfold = as.integer(nfold), quiet = isTRUE(quiet))
+    return(invisible(.gkm_train_cpp(params)))
+  }
 
   #  library(seqinr)
   #  library(kernlab)

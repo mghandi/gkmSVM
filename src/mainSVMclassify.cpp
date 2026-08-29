@@ -33,7 +33,6 @@
 #include "LTreef.h"
 #include "LTreeS.h"
 #include "LList.h"
-#include "SVMtrain.h"
 
 using namespace std;
 

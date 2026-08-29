@@ -1,120 +1,128 @@
-name	tool	tags	pos	neg	seq	svseq	svalpha	L	K	d	t	alg	RC	p	M	lam	A	T	batch	m	n	N	bin
-k_small_t0_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	0	1	1	0									
-k_small_t0_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	0	2	1	0									
-k_small_t1_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	1	1	0									
-k_small_t1_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0									
-k_small_t2_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	2	1	1	0									
-k_small_t2_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	2	2	1	0									
-k_small_t3_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	3	1	1	0									
-k_small_t3_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	3	2	1	0									
-k_small_t4_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	4	1	1	0									
-k_small_t4_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	4	2	1	0									
-k_small_L6K4d-1_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				6	4	-1	1	2	1	0									
-k_small_L6K4d2_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				6	4	2	1	2	1	0									
-k_small_L6K4d3_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				6	4	3	1	2	1	0									
-k_small_L6K4d4_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				6	4	4	1	2	1	0									
-k_small_L6K4d-1_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				6	4	-1	1	1	1	0									
-k_small_L6K4d3_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				6	4	3	1	1	1	0									
-k_small_L8K6d-1_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				8	6	-1	1	2	1	0									
-k_small_L8K6d2_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				8	6	2	1	2	1	0									
-k_small_L8K6d3_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				8	6	3	1	2	1	0									
-k_small_L8K6d4_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				8	6	4	1	2	1	0									
-k_small_L8K6d-1_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				8	6	-1	1	1	1	0									
-k_small_L8K6d3_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				8	6	3	1	1	1	0									
-k_small_L10K6d-1_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	-1	1	2	1	0									
-k_small_L10K6d2_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	2	1	2	1	0									
-k_small_L10K6d3_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0									
-k_small_L10K6d4_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	4	1	2	1	0									
-k_small_L10K6d-1_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	-1	1	1	1	0									
-k_small_L10K6d3_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	1	1	0									
-k_small_L12K8d-1_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				12	8	-1	1	2	1	0									
-k_small_L12K8d2_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				12	8	2	1	2	1	0									
-k_small_L12K8d3_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				12	8	3	1	2	1	0									
-k_small_L12K8d4_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				12	8	4	1	2	1	0									
-k_small_L12K8d-1_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				12	8	-1	1	1	1	0									
-k_small_L12K8d3_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				12	8	3	1	1	1	0									
-k_small_L6K4t0_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				6	4	-1	0	2	1	0									
-k_small_L6K4t2_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				6	4	-1	2	2	1	0									
-k_small_L8K5t0_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	0	2	1	0									
-k_small_L8K5t2_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	2	2	1	0									
-k_small_L12K8t0_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				12	8	-1	0	2	1	0									
-k_small_L12K8t2_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				12	8	-1	2	2	1	0									
-k_small_noRC_a1	kernel	small grid rc	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	1	0	0									
-k_small_pseudo_a1	kernel	small grid pseudo	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	1	1	1									
-k_small_noRC_a2	kernel	small grid rc	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	2	0	0									
-k_small_pseudo_a2	kernel	small grid pseudo	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	1									
-k_small_pseudo_noRC_t0	kernel	small grid pseudo rc	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	0	2	0	1									
-k_small_pseudo_t2	kernel	small grid pseudo	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	2	2	1	1									
-k_small_t3_M1	kernel	small grid wildcard	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	3	2	1	0	1	1.0							
-k_small_t4_M1	kernel	small grid mismatch	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	4	2	1	0	1								
-k_small_t3_M2	kernel	small grid wildcard	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	3	2	1	0	2	1.0							
-k_small_t4_M2	kernel	small grid mismatch	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	4	2	1	0	2								
-k_small_t3_M3	kernel	small grid wildcard	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	3	2	1	0	3	1.0							
-k_small_t4_M3	kernel	small grid mismatch	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	4	2	1	0	3								
-k_small_t3_M2_lam0.5	kernel	small grid wildcard	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	3	2	1	0	2	0.5							
-k_small_t3_M2_lam0.5_a1	kernel	small grid wildcard	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	3	1	1	0	2	0.5							
-k_dupnames	kernel	reader dupnames	dupnames_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0									
-k_longnames	kernel	reader longnames	longnames_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0									
-k_emptyrec	kernel	reader	emptyrec_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0									
-k_lowercase	kernel	reader reader	lowercase_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0									
-k_withN	kernel	reader reader	withN_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0									
-k_crlf	kernel	reader reader	crlf_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0									
-k_multiline	kernel	reader reader	multiline_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0									
-k_dupnames_a1	kernel	reader dupnames	dupnames_pos.fa	dna_small_neg.fa				10	6	3	1	1	1	0									
-k_b2_t0	kernel	alphabet b2	b2_pos.fa	b2_neg.fa				8	5	-1	0	2	1	0			alphabet_b2.txt						
-k_b2_t1	kernel	alphabet b2	b2_pos.fa	b2_neg.fa				8	5	-1	1	2	1	0			alphabet_b2.txt						
-k_b2_t2	kernel	alphabet b2	b2_pos.fa	b2_neg.fa				8	5	-1	2	2	1	0			alphabet_b2.txt						
-k_b2_t4_M2	kernel	alphabet b2 mismatch	b2_pos.fa	b2_neg.fa				8	5	-1	4	2	1	0	2		alphabet_b2.txt						
-k_medium_T1	kernel	medium threads	dna_medium_pos.fa	dna_medium_neg.fa				10	6	3	1	2	1	0				1					
-k_medium_T4	kernel	medium threads	dna_medium_pos.fa	dna_medium_neg.fa				10	6	3	1	2	1	0				4					
-k_medium_a1	kernel	medium	dna_medium_pos.fa	dna_medium_neg.fa				10	6	3	1	1	1	0									
-k_medium_L11K7d4	kernel	medium	dna_medium_pos.fa	dna_medium_neg.fa				11	7	4	1	2	1	0									
-c_t0_a1	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	0	1	1	0									
-c_t0_a2	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	0	2	1	0									
-c_t1_a1	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	1	1	1	0									
-c_t1_a2	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	1	2	1	0									
-c_t2_a1	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	2	1	1	0									
-c_t2_a2	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	2	2	1	0									
-c_t3_a1	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	3	1	1	0									
-c_t3_a2	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	3	2	1	0									
-c_t4_a1	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	4	1	1	0									
-c_t4_a2	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	4	2	1	0									
-c_noRC_a2	classify	classify rc			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	1	2	0	0									
-c_noRC_a1	classify	classify rc			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	1	1	0	0									
-c_batch3	classify	classify batch			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	1	2	1	0					3				
-c_L8K5d-1	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	8	5	-1	1	2	1	0									
-c_L12K8d4	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	12	8	4	1	2	1	0									
-c_t3_M1	classify	classify wildcard			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	8	5	-1	3	2	1	0	1	0.5							
-c_pseudo	classify	classify pseudo			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	1	2	1	1									
-k_b5_t1	kernel	alphabet b5 expect-error phase5	b5_pos.fa	b5_neg.fa				8	5	-1	1	2	1	0			alphabet_b5.txt						
-k_b5_t4_M2	kernel	alphabet b5 mismatch expect-error phase5	b5_pos.fa	b5_neg.fa				8	5	-1	4	2	1	0	2		alphabet_b5.txt						
-k_maxseqlen_exceeded	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0						50			
-k_maxnumseq_exceeded	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0							5		
-k_maxnumseq_exceeded_a1	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	1	1	0							5		
-k_alphabet_missing	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	1	2	1	0			no_such_alphabet.txt						
-k_maxseqlen_exact	kernel	small reader	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0						100			
-c_batch5	classify	classify batch			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	1	2	1	0					5				
-c_longnames	classify	classify longnames			test_longnames.fa	sv_longnames_svseq.fa	sv_longnames_svalpha.out	10	6	3	1	2	1	0									
-c_longnames_a1	classify	classify longnames			test_longnames.fa	sv_longnames_svseq.fa	sv_longnames_svalpha.out	10	6	3	1	1	1	0									
-c_maxseqlen_exceeded	classify	error expect-error			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	1	2	1	0						50			
-c_maxnumseq_exceeded	classify	error expect-error			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	1	1	1	0							5		
-c_b2_t1	classify	classify alphabet b2			test_b2.fa	sv_b2_svseq.fa	sv_b2_svalpha.out	8	5	-1	1	2	1	0	2	0.5	alphabet_b2.txt						
-c_b2_t3	classify	classify alphabet b2			test_b2.fa	sv_b2_svseq.fa	sv_b2_svalpha.out	8	5	-1	3	2	1	0	2	0.5	alphabet_b2.txt						
-c_b2_t4	classify	classify alphabet b2			test_b2.fa	sv_b2_svseq.fa	sv_b2_svalpha.out	8	5	-1	4	2	1	0	2	0.5	alphabet_b2.txt						
-k_KgtL	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				6	8	3	1	2	1	0									
-k_dgtL	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				6	4	8	1	2	1	0									
-k_badt	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				10	6	3	7	2	1	0									
-k_bada	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	5	1	0									
-c_KgtL	classify	error expect-error			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	6	8	3	1	2	1	0									
-c_badt	classify	error expect-error			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	9	2	1	0									
-k_dupnames_merge	kernel	reader dupnames merge	dupnames_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0								1	
-k_names_edge	kernel	reader names	names_edge_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0									
-k_names_edge_a1	kernel	reader names	names_edge_pos.fa	dna_small_neg.fa				10	6	3	1	1	1	0									
-k_names_edge_merge	kernel	reader names merge	names_edge_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0								1	
-c_dupalpha	classify	error expect-error			test_seqs.fa	sv_svseq.fa	sv_dupalpha_svalpha.out	10	6	3	1	2	1	0									
-c_missing_sv	classify	error expect-error			test_seqs.fa	sv_svseq.fa	sv_missing_svalpha.out	10	6	3	1	2	1	0									
-c_missing_sv_a1	classify	error expect-error			test_seqs.fa	sv_svseq.fa	sv_missing_svalpha.out	10	6	3	1	1	1	0									
-k_small_binary	kernel	small binary	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0									1
-k_small_binary_a1	kernel	small binary	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	1	1	0									1
-k_b2_binary	kernel	alphabet b2 binary	b2_pos.fa	b2_neg.fa				8	5	-1	1	2	1	0			alphabet_b2.txt						1
-k_names_edge_binary	kernel	reader names binary	names_edge_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0									1
+name	tool	tags	pos	neg	seq	svseq	svalpha	L	K	d	t	alg	RC	p	M	lam	A	T	batch	m	n	N	bin	kernel	C	w	v	S
+k_small_t0_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	0	1	1	0														
+k_small_t0_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	0	2	1	0														
+k_small_t1_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	1	1	0														
+k_small_t1_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0														
+k_small_t2_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	2	1	1	0														
+k_small_t2_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	2	2	1	0														
+k_small_t3_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	3	1	1	0														
+k_small_t3_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	3	2	1	0														
+k_small_t4_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	4	1	1	0														
+k_small_t4_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	4	2	1	0														
+k_small_L6K4d-1_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				6	4	-1	1	2	1	0														
+k_small_L6K4d2_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				6	4	2	1	2	1	0														
+k_small_L6K4d3_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				6	4	3	1	2	1	0														
+k_small_L6K4d4_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				6	4	4	1	2	1	0														
+k_small_L6K4d-1_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				6	4	-1	1	1	1	0														
+k_small_L6K4d3_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				6	4	3	1	1	1	0														
+k_small_L8K6d-1_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				8	6	-1	1	2	1	0														
+k_small_L8K6d2_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				8	6	2	1	2	1	0														
+k_small_L8K6d3_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				8	6	3	1	2	1	0														
+k_small_L8K6d4_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				8	6	4	1	2	1	0														
+k_small_L8K6d-1_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				8	6	-1	1	1	1	0														
+k_small_L8K6d3_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				8	6	3	1	1	1	0														
+k_small_L10K6d-1_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	-1	1	2	1	0														
+k_small_L10K6d2_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	2	1	2	1	0														
+k_small_L10K6d3_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0														
+k_small_L10K6d4_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	4	1	2	1	0														
+k_small_L10K6d-1_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	-1	1	1	1	0														
+k_small_L10K6d3_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	1	1	0														
+k_small_L12K8d-1_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				12	8	-1	1	2	1	0														
+k_small_L12K8d2_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				12	8	2	1	2	1	0														
+k_small_L12K8d3_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				12	8	3	1	2	1	0														
+k_small_L12K8d4_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				12	8	4	1	2	1	0														
+k_small_L12K8d-1_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				12	8	-1	1	1	1	0														
+k_small_L12K8d3_a1	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				12	8	3	1	1	1	0														
+k_small_L6K4t0_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				6	4	-1	0	2	1	0														
+k_small_L6K4t2_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				6	4	-1	2	2	1	0														
+k_small_L8K5t0_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	0	2	1	0														
+k_small_L8K5t2_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	2	2	1	0														
+k_small_L12K8t0_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				12	8	-1	0	2	1	0														
+k_small_L12K8t2_a2	kernel	small grid	dna_small_pos.fa	dna_small_neg.fa				12	8	-1	2	2	1	0														
+k_small_noRC_a1	kernel	small grid rc	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	1	0	0														
+k_small_pseudo_a1	kernel	small grid pseudo	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	1	1	1														
+k_small_noRC_a2	kernel	small grid rc	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	2	0	0														
+k_small_pseudo_a2	kernel	small grid pseudo	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	1														
+k_small_pseudo_noRC_t0	kernel	small grid pseudo rc	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	0	2	0	1														
+k_small_pseudo_t2	kernel	small grid pseudo	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	2	2	1	1														
+k_small_t3_M1	kernel	small grid wildcard	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	3	2	1	0	1	1.0												
+k_small_t4_M1	kernel	small grid mismatch	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	4	2	1	0	1													
+k_small_t3_M2	kernel	small grid wildcard	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	3	2	1	0	2	1.0												
+k_small_t4_M2	kernel	small grid mismatch	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	4	2	1	0	2													
+k_small_t3_M3	kernel	small grid wildcard	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	3	2	1	0	3	1.0												
+k_small_t4_M3	kernel	small grid mismatch	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	4	2	1	0	3													
+k_small_t3_M2_lam0.5	kernel	small grid wildcard	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	3	2	1	0	2	0.5												
+k_small_t3_M2_lam0.5_a1	kernel	small grid wildcard	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	3	1	1	0	2	0.5												
+k_dupnames	kernel	reader dupnames	dupnames_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0														
+k_longnames	kernel	reader longnames	longnames_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0														
+k_emptyrec	kernel	reader	emptyrec_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0														
+k_lowercase	kernel	reader reader	lowercase_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0														
+k_withN	kernel	reader reader	withN_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0														
+k_crlf	kernel	reader reader	crlf_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0														
+k_multiline	kernel	reader reader	multiline_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0														
+k_dupnames_a1	kernel	reader dupnames	dupnames_pos.fa	dna_small_neg.fa				10	6	3	1	1	1	0														
+k_b2_t0	kernel	alphabet b2	b2_pos.fa	b2_neg.fa				8	5	-1	0	2	1	0			alphabet_b2.txt											
+k_b2_t1	kernel	alphabet b2	b2_pos.fa	b2_neg.fa				8	5	-1	1	2	1	0			alphabet_b2.txt											
+k_b2_t2	kernel	alphabet b2	b2_pos.fa	b2_neg.fa				8	5	-1	2	2	1	0			alphabet_b2.txt											
+k_b2_t4_M2	kernel	alphabet b2 mismatch	b2_pos.fa	b2_neg.fa				8	5	-1	4	2	1	0	2		alphabet_b2.txt											
+k_medium_T1	kernel	medium threads	dna_medium_pos.fa	dna_medium_neg.fa				10	6	3	1	2	1	0				1										
+k_medium_T4	kernel	medium threads	dna_medium_pos.fa	dna_medium_neg.fa				10	6	3	1	2	1	0				4										
+k_medium_a1	kernel	medium	dna_medium_pos.fa	dna_medium_neg.fa				10	6	3	1	1	1	0														
+k_medium_L11K7d4	kernel	medium	dna_medium_pos.fa	dna_medium_neg.fa				11	7	4	1	2	1	0														
+c_t0_a1	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	0	1	1	0														
+c_t0_a2	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	0	2	1	0														
+c_t1_a1	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	1	1	1	0														
+c_t1_a2	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	1	2	1	0														
+c_t2_a1	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	2	1	1	0														
+c_t2_a2	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	2	2	1	0														
+c_t3_a1	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	3	1	1	0														
+c_t3_a2	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	3	2	1	0														
+c_t4_a1	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	4	1	1	0														
+c_t4_a2	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	4	2	1	0														
+c_noRC_a2	classify	classify rc			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	1	2	0	0														
+c_noRC_a1	classify	classify rc			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	1	1	0	0														
+c_batch3	classify	classify batch			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	1	2	1	0					3									
+c_L8K5d-1	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	8	5	-1	1	2	1	0														
+c_L12K8d4	classify	classify grid			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	12	8	4	1	2	1	0														
+c_t3_M1	classify	classify wildcard			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	8	5	-1	3	2	1	0	1	0.5												
+c_pseudo	classify	classify pseudo			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	1	2	1	1														
+k_b5_t1	kernel	alphabet b5 expect-error phase5	b5_pos.fa	b5_neg.fa				8	5	-1	1	2	1	0			alphabet_b5.txt											
+k_b5_t4_M2	kernel	alphabet b5 mismatch expect-error phase5	b5_pos.fa	b5_neg.fa				8	5	-1	4	2	1	0	2		alphabet_b5.txt											
+k_maxseqlen_exceeded	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0						50								
+k_maxnumseq_exceeded	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0							5							
+k_maxnumseq_exceeded_a1	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	1	1	0							5							
+k_alphabet_missing	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				8	5	-1	1	2	1	0			no_such_alphabet.txt											
+k_maxseqlen_exact	kernel	small reader	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0						100								
+c_batch5	classify	classify batch			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	1	2	1	0					5									
+c_longnames	classify	classify longnames			test_longnames.fa	sv_longnames_svseq.fa	sv_longnames_svalpha.out	10	6	3	1	2	1	0														
+c_longnames_a1	classify	classify longnames			test_longnames.fa	sv_longnames_svseq.fa	sv_longnames_svalpha.out	10	6	3	1	1	1	0														
+c_maxseqlen_exceeded	classify	error expect-error			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	1	2	1	0						50								
+c_maxnumseq_exceeded	classify	error expect-error			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	1	1	1	0							5							
+c_b2_t1	classify	classify alphabet b2			test_b2.fa	sv_b2_svseq.fa	sv_b2_svalpha.out	8	5	-1	1	2	1	0	2	0.5	alphabet_b2.txt											
+c_b2_t3	classify	classify alphabet b2			test_b2.fa	sv_b2_svseq.fa	sv_b2_svalpha.out	8	5	-1	3	2	1	0	2	0.5	alphabet_b2.txt											
+c_b2_t4	classify	classify alphabet b2			test_b2.fa	sv_b2_svseq.fa	sv_b2_svalpha.out	8	5	-1	4	2	1	0	2	0.5	alphabet_b2.txt											
+k_KgtL	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				6	8	3	1	2	1	0														
+k_dgtL	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				6	4	8	1	2	1	0														
+k_badt	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				10	6	3	7	2	1	0														
+k_bada	kernel	error expect-error	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	5	1	0														
+c_KgtL	classify	error expect-error			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	6	8	3	1	2	1	0														
+c_badt	classify	error expect-error			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	9	2	1	0														
+k_dupnames_merge	kernel	reader dupnames merge	dupnames_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0								1						
+k_names_edge	kernel	reader names	names_edge_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0														
+k_names_edge_a1	kernel	reader names	names_edge_pos.fa	dna_small_neg.fa				10	6	3	1	1	1	0														
+k_names_edge_merge	kernel	reader names merge	names_edge_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0								1						
+c_dupalpha	classify	error expect-error			test_seqs.fa	sv_svseq.fa	sv_dupalpha_svalpha.out	10	6	3	1	2	1	0														
+c_missing_sv	classify	error expect-error			test_seqs.fa	sv_svseq.fa	sv_missing_svalpha.out	10	6	3	1	2	1	0														
+c_missing_sv_a1	classify	error expect-error			test_seqs.fa	sv_svseq.fa	sv_missing_svalpha.out	10	6	3	1	1	1	0														
+k_small_binary	kernel	small binary	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0									1					
+k_small_binary_a1	kernel	small binary	dna_small_pos.fa	dna_small_neg.fa				10	6	3	1	1	1	0									1					
+k_b2_binary	kernel	alphabet b2 binary	b2_pos.fa	b2_neg.fa				8	5	-1	1	2	1	0			alphabet_b2.txt						1					
+k_names_edge_binary	kernel	reader names binary	names_edge_pos.fa	dna_small_neg.fa				10	6	3	1	2	1	0									1					
+t_small	train	train numeric	dna_small_pos.fa	dna_small_neg.fa									1	0										k_small_t1_a2.out				
+t_small_binary	train	train numeric binary	dna_small_pos.fa	dna_small_neg.fa									1	0										k_small_binary.out				
+t_small_C0.1	train	train numeric	dna_small_pos.fa	dna_small_neg.fa									1	0										k_small_t1_a2.out	0.1			
+t_small_C10_w2	train	train numeric	dna_small_pos.fa	dna_small_neg.fa									1	0										k_small_t1_a2.out	10	2		
+t_small_noshrink	train	train numeric	dna_small_pos.fa	dna_small_neg.fa									1	0										k_small_t1_a2.out				1
+t_medium	train	train numeric medium	dna_medium_pos.fa	dna_medium_neg.fa									1	0										k_medium_T1.out	1			
+t_dupnames	train	train numeric dupnames	dupnames_pos.fa	dna_small_neg.fa									1	0										k_dupnames.out				
+t_wrong_n	train	train error expect-error	dna_medium_pos.fa	dna_medium_neg.fa									1	0										k_small_t1_a2.out				
