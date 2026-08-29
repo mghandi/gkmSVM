@@ -43,9 +43,6 @@ class CLTreeS
 public:
   CLTreeSptr daughter[MAX_ALPHABET_SIZE]; int maxSeqID;  int minSeqID;
   int nonEmptyDaughterIdxs[MAX_ALPHABET_SIZE]; int nonEmptyDaughterCnt; //keeps the list of non empty daughters. this is good for sparser trees
-#ifdef FAST_TRACK
-  int *FT_seq; int FT_cnt;  int FT_seqID; // these are for fast track. FT_seq is a link to the last sequence added to this node. FT_cnt is the number of downstream nodes.
-#endif
   int addSequence(int *bid, int n, int L, int seqID);  //adds all the L-subseqs 
   //	int addSequence(int *bid, int n, int L);  //adds all the L-subseqs 
   void addLTreeSnodeData(int *bid, int n, LTreeSnodeData* nodeData, int mnSeqID, int mxSeqID); // similar to addseq (but adds multiple seqs at once)

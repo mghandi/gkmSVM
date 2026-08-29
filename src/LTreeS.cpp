@@ -30,9 +30,6 @@ CLTreeS::CLTreeS(void)
   minSeqID=0;
   
   nonEmptyDaughterCnt=0;
-#ifdef FAST_TRACK
-  FT_seq=NULL; FT_cnt=0;
-#endif
 }
 
 CLTreeS::~CLTreeS(void)
@@ -49,9 +46,6 @@ void CLTreeS::initTree()
   minSeqID=0;
   
   nonEmptyDaughterCnt=0;
-#ifdef FAST_TRACK
-  FT_seq=NULL; FT_cnt=0;
-#endif
 }
 
 void CLTreeS::addSeq(int *bid, int n, int *lmerbid, int seqID)  //call with n=L from outside
@@ -59,9 +53,6 @@ void CLTreeS::addSeq(int *bid, int n, int *lmerbid, int seqID)  //call with n=L 
   if (seqID>maxSeqID) maxSeqID=seqID; 
   if (seqID<minSeqID) minSeqID=seqID; 
   
-#ifdef FAST_TRACK
-  FT_seq=bid; FT_cnt++; FT_seqID = seqID;
-#endif
   
   if (n==1)
   {
@@ -123,11 +114,6 @@ void CLTreeS::addLTreeSnodeData(int *bid, int n, LTreeSnodeData* nodeData, int m
   if (mxSeqID>maxSeqID) maxSeqID=mxSeqID;
   if (mnSeqID<minSeqID) minSeqID=mnSeqID;
   
-#ifdef FAST_TRACK
-  //    FT_seq=bid; FT_cnt++; FT_seqID = seqID;
-  Printf(" fast track not supported with iDL bound! ERROR \n");
-  return;//exit(1);
-#endif
   
   if (n==1)
   {
@@ -1501,25 +1487,6 @@ void CLTreeS::DFST( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, i
   //cntt++; if(cntt%1000==0){printf(" cnt %d \n",cntt);}
   //LTreeSnodeData **matchingLmers = gDFSlist[pos];
   //int *curMismatchCnt= gDFSMMlist[pos];
-#ifdef FAST_TRACK
-  if((this->FT_cnt==1)&&(listlen==1)&&((*matchingLmers)->FT_cnt==1)){
-    // fast track: this is for speed up only.
-    int *bid1 = this->FT_seq;
-    int *bid2 = (*matchingLmers)->FT_seq;
-    
-    for(int k=0;k<pos;k++){
-      if (bid1[k]!=bid2[k]){
-        (*curMismatchCnt)++;
-        if ((*curMismatchCnt) > gMAXMM){
-          return;
-        }
-      }
-    }
-    gMMProfile[this->FT_seqID][*curMismatchCnt][(*matchingLmers)->FT_seqID]++;
-    gMMProfile[(*matchingLmers)->FT_seqID][*curMismatchCnt][this->FT_seqID]++;
-    return;
-  }
-#endif
   if(pos==gLM1) //LM1 is L-1
   {
     DFSTn(matchingLmers, listlen, curMismatchCnt, alphabetSize); // process the node.
@@ -1630,17 +1597,11 @@ void CLTreeS::DFSTiDL( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
   {
     
     
-#ifdef USE_GLOBAL
-    CLTreeS **newlist = gDFSlistT[pos+1];
-    int *newMismatchCnt= gDFSMMlist[pos+1];
-    CbinMMtree **newMMtree= gDFSMMtree[pos+1];
-#else
     int n = listlen * alphabetSize;
     CLTreeS **newlist = new CLTreeS*[n];
     int *newMismatchCnt= new int[n];
     CbinMMtree **newMMtree= new CbinMMtree*[n];
     
-#endif
     int newlistlen = 0;
     CLTreeS **newlistnewlistlen = newlist; //&newlist[newlistlen]
     int *newMismatchCntnewlistlen = newMismatchCnt;
@@ -1731,15 +1692,9 @@ void CLTreeS::DFSTiDL( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
     //delete []newlist;
     //delete []newMismatchCnt;
     
-#ifdef USE_GLOBAL
-    //        CLTreeS **newlist = gDFSlistT[pos+1];
-    //        int *newMismatchCnt= gDFSMMlist[pos+1];
-    //        CbinMMtree **newMMtree= gDFSMMtree[pos+1];
-#else
     delete[]newlist;
     delete[]newMismatchCnt;
     delete[]newMMtree;
-#endif
     
   }
 }
