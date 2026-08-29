@@ -405,7 +405,7 @@ int gkmKernelSimple(OptsGkmKernel &opt)  //Use XOR precomputed hash table
 		{
 			double v = (i==j) ? 1.0 : ((norm[i]*norm[j]<1E-50)?0.0:seqsL[i]->calcInnerProd(seqsL[j],c,mmcnt)/(norm[i]*norm[j]));
 			if (fo) { if (i==j) fprintf(fo, "1.0\t"); else fprintf(fo, "%e\t", v); }
-			else bin.add(v);
+			else bin.add(gkmCanon(v));
 		}
 		if (fo) fprintf(fo, "\n"); 
 	}
@@ -954,7 +954,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
         else if (usePseudocnt) v = (norm[i]*norm[j]<1E-50)?0.0:calcinnerprod(i,j,c, n0,C,LmersCnt[i], LmersCnt[j], btL)/(norm[i]*norm[j]);
         else v = (norm[i]*norm[j]<1E-50)?0.0:calcinnerprod(i,j,c)/(norm[i]*norm[j]);
         if (fo) { if (i==j) fprintf(fo, "1.0\t"); else fprintf(fo, "%e\t", v); }
-        else bin.add(v);
+        else bin.add(gkmCanon(v));
       }
       if (fo) fprintf(fo, "\n"); 
     }
