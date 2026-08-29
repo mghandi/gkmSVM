@@ -54,7 +54,7 @@ public:
 	baseId bidcompl[256];
 
 	
-	dinuclId dnidx(char *dn); 
+	dinuclId dnidx(const char *dn) const; 
 
 	void convertBasetoDinucl(baseId x[], dinuclId y[], int N);// x[0..N], y[0..N-1]
 	void convertBasetoDinucl(char x[], dinuclId y[], int N); // x[0..N], y[0..N-1]

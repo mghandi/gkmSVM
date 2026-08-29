@@ -47,7 +47,7 @@ double calcinnerprod(int i, int j, double *c, double n0, double C, int nA, int n
 
 // One worker: takes passes from the shared counter until none are left (Phase 6: passes have
 // unequal cost, so a static j % nThreads assignment left threads idle).
-void task1(int L, CiDLPasses *iDL, CLTreeS *seqsTS, int M, std::atomic<int> *nextPass, const KernelContext *kc){
+void task1(int L, CiDLPasses *iDL, CLTreeS *seqsTS, int M, std::atomic<int> *nextPass, const KernelContext *kc, int b){
   for(;;){
     int j = nextPass->fetch_add(1);
     if (j >= M) break;
@@ -56,16 +56,16 @@ void task1(int L, CiDLPasses *iDL, CLTreeS *seqsTS, int M, std::atomic<int> *nex
     int *tmpArray2 = new int[L];
     //for(int j=0;j<iDL->M;j++){
     CLTreeS *seqsTSj= new CLTreeS();
-    seqsTS->cloneReorder(seqsTSj, iDL->passOrder[j], L,L,globalConverter.b, tmpArray1, tmpArray2);
-    //seqsTS->DFSTiDL(gDFSlistT[0],1, gDFSMMlist[0], iDL.passTrees+j, 0, globalConverter.b);
+    seqsTS->cloneReorder(seqsTSj, iDL->passOrder[j], L,L,b, tmpArray1, tmpArray2);
+    //seqsTS->DFSTiDL(gDFSlistT[0],1, gDFSMMlist[0], iDL.passTrees+j, 0, b);
     //gDFSlistT[0][0] = seqsTSj; // with nonEmptyDaughterCnt
     //gDFSMMlist[0][0] = 0;
     //if(!((iDL->passTrees[j]->child0==NULL)&&(iDL->passTrees[j]->child1==NULL))) // i.e. if not empty tree
-    //    seqsTSj->DFSTiDL(gDFSlistT[0],1, gDFSMMlist[0], iDL->passTrees+j, 0, globalConverter.b);
+    //    seqsTSj->DFSTiDL(gDFSlistT[0],1, gDFSMMlist[0], iDL->passTrees+j, 0, b);
     int zero=0;
     if(!((iDL->passTrees[j]->child0==NULL)&&(iDL->passTrees[j]->child1==NULL))) // i.e. if not empty tree
-      seqsTSj->DFSTiDL(&seqsTSj,1, &zero, iDL->passTrees+j, 0, globalConverter.b, kc);
-    seqsTSj->deleteTree(L, globalConverter.b, 1);
+      seqsTSj->DFSTiDL(&seqsTSj,1, &zero, iDL->passTrees+j, 0, b, kc);
+    seqsTSj->deleteTree(L, b, 1);
     delete seqsTSj;
     
     // print mismatch profile:
@@ -88,7 +88,7 @@ void task1(int L, CiDLPasses *iDL, CLTreeS *seqsTS, int M, std::atomic<int> *nex
   
   }
 
-int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
+int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv)  //maingKernel
 {
   
   int L = opt.L;
@@ -110,7 +110,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   
   char **seqname = new char *[nMAXSEQUENCES];
   
-  CCalcWmML wmc(L, K, globalConverter.b);
+  CCalcWmML wmc(L, K, conv.b);
   //double *kernel = wmc.kernelTruncated;
   if (maxnmm==-1)
   { 
@@ -162,13 +162,13 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   }
   if (useTgkm==3)  //wildcard kernel 
   {
-    c = wmc.calcWildcardKernelWeights(L,  opt.wildcardMismatchM, globalConverter.b, opt.wildcardLambda, c);
+    c = wmc.calcWildcardKernelWeights(L,  opt.wildcardMismatchM, conv.b, opt.wildcardLambda, c);
     n0 = c[maxnmm]/2;
     
   }
   if (useTgkm==4)  //mismatch kernel 
   {
-    c = wmc.calcMismatchKernelWeights(L,  opt.wildcardMismatchM, globalConverter.b, c);
+    c = wmc.calcMismatchKernelWeights(L,  opt.wildcardMismatchM, conv.b, c);
     n0 = c[maxnmm]/2;
     
   }
@@ -194,7 +194,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   
   int *LmersCnt = new int [nMAXSEQUENCES]; 
   
-  CSequence sgii(maxseqlen+3);
+  CSequence sgii(maxseqlen+3, &conv);
   CSequence *sgi = &sgii;
   
   int ntotal = 0; //number of lmers
@@ -343,11 +343,11 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
     nodesAtDepthCnt[i]=0;
   }
   
-  int uniqueLmerCnt = seqsTS->leavesCount(0,L, globalConverter.b, nodesAtDepthCnt);
+  int uniqueLmerCnt = seqsTS->leavesCount(0,L, conv.b, nodesAtDepthCnt);
   snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n npos %d \n nneg %d \n  ntotal %d \n nunique %d\n",npos,nneg,ntotal,uniqueLmerCnt);Printf(globtmpstr);
     // if no IDL bound
     /*
-    seqsTS->DFST(gDFSlistT[0],1, gDFSMMlist[0], 0, globalConverter.b);
+    seqsTS->DFST(gDFSlistT[0],1, gDFSMMlist[0], 0, b);
     
     for(int si=0;si<nseqs; si++){
     for(int sj=0;sj<nseqs;sj++){
@@ -365,7 +365,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
     
     CiDLPasses iDL;
     //iDL.newIDLPasses(L, kc.maxmm);
-    double p=1.0/::globalConverter.b;
+    double p=1.0/conv.b;
     
     //iDL.initPassOrderAll(L, kc.maxmm);
     //iDL.newGreedyIDLPasses(L,iDL.M,  kc.maxmm, nodesAtDepthCnt, p);
@@ -384,13 +384,13 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
     for(int j=0;j<iDL.M;j++){
     snprintf(globtmpstr, GKM_TMPSTR_LEN,"pass %d out of %d.\n",j+1,iDL.M);Printf(globtmpstr);
     CLTreeS *seqsTSj= new CLTreeS();
-    seqsTS->cloneReorder(seqsTSj, iDL.passOrder[j], L,L,globalConverter.b, tmpArray1, tmpArray2);
-    //seqsTS->DFSTiDL(gDFSlistT[0],1, gDFSMMlist[0], iDL.passTrees+j, 0, globalConverter.b);
+    seqsTS->cloneReorder(seqsTSj, iDL.passOrder[j], L,L,b, tmpArray1, tmpArray2);
+    //seqsTS->DFSTiDL(gDFSlistT[0],1, gDFSMMlist[0], iDL.passTrees+j, 0, b);
     gDFSlistT[0][0] = seqsTSj; // with nonEmptyDaughterCnt
     gDFSMMlist[0][0] = 0;
     if(!((iDL.passTrees[j]->child0==NULL)&&(iDL.passTrees[j]->child1==NULL))) // i.e. if not empty tree
-    seqsTSj->DFSTiDL(gDFSlistT[0],1, gDFSMMlist[0], iDL.passTrees+j, 0, globalConverter.b);
-    seqsTSj->deleteTree(L, globalConverter.b, 1);
+    seqsTSj->DFSTiDL(gDFSlistT[0],1, gDFSMMlist[0], iDL.passTrees+j, 0, b);
+    seqsTSj->deleteTree(L, b, 1);
     delete seqsTSj;
     
     // print mismatch profile:
@@ -432,17 +432,17 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   double C =0; 
   for(int m=0;m<=L;m++)
   {
-    C+=dCombinations(L,m)*pow(1.0*globalConverter.b-1,m)*wmc.kernelTruncated[m];
+    C+=dCombinations(L,m)*pow(1.0*conv.b-1,m)*wmc.kernelTruncated[m];
     //		C+=dCombinations(L,m)*pow(3.0,m)*wmc.kernelTruncated[m];
   }
   
   //	double btL=pow(4.0,L);
-  double btL=pow(1.0*globalConverter.b,L);
+  double btL=pow(1.0*conv.b,L);
   double *norm = new double [nseqs]; 
   
   GkmkWriter bin;
   FILE *fo = NULL;
-  if (opt.OutputBinary) { gkmFillGkmkHeader(bin, opt, maxnmm, nseqs, npos); bin.values.reserve((size_t)nseqs*(nseqs+1)/2); }
+  if (opt.OutputBinary) { gkmFillGkmkHeader(bin, opt, maxnmm, nseqs, npos, conv); bin.values.reserve((size_t)nseqs*(nseqs+1)/2); }
   else { fo = fopen(outFN, "w"); if (fo == NULL) return gkmCannotOpen(outFN); }
   /*
   if (OutputMismatchProfileOnly)
@@ -530,7 +530,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
     
     snprintf(globtmpstr, GKM_TMPSTR_LEN,"Running %d passes on %d thread%s.\n", iDL.M, nThreads, (nThreads==1)?"":"s"); Printf(globtmpstr);
     if (nThreads<=1){
-      task1( L, &iDL, seqsTS, iDL.M, &nextPass, &kc);
+      task1( L, &iDL, seqsTS, iDL.M, &nextPass, &kc, conv.b);
     }else{
       
 #ifndef MULTI_THREAD_SAFE
@@ -542,7 +542,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
       int j;
       
       for(j=0;j<nThreads;j++){
-        myThreads[j] = std::thread(task1, L, &iDL, seqsTS, iDL.M, &nextPass, &kc);
+        myThreads[j] = std::thread(task1, L, &iDL, seqsTS, iDL.M, &nextPass, &kc, conv.b);
         // myThreads[j].join();
       }
       for(j=0;j<nThreads;j++){
@@ -600,7 +600,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   
   delete []norm;
   delete []LmersCnt;
-  seqsTS->deleteTree(L, globalConverter.b, 0);
+  seqsTS->deleteTree(L, conv.b, 0);
   delete seqsTS;
   //delete []curmmcnt; 
   

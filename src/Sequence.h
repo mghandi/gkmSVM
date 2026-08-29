@@ -79,6 +79,7 @@ public:
 
 	int readFsa(FILE *f,int SkipAlphabetCheck=false);  // reads one sequence from already opened file f; returns its length, or -1 if it does not fit in maxLength (an error was printed)
 	int readError; // set to 1 by readFsa when the last record was longer than maxLength-1
+	const CConverter *conv; // the alphabet (Phase 2c: was the global globalConverter)
 private:
 	char *sline;     // line buffer for readFsa/readBasic
 	char *nextName;  // look-ahead: the header of the next record, already consumed from the stream
@@ -89,7 +90,7 @@ public:
 	void writeBasic(FILE *f); 	 
 	int readString(char *s);  // reads sequence from a string (coverts chat * to sequence)
 
-	CSequence(int maxLength, CSequence *sCopyFrom = NULL );  // makes a replicate of s;
+	CSequence(int maxLength, const CConverter *conv = NULL, CSequence *sCopyFrom = NULL );  // conv: the alphabet used to read/convert (NULL = built-in DNA); sCopyFrom: makes a replicate of s
 	
 	virtual ~CSequence();
 

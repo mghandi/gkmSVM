@@ -17,10 +17,10 @@ inline int gkmTooManySequences(int limit)
 	return 1;
 }
 
-inline void gkmFillGkmkHeader(GkmkWriter &w, const OptsGkmKernel &opt, int maxnmm, int n, int npos)
+inline void gkmFillGkmkHeader(GkmkWriter &w, const OptsGkmKernel &opt, int maxnmm, int n, int npos, const CConverter &conv)
 {
 	w.hdr.n = n; w.hdr.npos = npos;
 	w.hdr.L = opt.L; w.hdr.K = opt.K; w.hdr.maxnmm = maxnmm; w.hdr.useTgkm = opt.useTgkm;
-	w.hdr.b = globalConverter.b; w.hdr.addRC = opt.addRC ? 1 : 0; w.hdr.usePseudocnt = opt.usePseudocnt ? 1 : 0;
-	w.hdr.alphabet.assign(globalConverter.alphabet, globalConverter.alphabet + globalConverter.b);
+	w.hdr.b = conv.b; w.hdr.addRC = opt.addRC ? 1 : 0; w.hdr.usePseudocnt = opt.usePseudocnt ? 1 : 0;
+	w.hdr.alphabet.assign(conv.alphabet, conv.alphabet + conv.b);
 }

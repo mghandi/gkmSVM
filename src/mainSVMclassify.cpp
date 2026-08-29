@@ -37,14 +37,14 @@
 
 using namespace std;
 
-int svmClassifySimple(OptsSVMClassify &opt);
+int svmClassifySimple(OptsSVMClassify &opt, const CConverter &conv);
 // the tree algorithm is instantiated per alphabet size (trie_b4.cpp / trie_b32.cpp, see global.h)
-namespace gkm_b4  { int svmClassifySuffixTree(OptsSVMClassify &opt); }
-namespace gkm_b32 { int svmClassifySuffixTree(OptsSVMClassify &opt); }
-static int svmClassifySuffixTree(OptsSVMClassify &opt)
+namespace gkm_b4  { int svmClassifySuffixTree(OptsSVMClassify &opt, const CConverter &conv); }
+namespace gkm_b32 { int svmClassifySuffixTree(OptsSVMClassify &opt, const CConverter &conv); }
+static int svmClassifySuffixTree(OptsSVMClassify &opt, const CConverter &conv)
 {
-	if (::globalConverter.b <= 4) return gkm_b4::svmClassifySuffixTree(opt);
-	return gkm_b32::svmClassifySuffixTree(opt);
+	if (conv.b <= 4) return gkm_b4::svmClassifySuffixTree(opt, conv);
+	return gkm_b32::svmClassifySuffixTree(opt, conv);
 }
 
 void print_usage_and_exit(const char *prog)
@@ -138,15 +138,15 @@ int svmClassifyRun(OptsSVMClassify &opt)
 	if (opt.batchSize < 1) { Printf("\n ERROR: batch size must be at least 1.\n"); return 1; }
 	if (opt.maxseqlen < opt.L || opt.maxnumseq < 1) { Printf("\n ERROR: maxSeqLen must be at least L and maxNumSeq at least 1.\n"); return 1; }
 
-	::globalConverter.resetToDNA(); // the alphabet is a global that outlives this call
+	CConverter conv; // the alphabet of this call (DNA unless -A); Phase 2c: was a process-wide global
 	int alg = opt.alg;
 	if (!opt.alphabetFN.empty()){
-		if (::globalConverter.readAlphabetFile(opt.alphabetFN.c_str(), GKM_MAX_ALPHABET)!=0) return 1;
-		if (opt.addRC&&!::globalConverter.hasComplement){
+		if (conv.readAlphabetFile(opt.alphabetFN.c_str(), GKM_MAX_ALPHABET)!=0) return 1;
+		if (opt.addRC&&!conv.hasComplement){
 			opt.addRC=false;
 			Printf("\nAdd Reverse Complement option is turned off (the alphabet declares no complement pairs).\n");
 		}
-		if ((alg!=2)&&(::globalConverter.b!=4)){
+		if ((alg!=2)&&(conv.b!=4)){
 			alg=2;
 			Printf("\nAlgorithm is set to 2 (Tree) to support alphabet size other than 4.\n");
 		}
@@ -157,27 +157,27 @@ int svmClassifyRun(OptsSVMClassify &opt)
 		case 0:
 			if (opt.L<=10)
 			{
-				return svmClassifySuffixTree(opt);
+				return svmClassifySuffixTree(opt, conv);
 			}
 			else
 			{
 				if ((opt.L-opt.K <= 2) || (opt.maxnmm >= 0 && opt.maxnmm <= 2))
 				{
-					return svmClassifySuffixTree(opt);
+					return svmClassifySuffixTree(opt, conv);
 				}
 				else
 				{
-					return svmClassifySimple(opt);
+					return svmClassifySimple(opt, conv);
 				}
 			}
 		case 1:
-			return svmClassifySimple(opt);
+			return svmClassifySimple(opt, conv);
 		default:
-			return svmClassifySuffixTree(opt);
+			return svmClassifySuffixTree(opt, conv);
 	}
 }
 
-int svmClassifySimple(OptsSVMClassify &opt)
+int svmClassifySimple(OptsSVMClassify &opt, const CConverter &conv)
 {
 	int i;
 	int L = opt.L; 
@@ -200,7 +200,7 @@ int svmClassifySimple(OptsSVMClassify &opt)
 
 	CSequence *sgi = NULL; // the SV reader owns its own CSequence; the test-sequence one is allocated below
 
-	CCalcWmML wmc(L, K, ::globalConverter.b);
+	CCalcWmML wmc(L, K, conv.b);
 	if (maxnmm==-1)
 	{ 
 		maxnmm=L;
@@ -247,13 +247,13 @@ int svmClassifySimple(OptsSVMClassify &opt)
 	}
     if (useTgkm==3)  //wildcard kernel
     {
-        c = wmc.calcWildcardKernelWeights(L,  opt.wildcardMismatchM, ::globalConverter.b, opt.wildcardLambda, c);
+        c = wmc.calcWildcardKernelWeights(L,  opt.wildcardMismatchM, conv.b, opt.wildcardLambda, c);
     	n0 = c[maxnmm]/2;
 
     }
     if (useTgkm==4)  //mismatch kernel
     {
-        c = wmc.calcMismatchKernelWeights(L,  opt.wildcardMismatchM, ::globalConverter.b, c);
+        c = wmc.calcMismatchKernelWeights(L,  opt.wildcardMismatchM, conv.b, c);
     	n0 = c[maxnmm]/2;
 
     }
@@ -276,7 +276,7 @@ int svmClassifySimple(OptsSVMClassify &opt)
     snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n  %d SV ids read. \n",svsn->Nseqs);Printf(globtmpstr);
 
 
-	svsn->openSeqFile(SVSeqsFN, maxseqlen);
+	svsn->openSeqFile(SVSeqsFN, maxseqlen, &conv);
 
 	double *alphaovernorm = norm; 
 
@@ -312,7 +312,7 @@ int svmClassifySimple(OptsSVMClassify &opt)
 
 	int nseqs = nsvseqs; //add test sequences at the end of the svseqs
 
-	sgi = new CSequence(maxseqlen+3);
+	sgi = new CSequence(maxseqlen+3, &conv);
 
 	while (!feof(sfi))
 	{

@@ -46,6 +46,12 @@ Crashes and memory errors fixed (all reproduced before the fix, all now ASAN/UBS
   call could misparse its options and silently write nothing), and the reverse-complement code
   copied a sequence name onto itself (undefined; flagged by AddressSanitizer on Linux).
 
+### Phase 2c — the alphabet is a per-call object (behaviour-preserving)
+
+* The alphabet (`CConverter`) is created by each `gkmsvm_kernel`/`gkmsvm_classify` call and handed
+  to the readers and the computation instead of living in a process-wide global; two calls (or two
+  threads) can no longer see each other's alphabet. Outputs are byte-identical.
+
 ### Phase 2b — no more shared computation state (behaviour-preserving)
 
 * The kernel and classify computations keep their state in per-call objects (`KernelContext`,

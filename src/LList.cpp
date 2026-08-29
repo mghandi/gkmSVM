@@ -447,12 +447,12 @@ int CLList::convert(int col, int i)
 
 char *CLList::convertInt2Str(int col, char *str, int L) // returns L-mer for idx=col
 {
-    str[(L-1)-0] = ::globalConverter.icidx[col%4]; 
+    str[(L-1)-0] = "ACGT"[col%4] /* the XOR path is DNA-only (LTREE_ALPHABET) */; 
     col >>= 2; 
     
     for(int i=1;i<L;i++)
     {
-        str[(L-1)-i] = ::globalConverter.icidx[col%4]; 
+        str[(L-1)-i] = "ACGT"[col%4] /* the XOR path is DNA-only (LTREE_ALPHABET) */; 
         col >>= 2; 
     }
     str[L]=0; 

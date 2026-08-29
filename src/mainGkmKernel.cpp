@@ -47,14 +47,14 @@ using namespace std;
 
 //#include "stdafx.h"
 
-int gkmKernelSimple(OptsGkmKernel &opt);
+int gkmKernelSimple(OptsGkmKernel &opt, const CConverter &conv);
 // the tree algorithm is instantiated per alphabet size (trie_b4.cpp / trie_b32.cpp, see global.h)
-namespace gkm_b4  { int gkmKernelSuffixTree(OptsGkmKernel &opt); }
-namespace gkm_b32 { int gkmKernelSuffixTree(OptsGkmKernel &opt); }
-static int gkmKernelSuffixTree(OptsGkmKernel &opt)
+namespace gkm_b4  { int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv); }
+namespace gkm_b32 { int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv); }
+static int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv)
 {
-	if (globalConverter.b <= 4) return gkm_b4::gkmKernelSuffixTree(opt);
-	return gkm_b32::gkmKernelSuffixTree(opt);
+	if (conv.b <= 4) return gkm_b4::gkmKernelSuffixTree(opt, conv);
+	return gkm_b32::gkmKernelSuffixTree(opt, conv);
 }
 
 void print_usage_and_exit_gkmKernel(const char *prog)
@@ -173,16 +173,15 @@ int gkmKernelRun(OptsGkmKernel &opt)
 		Printf("\n ERROR: maxSeqLen must be at least L and maxNumSeq at least 1.\n"); return 1;
 	}
 
-	// the alphabet lives in a global that outlives this call: start every call from DNA
-	globalConverter.resetToDNA();
+	CConverter conv; // the alphabet of this call (DNA unless -A); Phase 2c: was a process-wide global
 	int alg = opt.alg;
 	if (!opt.alphabetFN.empty()){
-		if (globalConverter.readAlphabetFile(opt.alphabetFN.c_str(), GKM_MAX_ALPHABET)!=0) return 1;
-		if (opt.addRC&&!globalConverter.hasComplement){
+		if (conv.readAlphabetFile(opt.alphabetFN.c_str(), GKM_MAX_ALPHABET)!=0) return 1;
+		if (opt.addRC&&!conv.hasComplement){
 			opt.addRC=false;
 			Printf("\nAdd Reverse Complement option is turned off (the alphabet declares no complement pairs).\n");
 		}
-		if ((alg!=2)&&(globalConverter.b!=4)){
+		if ((alg!=2)&&(conv.b!=4)){
 			alg=2;
 			Printf("\nAlgorithm is set to 2 (Tree) to support alphabet size other than 4.\n");
 		}
@@ -193,20 +192,20 @@ int gkmKernelRun(OptsGkmKernel &opt)
 		case 0:
 			if ((opt.L-opt.K <= 4) || (opt.maxnmm >= 0 && opt.maxnmm <= 4))
 			{
-				return gkmKernelSuffixTree(opt);
+				return gkmKernelSuffixTree(opt, conv);
 			}
 			else
 			{
-				return gkmKernelSimple(opt);
+				return gkmKernelSimple(opt, conv);
 			}
 		case 1:
-			return gkmKernelSimple(opt);
+			return gkmKernelSimple(opt, conv);
 		default:
-			return gkmKernelSuffixTree(opt);
+			return gkmKernelSuffixTree(opt, conv);
 	}
 }
 
-int gkmKernelSimple(OptsGkmKernel &opt)  //Use XOR precomputed hash table
+int gkmKernelSimple(OptsGkmKernel &opt, const CConverter &conv)  //Use XOR precomputed hash table
 {
 
 	int L = opt.L;
@@ -227,9 +226,9 @@ int gkmKernelSimple(OptsGkmKernel &opt)  //Use XOR precomputed hash table
 	std::vector<SeqRecord> records; // row identity, written to <outfile>.index
 
 	int i; 
-	CSequence *sgi= new CSequence(maxseqlen+3);
+	CSequence *sgi= new CSequence(maxseqlen+3, &conv);
 
-	CCalcWmML wmc(L, K, globalConverter.b);
+	CCalcWmML wmc(L, K, conv.b);
 
 	//for curiosity
 	/*
@@ -295,13 +294,13 @@ int gkmKernelSimple(OptsGkmKernel &opt)  //Use XOR precomputed hash table
 	}
     if (useTgkm==3)  //wildcard kernel 
     {
-        c = wmc.calcWildcardKernelWeights(L,  opt.wildcardMismatchM, globalConverter.b, opt.wildcardLambda, c);
+        c = wmc.calcWildcardKernelWeights(L,  opt.wildcardMismatchM, conv.b, opt.wildcardLambda, c);
     	n0 = c[maxnmm]/2;
 
     }
     if (useTgkm==4)  //mismatch kernel 
     {
-        c = wmc.calcMismatchKernelWeights(L,  opt.wildcardMismatchM, globalConverter.b, c);
+        c = wmc.calcMismatchKernelWeights(L,  opt.wildcardMismatchM, conv.b, c);
     	n0 = c[maxnmm]/2;
 
     }
@@ -386,7 +385,7 @@ int gkmKernelSimple(OptsGkmKernel &opt)  //Use XOR precomputed hash table
 
 	GkmkWriter bin;
 	FILE *fo = NULL;
-	if (opt.OutputBinary) { gkmFillGkmkHeader(bin, opt, maxnmm, nseqs, npos); bin.values.reserve((size_t)nseqs*(nseqs+1)/2); }
+	if (opt.OutputBinary) { gkmFillGkmkHeader(bin, opt, maxnmm, nseqs, npos, conv); bin.values.reserve((size_t)nseqs*(nseqs+1)/2); }
 	else { fo = fopen(outFN, "w"); if (fo == NULL) return gkmCannotOpen(outFN); }
 
 	for(i=0;i<nseqs;i++)
