@@ -394,6 +394,7 @@ int gkmKernelSimple(OptsGkmKernel &opt)  //Use XOR precomputed hash table
 		for(int j=0;j<=i;j++)
 		{
 			double v = (i==j) ? 1.0 : ((norm[i]*norm[j]<1E-50)?0.0:seqsL[i]->calcInnerProd(seqsL[j],c,mmcnt)/(norm[i]*norm[j]));
+			if (v == 0.0) v = 0.0; // canonical +0
 			if (fo) { if (i==j) fprintf(fo, "1.0\t"); else fprintf(fo, "%e\t", v); }
 			else bin.add(v);
 		}
