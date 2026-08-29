@@ -19,10 +19,13 @@
 #include "CalcWmML.h"
 #include "LTreeS.h"
 #include "CiDLPasses.h"
+#include "GeneralB.h"
+#include "MultiTrack.h"
+#include <unordered_map>
 
 namespace GKM_NS {
 
-double calcinnerprod(int i, int j, double *c, const KernelContext &kc)
+double calcinnerprod(int i, int j, const double *c, const KernelContext &kc)
 {
 	double res = 0; 
 	for(int m=0;m<kc.nclasses;m++) // Phase 7: rows are mismatch classes; unreachable ones are NULL (for one alphabet: m = 0..maxmm, all present)
@@ -34,7 +37,7 @@ double calcinnerprod(int i, int j, double *c, const KernelContext &kc)
 }
 
 
-double calcinnerprod(int i, int j, double *c, double n0, double C, int nA, int nB, double btL, const KernelContext &kc) // gives inner prodict of the pseudo-counts . nA is the number of L-mers in A and is equal to length(A)-L+1, btL is b^L
+double calcinnerprod(int i, int j, const double *c, double n0, double C, int nA, int nB, double btL, const KernelContext &kc) // gives inner prodict of the pseudo-counts . nA is the number of L-mers in A and is equal to length(A)-L+1, btL is b^L
 {
 	double res = 0; 
 	for(int m=0;m<kc.nclasses;m++) // Phase 7: rows are mismatch classes; unreachable ones are NULL (for one alphabet: m = 0..maxmm, all present)
@@ -92,6 +95,273 @@ void task1(int L, CiDLPasses *iDL, CLTreeS *seqsTS, int M, std::atomic<int> *nex
     }
   
   }
+
+// Everything after the trie is built (shared by the single-alphabet and the multi-track drivers):
+// pass design, the tiled mismatch-class profile, norms, the kernel matrix (text or .gkmk) and the
+// .index sidecar. kc must have LM1, maxmm, nclasses, stepPos set and mmProfile allocated (rows NULL);
+// reach = the class indices whose rows are recorded; c = the coefficient per class index.
+static int gkmKernelPassesAndOutput(OptsGkmKernel &opt, KernelContext &kc, CLTreeS *seqsTS, int L, int b, double p,
+                                    int nseqs, int npos, int nneg, int ntotal, const int *LmersCnt,
+                                    const std::vector<SeqRecord> &records, const double *c, const std::vector<int> &reach,
+                                    bool usePseudocnt, double n0, double C, double btL, int maxnmm,
+                                    int hdrB, const std::string &hdrAlphabet)
+{
+  int i;
+  const size_t nrowsUsed = reach.size();
+  int *nodesAtDepthCnt = new int[L];
+  for(int i=0;i<L; i++){
+    nodesAtDepthCnt[i]=0;
+  }
+  
+  int uniqueLmerCnt = seqsTS->leavesCount(0,L, b, nodesAtDepthCnt);
+  gkmMsg("\n npos %d \n nneg %d \n  ntotal %d \n nunique %d\n",npos,nneg,ntotal,uniqueLmerCnt);
+    // if no IDL bound
+    /*
+    seqsTS->DFST(gDFSlistT[0],1, gDFSMMlist[0], 0, b);
+    
+    for(int si=0;si<nseqs; si++){
+    for(int sj=0;sj<nseqs;sj++){
+    printf("\n (s%d, s%d) = ",si,sj);
+    for(int dd = 0; dd<=kc.maxmm; dd++){
+    printf("%d ",kc.mmProfile[si][dd][sj]);
+    }
+    }
+    }
+    */
+    // else if IDL bound then
+    for(int i=0;i<L; i++){
+      //     gkmMsg("d%d , %d\n", i, nodesAtDepthCnt[i]);
+    }
+    
+    CiDLPasses iDL;
+    //iDL.newIDLPasses(L, kc.maxmm);
+    // p (probability of a match) is a parameter: 1/b for one alphabet
+    
+    //iDL.initPassOrderAll(L, kc.maxmm);
+    //iDL.newGreedyIDLPasses(L,iDL.M,  kc.maxmm, nodesAtDepthCnt, p);
+    
+    iDL.newGreedyIDLPasses(L,2*L,  kc.maxmm, nodesAtDepthCnt, p);
+    
+    //iDL.newGreedy2IDLPasses(L,2*L,  kc.maxmm, nodesAtDepthCnt, p);
+    //iDL.newGreedy2IDLPasses(L,L,  kc.maxmm, nodesAtDepthCnt, p);
+    
+    //iDL.newPassOrderDesignCover( L, kc.maxmm, 3);// generates M passes, that gaurantee that the first k places are matches (in all the trees)
+    //iDL.newGreedyIDLPasses(L,iDL.M,  kc.maxmm, nodesAtDepthCnt, p);
+    
+    
+    /*    int *tmpArray1 = new int[L];
+    int *tmpArray2 = new int[L];
+    for(int j=0;j<iDL.M;j++){
+    gkmMsg("pass %d out of %d.\n",j+1,iDL.M);
+    CLTreeS *seqsTSj= new CLTreeS();
+    seqsTS->cloneReorder(seqsTSj, iDL.passOrder[j], L,L,b, tmpArray1, tmpArray2);
+    //seqsTS->DFSTiDL(gDFSlistT[0],1, gDFSMMlist[0], iDL.passTrees+j, 0, b);
+    gDFSlistT[0][0] = seqsTSj; // with nonEmptyDaughterCnt
+    gDFSMMlist[0][0] = 0;
+    if(!((iDL.passTrees[j]->child0==NULL)&&(iDL.passTrees[j]->child1==NULL))) // i.e. if not empty tree
+    seqsTSj->DFSTiDL(gDFSlistT[0],1, gDFSMMlist[0], iDL.passTrees+j, 0, b);
+    seqsTSj->deleteTree(L, b, 1);
+    delete seqsTSj;
+    
+    // print mismatch profile:
+    / * for(int si=0;si<nseqs; si++){
+    for(int sj=0;sj<nseqs;sj++){
+    printf("\n (s%d, s%d) = ",si,sj);
+    for(int dd = 0; dd<=kc.maxmm; dd++){
+    printf("%d ",kc.mmProfile[si][dd][sj]);
+    }
+    }
+    }
+    * /
+    }
+    delete []tmpArray1;
+    delete []tmpArray2;
+    */
+    
+    //myThreads[0] = std::thread(task1, L, 0, &iDL, seqsTS);
+    //myThreads[1] = std::thread(task1, L, 1, &iDL, seqsTS);
+    //myThreads[0].join();
+    //myThreads[1].join();
+    
+  delete []nodesAtDepthCnt;
+  
+  /*
+  for(int i=0;i<nseqs;i++)
+  {
+  for(int k=0;k<nseqs;k++)
+  {
+  for (int j=0;j<=kc.maxmm;j++)
+  {
+  printf("(%d,%d)[%d] = %d\n",i,k,j, kc.mmProfile[i][j][k]);
+  }
+  }
+  }
+  */	
+  
+  double *norm = new double [nseqs]; 
+  
+  GkmkWriter bin;
+  FILE *fo = NULL;
+  if (opt.OutputBinary) { gkmFillGkmkHeader(bin, opt, maxnmm, nseqs, npos, hdrB, hdrAlphabet); bin.values.reserve((size_t)nseqs*(nseqs+1)/2); }
+  else { fo = fopen(opt.outfile.c_str(), "w"); if (fo == NULL) return gkmCannotOpen(opt.outfile.c_str()); }
+  /*
+  if (OutputMismatchProfileOnly)
+  {
+  fprintf(fo, "%d\tL (length)\n", L); 
+  fprintf(fo, "%d\td (maximum number of mismatches)\n", kc.maxmm); 
+  fprintf(fo, "%d\tNp (number of sequences in positive class)\n", npos);
+  fprintf(fo, "%d\tNn (number of sequences in negative class)\n", nneg); 
+  
+  for (int nmm=0;nmm<=kc.maxmm;nmm++)
+  {
+  fprintf(fo, "d=%d\n",nmm);
+  
+  
+  for(i=0;i<nseqs;i++)
+  {
+  
+  if (outputClassLabel)
+  {
+  fprintf(fo, "%d\t", (i<npos)?1:-1);
+  }
+  if (OutputSeqNames)
+  {
+  fprintf(fo, "%s\t", seqname[i]);
+  }
+  
+  for(int j=0;j<nseqs;j++)
+  {
+  if(i>=j)
+  {
+  fprintf(fo, "%d\t",kc.mmProfile[i][nmm][j]);
+  }
+  }
+  fprintf(fo, "\n"); 
+  }
+  }
+  }
+  else 
+  */
+
+  // ---- Phase 6: tiles of rows. The mismatch profile of rows [lo, hi] is built by a full set of
+  // passes with the DFS pruned to that band (node id ranges), the rows are written, the tile is freed.
+  // Counts are integers, so the result is identical to the untiled computation.
+  int tileRows = opt.tileRows;
+  if (tileRows <= 0) {
+    double bytesPerRow = (double)nrowsUsed * sizeof(aint) * nseqs; // upper bound (the last row is the longest)
+    double budget = (double)opt.tileMemoryMB * 1048576.0;
+    tileRows = (int)(budget / (bytesPerRow > 0 ? bytesPerRow : 1));
+    if (tileRows < 1) tileRows = 1;
+  }
+  if (tileRows > nseqs) tileRows = nseqs;
+  int ntiles = (nseqs + tileRows - 1) / tileRows;
+  if (ntiles > 1) { gkmMsg("Computing the kernel in %d tiles of %d rows.\n", ntiles, tileRows); }
+  // One contiguous block, sized for the largest (last) tile and reused by every tile: freeing and
+  // reallocating a block per tile does not lower the resident set (the allocator keeps freed large
+  // blocks, and each tile's block is bigger than the previous one), a single reused block does.
+  size_t maxTileCounters = 0;
+  for (int tile = 0; tile < ntiles; tile++) {
+    int lo = tile * tileRows, hi = lo + tileRows - 1; if (hi > nseqs - 1) hi = nseqs - 1;
+    size_t c = 0; for(int i=lo;i<=hi;i++) c += nrowsUsed * (i+1);
+    if (c > maxTileCounters) maxTileCounters = c;
+  }
+  aint *tileBlock = new aint[maxTileCounters > 0 ? maxTileCounters : 1];
+  for (int tile = 0; tile < ntiles; tile++)
+  {
+    int lo = tile * tileRows, hi = lo + tileRows - 1; if (hi > nseqs - 1) hi = nseqs - 1;
+    kc.rowLo = lo; kc.rowHi = hi;
+    size_t tileCounters = 0;
+    for(int i=lo;i<=hi;i++) tileCounters += nrowsUsed * (i+1);
+    for(size_t k=0;k<tileCounters;k++) tileBlock[k]=0;
+    {
+      size_t off = 0;
+      for(int i=lo;i<=hi;i++)
+      {
+        kc.mmProfile[i] = new aint*[kc.nclasses];
+        for (int j=0;j<kc.nclasses;j++) kc.mmProfile[i][j] = NULL;
+        for (size_t q=0;q<nrowsUsed;q++) { kc.mmProfile[i][reach[q]] = tileBlock + off; off += (size_t)(i+1); }
+      }
+    }
+    int nThreads=std::thread::hardware_concurrency();
+    if(nThreads==0){nThreads = iDL.M;}
+    if(nThreads>iDL.M){nThreads =iDL.M;}
+    if(opt.maxnThread<nThreads){nThreads=opt.maxnThread;}
+    if(nThreads<1){nThreads=1;}
+    std::atomic<int> nextPass(0);
+    
+    gkmMsg("Running %d passes on %d thread%s.\n", iDL.M, nThreads, (nThreads==1)?"":"s");
+    if (nThreads<=1){
+      task1( L, &iDL, seqsTS, iDL.M, &nextPass, &kc, b);
+    }else{
+      
+#ifndef MULTI_THREAD_SAFE
+      Printf("Warning -- MULTI_THREAD_SAFE is not enabled (see src/global.h). Some values may be approximated.\n");
+#endif
+      
+      
+      std::thread *myThreads = new std::thread[nThreads];
+      int j;
+      
+      for(j=0;j<nThreads;j++){
+        myThreads[j] = std::thread(task1, L, &iDL, seqsTS, iDL.M, &nextPass, &kc, b);
+        // myThreads[j].join();
+      }
+      for(j=0;j<nThreads;j++){
+        myThreads[j].join();
+      }
+      delete []myThreads;
+    }
+    
+    for(i=lo;i<=hi;i++)
+    {
+      if (usePseudocnt)
+      {
+        norm[i] = sqrt(calcinnerprod(i,i,c,n0,C,LmersCnt[i], LmersCnt[i], btL, kc));
+      }
+      else
+      {
+        norm[i] = sqrt(calcinnerprod(i,i,c,kc));
+      }
+    }
+    
+    for(i=lo;i<=hi;i++)
+    {
+      
+      //if (outputClassLabel)
+      //{
+      //	fprintf(fo, "%d\t", (i<npos)?1:-1);
+      //}
+      //if (OutputSeqNames)
+      //{
+      //	fprintf(fo, "%s\t", seqname[i]);
+      //}
+      
+      for(int j=0;j<=i;j++)
+      {
+        double v;
+        if (i==j) v = 1.0;
+        else if (usePseudocnt) v = (norm[i]*norm[j]<1E-50)?0.0:calcinnerprod(i,j,c, n0,C,LmersCnt[i], LmersCnt[j], btL, kc)/(norm[i]*norm[j]);
+        else v = (norm[i]*norm[j]<1E-50)?0.0:calcinnerprod(i,j,c,kc)/(norm[i]*norm[j]);
+        if (v == 0.0) v = 0.0; // canonical +0 (an exact zero can be -0.0 on one compiler and +0.0 on another)
+        if (fo) { if (i==j) fprintf(fo, "1.0\t"); else fprintf(fo, "%e\t", v); }
+        else bin.add(gkmCanon(v));
+      }
+      if (fo) fprintf(fo, "\n"); 
+    }
+    for(int i=lo;i<=hi;i++)
+    {
+      delete []kc.mmProfile[i];
+      kc.mmProfile[i] = NULL;
+    }
+  }
+  delete []tileBlock;
+  if (fo) fclose(fo); 
+  else if (bin.write(opt.outfile, records) != 0) return gkmCannotOpen(opt.outfile.c_str());
+  if (writeIndexSidecar(opt.outfile, records) != 0) { gkmMsg("\n WARNING: could not write %s.index\n", opt.outfile.c_str()); }
+  
+  delete []norm;
+  return 0;
+}
 
 int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv)  //maingKernel
 {
@@ -343,102 +613,11 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv)  //maingKern
   kc.nclasses = maxnmm+1;
   std::vector<int> reach(kc.nclasses);
   for(int m=0;m<kc.nclasses;m++) reach[m]=m;
-  const size_t nrowsUsed = reach.size();
   // Phase 6: the mismatch profile is only ever read for j <= i (calcinnerprod is called for i >= j and
   // the leaf code only records pairs with j <= i), so row i holds i+1 entries: half the memory.
   // Rows are allocated per tile below (Phase 6: peak memory bounded by tileRows / tileMemoryMB).
   kc.mmProfile=new aint **[nseqs];
   for(int i=0;i<nseqs;i++) kc.mmProfile[i] = NULL;
-  
-  int *nodesAtDepthCnt = new int[L];
-  for(int i=0;i<L; i++){
-    nodesAtDepthCnt[i]=0;
-  }
-  
-  int uniqueLmerCnt = seqsTS->leavesCount(0,L, conv.b, nodesAtDepthCnt);
-  gkmMsg("\n npos %d \n nneg %d \n  ntotal %d \n nunique %d\n",npos,nneg,ntotal,uniqueLmerCnt);
-    // if no IDL bound
-    /*
-    seqsTS->DFST(gDFSlistT[0],1, gDFSMMlist[0], 0, b);
-    
-    for(int si=0;si<nseqs; si++){
-    for(int sj=0;sj<nseqs;sj++){
-    printf("\n (s%d, s%d) = ",si,sj);
-    for(int dd = 0; dd<=kc.maxmm; dd++){
-    printf("%d ",kc.mmProfile[si][dd][sj]);
-    }
-    }
-    }
-    */
-    // else if IDL bound then
-    for(int i=0;i<L; i++){
-      //     gkmMsg("d%d , %d\n", i, nodesAtDepthCnt[i]);
-    }
-    
-    CiDLPasses iDL;
-    //iDL.newIDLPasses(L, kc.maxmm);
-    double p=1.0/conv.b;
-    
-    //iDL.initPassOrderAll(L, kc.maxmm);
-    //iDL.newGreedyIDLPasses(L,iDL.M,  kc.maxmm, nodesAtDepthCnt, p);
-    
-    iDL.newGreedyIDLPasses(L,2*L,  kc.maxmm, nodesAtDepthCnt, p);
-    
-    //iDL.newGreedy2IDLPasses(L,2*L,  kc.maxmm, nodesAtDepthCnt, p);
-    //iDL.newGreedy2IDLPasses(L,L,  kc.maxmm, nodesAtDepthCnt, p);
-    
-    //iDL.newPassOrderDesignCover( L, kc.maxmm, 3);// generates M passes, that gaurantee that the first k places are matches (in all the trees)
-    //iDL.newGreedyIDLPasses(L,iDL.M,  kc.maxmm, nodesAtDepthCnt, p);
-    
-    
-    /*    int *tmpArray1 = new int[L];
-    int *tmpArray2 = new int[L];
-    for(int j=0;j<iDL.M;j++){
-    gkmMsg("pass %d out of %d.\n",j+1,iDL.M);
-    CLTreeS *seqsTSj= new CLTreeS();
-    seqsTS->cloneReorder(seqsTSj, iDL.passOrder[j], L,L,b, tmpArray1, tmpArray2);
-    //seqsTS->DFSTiDL(gDFSlistT[0],1, gDFSMMlist[0], iDL.passTrees+j, 0, b);
-    gDFSlistT[0][0] = seqsTSj; // with nonEmptyDaughterCnt
-    gDFSMMlist[0][0] = 0;
-    if(!((iDL.passTrees[j]->child0==NULL)&&(iDL.passTrees[j]->child1==NULL))) // i.e. if not empty tree
-    seqsTSj->DFSTiDL(gDFSlistT[0],1, gDFSMMlist[0], iDL.passTrees+j, 0, b);
-    seqsTSj->deleteTree(L, b, 1);
-    delete seqsTSj;
-    
-    // print mismatch profile:
-    / * for(int si=0;si<nseqs; si++){
-    for(int sj=0;sj<nseqs;sj++){
-    printf("\n (s%d, s%d) = ",si,sj);
-    for(int dd = 0; dd<=kc.maxmm; dd++){
-    printf("%d ",kc.mmProfile[si][dd][sj]);
-    }
-    }
-    }
-    * /
-    }
-    delete []tmpArray1;
-    delete []tmpArray2;
-    */
-    
-    //myThreads[0] = std::thread(task1, L, 0, &iDL, seqsTS);
-    //myThreads[1] = std::thread(task1, L, 1, &iDL, seqsTS);
-    //myThreads[0].join();
-    //myThreads[1].join();
-    
-  delete []nodesAtDepthCnt;
-  
-  /*
-  for(int i=0;i<nseqs;i++)
-  {
-  for(int k=0;k<nseqs;k++)
-  {
-  for (int j=0;j<=kc.maxmm;j++)
-  {
-  printf("(%d,%d)[%d] = %d\n",i,k,j, kc.mmProfile[i][j][k]);
-  }
-  }
-  }
-  */	
   
   /// calc C 
   double C =0; 
@@ -450,168 +629,11 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv)  //maingKern
   
   //	double btL=pow(4.0,L);
   double btL=pow(1.0*conv.b,L);
-  double *norm = new double [nseqs]; 
-  
-  GkmkWriter bin;
-  FILE *fo = NULL;
-  if (opt.OutputBinary) { gkmFillGkmkHeader(bin, opt, maxnmm, nseqs, npos, conv); bin.values.reserve((size_t)nseqs*(nseqs+1)/2); }
-  else { fo = fopen(outFN, "w"); if (fo == NULL) return gkmCannotOpen(outFN); }
-  /*
-  if (OutputMismatchProfileOnly)
   {
-  fprintf(fo, "%d\tL (length)\n", L); 
-  fprintf(fo, "%d\td (maximum number of mismatches)\n", kc.maxmm); 
-  fprintf(fo, "%d\tNp (number of sequences in positive class)\n", npos);
-  fprintf(fo, "%d\tNn (number of sequences in negative class)\n", nneg); 
-  
-  for (int nmm=0;nmm<=kc.maxmm;nmm++)
-  {
-  fprintf(fo, "d=%d\n",nmm);
-  
-  
-  for(i=0;i<nseqs;i++)
-  {
-  
-  if (outputClassLabel)
-  {
-  fprintf(fo, "%d\t", (i<npos)?1:-1);
+    int rc = gkmKernelPassesAndOutput(opt, kc, seqsTS, L, conv.b, 1.0/conv.b, nseqs, npos, nneg, ntotal, LmersCnt, records, c, reach,
+                                      usePseudocnt, n0, C, btL, maxnmm, conv.b, std::string(conv.alphabet, conv.alphabet + conv.b));
+    if (rc != 0) return rc;
   }
-  if (OutputSeqNames)
-  {
-  fprintf(fo, "%s\t", seqname[i]);
-  }
-  
-  for(int j=0;j<nseqs;j++)
-  {
-  if(i>=j)
-  {
-  fprintf(fo, "%d\t",kc.mmProfile[i][nmm][j]);
-  }
-  }
-  fprintf(fo, "\n"); 
-  }
-  }
-  }
-  else 
-  */
-
-  // ---- Phase 6: tiles of rows. The mismatch profile of rows [lo, hi] is built by a full set of
-  // passes with the DFS pruned to that band (node id ranges), the rows are written, the tile is freed.
-  // Counts are integers, so the result is identical to the untiled computation.
-  int tileRows = opt.tileRows;
-  if (tileRows <= 0) {
-    double bytesPerRow = (double)nrowsUsed * sizeof(aint) * nseqs; // upper bound (the last row is the longest)
-    double budget = (double)opt.tileMemoryMB * 1048576.0;
-    tileRows = (int)(budget / (bytesPerRow > 0 ? bytesPerRow : 1));
-    if (tileRows < 1) tileRows = 1;
-  }
-  if (tileRows > nseqs) tileRows = nseqs;
-  int ntiles = (nseqs + tileRows - 1) / tileRows;
-  if (ntiles > 1) { gkmMsg("Computing the kernel in %d tiles of %d rows.\n", ntiles, tileRows); }
-  // One contiguous block, sized for the largest (last) tile and reused by every tile: freeing and
-  // reallocating a block per tile does not lower the resident set (the allocator keeps freed large
-  // blocks, and each tile's block is bigger than the previous one), a single reused block does.
-  size_t maxTileCounters = 0;
-  for (int tile = 0; tile < ntiles; tile++) {
-    int lo = tile * tileRows, hi = lo + tileRows - 1; if (hi > nseqs - 1) hi = nseqs - 1;
-    size_t c = 0; for(int i=lo;i<=hi;i++) c += nrowsUsed * (i+1);
-    if (c > maxTileCounters) maxTileCounters = c;
-  }
-  aint *tileBlock = new aint[maxTileCounters > 0 ? maxTileCounters : 1];
-  for (int tile = 0; tile < ntiles; tile++)
-  {
-    int lo = tile * tileRows, hi = lo + tileRows - 1; if (hi > nseqs - 1) hi = nseqs - 1;
-    kc.rowLo = lo; kc.rowHi = hi;
-    size_t tileCounters = 0;
-    for(int i=lo;i<=hi;i++) tileCounters += nrowsUsed * (i+1);
-    for(size_t k=0;k<tileCounters;k++) tileBlock[k]=0;
-    {
-      size_t off = 0;
-      for(int i=lo;i<=hi;i++)
-      {
-        kc.mmProfile[i] = new aint*[kc.nclasses];
-        for (int j=0;j<kc.nclasses;j++) kc.mmProfile[i][j] = NULL;
-        for (size_t q=0;q<nrowsUsed;q++) { kc.mmProfile[i][reach[q]] = tileBlock + off; off += (size_t)(i+1); }
-      }
-    }
-    int nThreads=std::thread::hardware_concurrency();
-    if(nThreads==0){nThreads = iDL.M;}
-    if(nThreads>iDL.M){nThreads =iDL.M;}
-    if(opt.maxnThread<nThreads){nThreads=opt.maxnThread;}
-    if(nThreads<1){nThreads=1;}
-    std::atomic<int> nextPass(0);
-    
-    gkmMsg("Running %d passes on %d thread%s.\n", iDL.M, nThreads, (nThreads==1)?"":"s");
-    if (nThreads<=1){
-      task1( L, &iDL, seqsTS, iDL.M, &nextPass, &kc, conv.b);
-    }else{
-      
-#ifndef MULTI_THREAD_SAFE
-      Printf("Warning -- MULTI_THREAD_SAFE is not enabled (see src/global.h). Some values may be approximated.\n");
-#endif
-      
-      
-      std::thread *myThreads = new std::thread[nThreads];
-      int j;
-      
-      for(j=0;j<nThreads;j++){
-        myThreads[j] = std::thread(task1, L, &iDL, seqsTS, iDL.M, &nextPass, &kc, conv.b);
-        // myThreads[j].join();
-      }
-      for(j=0;j<nThreads;j++){
-        myThreads[j].join();
-      }
-      delete []myThreads;
-    }
-    
-    for(i=lo;i<=hi;i++)
-    {
-      if (usePseudocnt)
-      {
-        norm[i] = sqrt(calcinnerprod(i,i,c,n0,C,LmersCnt[i], LmersCnt[i], btL, kc));
-      }
-      else
-      {
-        norm[i] = sqrt(calcinnerprod(i,i,c,kc));
-      }
-    }
-    
-    for(i=lo;i<=hi;i++)
-    {
-      
-      //if (outputClassLabel)
-      //{
-      //	fprintf(fo, "%d\t", (i<npos)?1:-1);
-      //}
-      //if (OutputSeqNames)
-      //{
-      //	fprintf(fo, "%s\t", seqname[i]);
-      //}
-      
-      for(int j=0;j<=i;j++)
-      {
-        double v;
-        if (i==j) v = 1.0;
-        else if (usePseudocnt) v = (norm[i]*norm[j]<1E-50)?0.0:calcinnerprod(i,j,c, n0,C,LmersCnt[i], LmersCnt[j], btL, kc)/(norm[i]*norm[j]);
-        else v = (norm[i]*norm[j]<1E-50)?0.0:calcinnerprod(i,j,c,kc)/(norm[i]*norm[j]);
-        if (v == 0.0) v = 0.0; // canonical +0 (an exact zero can be -0.0 on one compiler and +0.0 on another)
-        if (fo) { if (i==j) fprintf(fo, "1.0\t"); else fprintf(fo, "%e\t", v); }
-        else bin.add(gkmCanon(v));
-      }
-      if (fo) fprintf(fo, "\n"); 
-    }
-    for(int i=lo;i<=hi;i++)
-    {
-      delete []kc.mmProfile[i];
-      kc.mmProfile[i] = NULL;
-    }
-  }
-  delete []tileBlock;
-  if (fo) fclose(fo); 
-  else if (bin.write(opt.outfile, records) != 0) return gkmCannotOpen(outFN);
-  if (writeIndexSidecar(opt.outfile, records) != 0) { gkmMsg("\n WARNING: could not write %s.index\n", outFN); }
-  
-  delete []norm;
   delete []LmersCnt;
   seqsTS->deleteTree(L, conv.b, 0);
   delete seqsTS;
@@ -635,6 +657,90 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv)  //maingKern
   }
   
   return 0; 
+}
+
+
+// Phase 7: kernel for multi-track records (T >= 2 aligned tracks, each with its own alphabet). The
+// l-mers are the track-major windows (l = T*L), the mismatch profile is indexed by the block class
+// (dev/PHASE7_PLAN.md D1-D7) and the coefficients come from GeneralB.
+int gkmKernelMultiTrack(OptsGkmKernel &opt, const TrackAlphabets &ta)
+{
+  const int T = ta.T();
+  const int L = opt.L, K = opt.K, ell = T * L, b = ta.bmax();
+  const int nMAXSEQUENCES = opt.maxnumseq;
+  const bool addRC = opt.addRC;
+  AlphabetVector av(ta.alphabetVector(L));
+  GeneralBTables tab(av, K);
+  int maxnmm = opt.maxnmm;
+  if (maxnmm == -1) maxnmm = tab.autoMaxmm(opt.useTgkm);
+  if (maxnmm > ell) maxnmm = ell;
+  const double *c = tab.table(opt.useTgkm);
+  if (c == NULL) { Printf("\n ERROR: filter types 3 and 4 (wildcard, mismatch kernels) are only available for a single alphabet.\n"); return 1; }
+  std::vector<int> reach = av.reachable(maxnmm);
+  gkmMsg("\n %d tracks, window %d -> l-mers of length %d; %s\n", T, L, ell, av.describe().c_str());
+  gkmMsg("\n maximumMismatch = %d (%d of %d classes reachable)\n", maxnmm, (int)reach.size(), av.nclasses);
+  for (size_t q = 0; q < reach.size(); q++) gkmMsg("\n c[%s] = %e", av.classLabel(reach[q]).c_str(), c[reach[q]]);
+  Printf("\n");
+  // the pass design enumerates every mismatch pattern with <= maxnmm ones (D10; lifted in 7d)
+  {
+    double npat = 0; for (int i = 0; i <= maxnmm; i++) npat += dCombinations(ell, i);
+    if (npat > 4.0 * 1048576.0) { gkmMsg("\n ERROR: %d positions with up to %d mismatches give %.3g mismatch patterns; this version supports at most 4 million (lower -d, or use a shorter window).\n", ell, maxnmm, npat); return 1; }
+  }
+
+  CLTreeS *seqsTS = new CLTreeS();
+  std::vector<int> LmersCnt;
+  std::vector<SeqRecord> records;
+  std::vector<int> win;
+  int ntotal = 0, nseqs = 0, npos = 0;
+  const char *fns[2] = { opt.posfile.c_str(), opt.negfile.c_str() };
+  for (int which = 0; which < 2; which++) {
+    FILE *sfi = fopen(fns[which], "r");
+    if (sfi == NULL) { delete seqsTS; return gkmCannotOpen(fns[which]); }
+    std::unordered_map<std::string, int> byName; // -N: same name within a file -> one row
+    std::string pending;
+    MultiTrackRecord rec;
+    int r;
+    while ((r = readMfaRecord(sfi, T, rec, pending, opt.maxseqlen)) == 1) {
+      int idx = -1;
+      if (opt.mergeByName) { std::unordered_map<std::string, int>::iterator it = byName.find(rec.name); if (it != byName.end()) idx = it->second; }
+      if (idx < 0) {
+        if (nseqs >= nMAXSEQUENCES) { fclose(sfi); delete seqsTS; return gkmTooManySequences(nMAXSEQUENCES); }
+        idx = nseqs++;
+        LmersCnt.push_back(0);
+        records.push_back(SeqRecord{idx, "", rec.name, 0, 0, 0});
+        if (opt.mergeByName) byName[rec.name] = idx;
+      }
+      records[idx].length += rec.length();
+      win.clear();
+      int nw = encodeWindows(rec, ta, L, addRC, win);
+      for (int w = 0; w < nw; w++) seqsTS->addSeq(&win[(size_t)w * ell], ell, &win[(size_t)w * ell], idx);
+      LmersCnt[idx] += nw; ntotal += nw;
+    }
+    fclose(sfi);
+    if (r < 0) { delete seqsTS; return 1; }
+    if (which == 0) npos = nseqs;
+  }
+  int nneg = nseqs - npos;
+  for (int i = 0; i < nseqs; i++) { records[i].id = seqRecordId(i, npos); records[i].label = (i < npos) ? 1 : -1; records[i].nlmers = LmersCnt[i]; }
+  {
+    long maxw = 0; for (int i = 0; i < nseqs; i++) if (LmersCnt[i] > maxw) maxw = LmersCnt[i];
+    if ((double)maxw * (double)maxw >= 2147483647.0) { gkmMsg("\n ERROR: a record has %ld windows; the profile counters hold at most 2^31 window pairs per sequence pair.\n", maxw); delete seqsTS; return 1; }
+  }
+
+  KernelContext kc;
+  kc.LM1 = ell - 1;
+  kc.maxmm = maxnmm;
+  kc.stepPos = av.step.data();
+  kc.nclasses = av.nclasses;
+  kc.mmProfile = new aint **[nseqs > 0 ? nseqs : 1];
+  for (int i = 0; i < nseqs; i++) kc.mmProfile[i] = NULL;
+  double p = 0; for (int i = 0; i < ell; i++) p += 1.0 / av.B[i]; p /= ell; // mean match probability (pass-design heuristic only)
+  int rc = gkmKernelPassesAndOutput(opt, kc, seqsTS, ell, b, p, nseqs, npos, nneg, ntotal, LmersCnt.data(), records, c, reach,
+                                    false, 0.0, 0.0, 0.0, maxnmm, b, ta.canonical());
+  seqsTS->deleteTree(ell, b, 0);
+  delete seqsTS;
+  delete []kc.mmProfile;
+  return rc;
 }
 
 } // namespace GKM_NS

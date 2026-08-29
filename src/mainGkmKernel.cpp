@@ -29,6 +29,7 @@
 #include "global.h"
 #include "globalvar.h"
 #include "gkmOptions.h"
+#include "MultiTrack.h"
 #include "SequenceSet.h"
 #include "KernelFile.h"
 #include "gkmMainHelpers.h"
@@ -49,8 +50,8 @@ using namespace std;
 
 int gkmKernelSimple(OptsGkmKernel &opt, const CConverter &conv);
 // the tree algorithm is instantiated per alphabet size (trie_b4.cpp / trie_b32.cpp, see global.h)
-namespace gkm_b4  { int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv); }
-namespace gkm_b32 { int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv); }
+namespace gkm_b4  { int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv); int gkmKernelMultiTrack(OptsGkmKernel &opt, const TrackAlphabets &ta); }
+namespace gkm_b32 { int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv); int gkmKernelMultiTrack(OptsGkmKernel &opt, const TrackAlphabets &ta); }
 static int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv)
 {
 	if (conv.b <= 4) return gkm_b4::gkmKernelSuffixTree(opt, conv);
@@ -87,7 +88,10 @@ void print_usage_and_exit_gkmKernel(const char *prog)
 	gkmMsg("%s", "  -p             if set, a constant to will be added to the count estimates\n");
 	gkmMsg("%s", "  -M             max mismatch for Mismatch kernel or wildcard kernel, default=2\n");
 	gkmMsg("%s", "  -L             lambda for wildcard kernel, defaul=1.0\n");
-    gkmMsg("%s", "  -A             alphabets file name, if not specified, it is assumed the inputs are DNA sequences \n");
+    gkmMsg("%s", "  -A             alphabet: dna (default), rna, protein, an alphabet file (one symbol per line,\n");
+    gkmMsg("%s", "                 optional complement), or =SYMBOLS (literal, e.g. =01). A comma-separated list\n");
+    gkmMsg("%s", "                 gives one alphabet per track of a multi-track FASTA input (header line\n");
+    gkmMsg("%s", "                 followed by one line per track), e.g. -A dna,=01 for DNA + methylation flags\n");
     gkmMsg("%s", "  -T             maximum number of threads, defaul=2*l\n");
     gkmMsg("%s", "  -N             merge records that share a name within a file into one row (default: one record = one row)\n");
     gkmMsg("%s", "  -b             write the kernel in the binary .gkmk format (float32) instead of text\n");
@@ -156,10 +160,6 @@ int gkmKernelRun(OptsGkmKernel &opt)
 		Printf("\n ERROR: K must be less than or equal to L!\n"); return 1;
 	}
 
-	if ((opt.maxnmm > 0) && (opt.L < opt.maxnmm))
-	{
-		Printf("\n ERROR: maxMismatch must be less than or equal to L!\n"); return 1;
-	}
 	if (opt.useTgkm < 0 || opt.useTgkm > 4)
 	{
 		Printf("\n ERROR: filter type (-t) must be between 0 and 4.\n"); return 1;
@@ -173,10 +173,26 @@ int gkmKernelRun(OptsGkmKernel &opt)
 		Printf("\n ERROR: maxSeqLen must be at least L and maxNumSeq at least 1.\n"); return 1;
 	}
 
-	CConverter conv; // the alphabet of this call (DNA unless -A); Phase 2c: was a process-wide global
+	TrackAlphabets ta; // the alphabet(s) of this call (DNA unless -A); Phase 7: one per track
+	if (ta.parse(opt.alphabetFN, GKM_MAX_ALPHABET) != 0) return 1;
+	if ((opt.maxnmm > 0) && (ta.T() * opt.L < opt.maxnmm))
+	{
+		if (ta.T() == 1) Printf("\n ERROR: maxMismatch must be less than or equal to L!\n");
+		else Printf("\n ERROR: maxMismatch must be less than or equal to the number of tracks times L!\n");
+		return 1;
+	}
+	if (ta.T() > 1) {
+		if (ta.T() > 2) { Printf("\n ERROR: this version supports two tracks (e.g. -A dna,=01); more tracks come with Phase 7d.\n"); return 1; }
+		if (opt.useTgkm > 2) { Printf("\n ERROR: filter types 3 and 4 (wildcard, mismatch kernels) are only available for a single alphabet.\n"); return 1; }
+		if (opt.usePseudocnt) { Printf("\n ERROR: pseudocounts (-p) are only available for a single alphabet.\n"); return 1; }
+		if (opt.alg == 1) Printf("\nAlgorithm is set to 2 (Tree) for multi-track input.\n");
+		if (opt.addRC && !ta.conv[0]->hasComplement) { opt.addRC = false; Printf("\nAdd Reverse Complement option is turned off (the alphabet of track 1 declares no complement pairs).\n"); }
+		if (ta.bmax() <= 4) return gkm_b4::gkmKernelMultiTrack(opt, ta);
+		return gkm_b32::gkmKernelMultiTrack(opt, ta);
+	}
+	const CConverter &conv = *ta.conv[0];
 	int alg = opt.alg;
 	if (!opt.alphabetFN.empty()){
-		if (conv.readAlphabetFile(opt.alphabetFN.c_str(), GKM_MAX_ALPHABET)!=0) return 1;
 		if (opt.addRC&&!conv.hasComplement){
 			opt.addRC=false;
 			Printf("\nAdd Reverse Complement option is turned off (the alphabet declares no complement pairs).\n");

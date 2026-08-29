@@ -169,6 +169,72 @@ def check_kernels(bindir, tmp, failures):
     return n
 
 
+
+def exact_multitrack_kernel(seqs, L, K, kind, rc, d):
+    """Normalised kernel with the mismatch bound d (classes with |m| > d dropped), exact arithmetic."""
+    from fractions import Fraction
+    from math import sqrt
+    B = seqs[0].B(L)
+    bl = gb.Blocks(B)
+    coeffs = gb.kernel_coefficients(B, K, kind)
+    if d is not None:
+        coeffs = {m: (v if sum(m) <= d else Fraction(0)) for m, v in coeffs.items()}
+    words = [s.lmers(L, rc) for s in seqs]
+    n = len(seqs)
+    G = [[Fraction(0)] * n for _ in range(n)]
+    for i in range(n):
+        for j in range(i + 1):
+            G[i][j] = G[j][i] = gb.inner_product(words[i], words[j], coeffs, bl)
+    # the diagonal is written as 1.0 by gkmsvm_kernel even for a record without any window (norm 0)
+    return [[(1.0 if i == j else float(G[i][j]) / sqrt(float(G[i][i] * G[j][j])) if i == j or G[i][i] * G[j][j] > 0 else 0.0)
+             for j in range(n)] for i in range(n)]
+
+
+def check_multitrack_kernels(bindir, tmp, failures):
+    """Phase 7: two-track kernels (DNA + a second track) against generalb_gkm (any B) and, for the
+    two-block case, against the independent twoblock_gkm implementation; with and without reverse
+    complement, t in {0,1,2}, automatic and bounded -d; a fixture with N's, a 3-state second track,
+    a record shorter than the window and a record whose every window contains an N."""
+    import twoblock_gkm as tb
+    n = 0
+    cases = [("meth", ["ACGT", "01"], "dna,=01", 6, 4, [None, 4]),
+             ("mt3", ["ACGT", "NUM"], "dna,=NUM", 5, 3, [None, 3])]
+    for stem, alphabets, spec, L, K, ds in cases:
+        pos, neg = FIX + f"/{stem}_pos.mfa", FIX + f"/{stem}_neg.mfa"
+        seqs = gb.read_mfa(pos, alphabets) + gb.read_mfa(neg, alphabets)
+        for rc in (True, False):
+            for t, kind in KINDS.items():
+                for d in ds:
+                    exact = exact_multitrack_kernel(seqs, L, K, kind, rc, d)
+                    out = os.path.join(tmp, "k.txt")
+                    argv = [os.path.join(bindir, "gkmsvm_kernel"), "-l", str(L), "-k", str(K), "-d", str(-1 if d is None else d), "-t", str(t), "-A", spec]
+                    if not rc:
+                        argv.append("-R")
+                    argv += [pos, neg, out]
+                    p = subprocess.run(argv, capture_output=True, text=True)
+                    if p.returncode != 0:
+                        failures.append(f"{' '.join(argv)} failed: {p.stdout[-300:]}")
+                        continue
+                    rows = [ln.split() for ln in open(out).read().splitlines() if ln.strip()]
+                    if len(rows) != len(seqs):
+                        failures.append(f"multitrack {stem} t={t} rc={rc} d={d}: {len(rows)} rows, expected {len(seqs)}")
+                        continue
+                    for i, row in enumerate(rows):
+                        for j, sv in enumerate(row):
+                            n += 1
+                            if not rel_close(float(sv), exact[i][j], 2e-6, 1e-7):
+                                failures.append(f"multitrack {stem} t={t} rc={rc} d={d}: K[{i}][{j}] C++ {sv} vs exact {exact[i][j]!r}")
+                    # the independent two-block implementation (automatic d only: it has no bound)
+                    if stem == "meth" and d is None:
+                        tseqs = tb.read_2fa(pos) + tb.read_2fa(neg)
+                        tk = tb.kernel_matrix(tseqs, L, K, kind, revcomp=rc)
+                        for i, row in enumerate(rows):
+                            for j, sv in enumerate(row):
+                                n += 1
+                                if not rel_close(float(sv), tk[i][j], 2e-6, 1e-7):
+                                    failures.append(f"multitrack {stem} t={t} rc={rc} (twoblock): K[{i}][{j}] C++ {sv} vs twoblock {tk[i][j]!r}")
+    return n
+
 def exact_scores(test, svs, alphas, L, K, kind, d, rc, B):
     bl = gb.Blocks(B)
     coeffs = {m: (v if m[0] <= d else gb.Fraction(0)) for m, v in gb.kernel_coefficients(B, K, kind).items()}
@@ -232,6 +298,8 @@ def main():
         print(f"general-B tables:   {ng} values compared")
         nk = check_kernels(bindir, tmp, failures)
         print(f"kernel entries:     {nk} values compared")
+        nm = check_multitrack_kernels(bindir, tmp, failures)
+        print(f"multi-track kernel: {nm} values compared")
         nc = check_classify(bindir, tmp, failures)
         print(f"classify scores:    {nc} values compared")
     for f in failures[:50]:

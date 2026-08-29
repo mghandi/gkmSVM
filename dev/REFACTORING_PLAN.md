@@ -819,3 +819,31 @@ and text-vs-binary kernel size and R load time.
   rounding noise (~1e-17) and its automatic `-d` is 2 too large — harmless (the extra coefficients are
   ~1e-34) and left as is for T = 1. Benchmark (best of 5, two interleaved rounds): master 6.309 /
   6.311 s, new 6.353 / 6.359 s (**+0.7 %**, within the 2 % gate; no templating needed).
+* **Phase 7b — two blocks, kernel (PR `phase7/b-twoblock-kernel`, stacked on 7a).** `src/MultiTrack.{h,cpp}`:
+  `TrackAlphabets` (`-A spec[,spec…]`, spec = keyword | file | `=SYMBOLS`), the `.mfa` record reader
+  (header + exactly T track lines of equal length; `#`/`;` comments; length/track-count errors name
+  the record), `encodeWindows` (track-major l-mers, windows with an out-of-alphabet symbol skipped,
+  reverse complement = track 1 complemented + reversed, other tracks reversed). The pass/tile/output
+  stage of `gkmKernelSuffixTree` became `gkmKernelPassesAndOutput` (shared, byte-identical: 151/151)
+  and `gkmKernelMultiTrack` builds the trie one window at a time (`CLTreeS::addSeq` made public),
+  tables from `GeneralB`, `-d` = total mismatches (auto per D5), rows per reachable class; dispatch on
+  `bmax` (DNA + flags run on the b4 trie). `-t 3/4`, `-p`, `-a 1` and (this sub-phase) T > 2 are
+  refused with messages; `.gkmk` stores the spec list as its alphabet string and `b = bmax`
+  (R `read_gkm_kernel` returns it). R: `gkmsvm_kernel(alphabets = c("dna","01"))`
+  (`.gkm_alphabet_spec`: keyword / existing file / literal → `=…`), Rd, NEWS, `test-multitrack.R`.
+  Fixtures: gkmsvm3's `twoblock/examples/{pos,neg}.2fa` as `meth_{pos,neg}.mfa`, and `mt3_*.mfa`
+  (3-state second track, `N`s, a record shorter than L, a record whose every window has an `N`).
+  **Oracle: 16 812 multi-track kernel entries** (2 fixtures × ±RC × t=0/1/2 × automatic and bounded
+  `-d`) agree with `generalb_gkm.kernel_matrix` *and*, for the two-block fixture, with the independent
+  `twoblock_gkm.kernel_matrix` (vendored as `dev/oracle/twoblock_gkm.py`) to 2e-6; the writer's
+  `1.0` diagonal for a record without windows is mirrored in the oracle. Golden: **12 new cases**
+  (`k_mt_*`, incl. binary, tiling `-r 7`, one thread, three `expect-error`), 163/163; ASAN+UBSAN
+  163/163 clean; testthat 31/0; `R CMD check --as-cran --no-manual` 2 NOTEs (environmental).
+  **Pitfall found:** golden case names become file names, and `k_mt_meth_t1` / `k_mt_meth_T1`
+  collided on the case-insensitive macOS file system (the frozen t=1 file silently held the t=0
+  output; the R golden test caught it). Renamed to `thr1`; `golden.py` now refuses names that differ
+  only by case. **Experiments (gkmsvm3 branch `cpp-backend`):** `experiments/common/cpp_backend.py`
+  (`GKMSVM_BIN=<dir>` switches `methods.py` to the C++ kernel; `EXP_RESULTS_DIR` keeps the Python
+  results), `compare_results.py`. `twoblock/examples` LOO centroid AUC reproduced exactly (gkm /
+  filter / truncated 1.000, DNA-only 0.502, methylation-only 0.713; max |ΔK| = 5e-8 = the `%e`
+  print precision).

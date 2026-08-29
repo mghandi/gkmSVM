@@ -31,7 +31,16 @@ ACT = os.path.join(HERE, "actual")
 
 def load_cases(path=os.path.join(HERE, "cases.tsv")):
     with open(path, newline="") as f:
-        return list(csv.DictReader(f, delimiter="\t"))
+        cases = list(csv.DictReader(f, delimiter="\t"))
+    # case names become file names: they must also be unique on a case-insensitive file system
+    # (macOS): two cases differing only by case once overwrote each other's frozen output
+    seen = {}
+    for c in cases:
+        k = c["name"].lower()
+        if k in seen:
+            sys.exit(f"cases.tsv: names {seen[k]!r} and {c['name']!r} differ only by letter case")
+        seen[k] = c["name"]
+    return cases
 
 
 def build_argv(c, bindir, outfile):
@@ -53,7 +62,10 @@ def build_argv(c, bindir, outfile):
         if c.get(col, "") != "":
             argv += [flag, c[col]]
     if c["A"]:
-        argv += ["-A", c["A"] if c["A"] in ("dna", "rna", "protein") else os.path.join(FIX, c["A"])]  # keyword or file
+        spec = c["A"]
+        if spec not in ("dna", "rna", "protein") and "," not in spec and not spec.startswith("="):
+            spec = os.path.join(FIX, spec)  # an alphabet file; keywords and multi-track specs (Phase 7) pass through
+        argv += ["-A", spec]
     if c["RC"] == "0":
         argv.append("-R")
     if c["p"] == "1":
@@ -74,7 +86,7 @@ def build_argv(c, bindir, outfile):
 def run_case(c, bindir):
     d = os.path.join(ACT, c["name"])
     shutil.rmtree(d, ignore_errors=True)
-    os.makedirs(d)
+    os.makedirs(d, exist_ok=True)
     out = os.path.join(d, "out.txt")
     argv = build_argv(c, bindir, out if c["tool"] != "train" else os.path.join(d, "model"))
     t0 = time.time()

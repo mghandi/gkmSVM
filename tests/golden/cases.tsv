@@ -150,3 +150,15 @@ c_t2_a2_legacy	classify	classify legacy			test_seqs.fa	sv_svseq.fa	sv_svalpha.ou
 c_t4_a2_legacy	classify	classify legacy			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	4	2	1	0																1
 c_noRC_a2_legacy	classify	classify legacy rc			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	1	2	0	0																1
 c_pseudo_legacy	classify	classify legacy pseudo			test_seqs.fa	sv_svseq.fa	sv_svalpha.out	10	6	3	1	2	1	1																1
+k_mt_meth_t0	kernel	multitrack	meth_pos.mfa	meth_neg.mfa				6	4	-1	0	2	1	0			dna,=01													
+k_mt_meth_t1	kernel	multitrack	meth_pos.mfa	meth_neg.mfa				6	4	-1	1	2	1	0			dna,=01													
+k_mt_meth_t2	kernel	multitrack	meth_pos.mfa	meth_neg.mfa				6	4	-1	2	2	1	0			dna,=01													
+k_mt_meth_t0_d4_noRC	kernel	multitrack	meth_pos.mfa	meth_neg.mfa				6	4	4	0	2	0	0			dna,=01													
+k_mt_meth_t0_bin	kernel	multitrack binary	meth_pos.mfa	meth_neg.mfa				6	4	-1	0	2	1	0			dna,=01						1							
+k_mt_mt3_t0	kernel	multitrack	mt3_pos.mfa	mt3_neg.mfa				5	3	-1	0	2	1	0			dna,=NUM													
+k_mt_mt3_t2_d3	kernel	multitrack	mt3_pos.mfa	mt3_neg.mfa				5	3	3	2	2	1	0			dna,=NUM													
+k_mt_meth_thr1	kernel	multitrack threads	meth_pos.mfa	meth_neg.mfa				6	4	-1	0	2	1	0			dna,=01	1												
+k_mt_meth_tile	kernel	multitrack tiling	meth_pos.mfa	meth_neg.mfa				6	4	-1	0	2	1	0			dna,=01												7	
+k_mt_tracks_mismatch	kernel	multitrack expect-error	dna_small_pos.fa	meth_neg.mfa				6	4	-1	0	2	1	0			dna,=01													
+k_mt_three_tracks	kernel	multitrack expect-error	meth_pos.mfa	meth_neg.mfa				6	4	-1	0	2	1	0			dna,=01,=abc													
+k_mt_t3	kernel	multitrack expect-error	meth_pos.mfa	meth_neg.mfa				6	4	-1	3	2	1	0			dna,=01													
