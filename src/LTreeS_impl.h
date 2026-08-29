@@ -23,12 +23,6 @@
 
 namespace GKM_NS {
 
-// per-instantiation DFS scratch (were in gkmCommonLib.cpp; their element type depends on the namespace)
-LTreeSnodeData ** gDFSlist[1000];
-CLTreeS **gDFSlistT[1000]; // with nonEmptyDaughterCnt
-int *gDFSMMlist[1000];
-CbinMMtree **gDFSMMtree[1000]; // for the iDL bound 
-
 CLTreeS::CLTreeS(void)
 {
   //daughter[0].t=daughter[1].t=daughter[2].t=daughter[3].t=NULL;
@@ -262,7 +256,7 @@ void addmmprof(aint *mmprofile_i,int *nodej_seqIDs_p,int nn, int curnodeid)
   }
 }
 
-void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, CbinMMtree **curMMtree, int alphabetSize)
+void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, CbinMMtree **curMMtree, int alphabetSize, const KernelContext *ctx)
 {
   
   // note: similar to DFST, we should first check if mismatch not allowed, don't iterate over mismatch places and go directly to match
@@ -278,7 +272,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
     if (nodei_n==1)
     {
       int curnodeid = nodei->seqIDs.i;
-      aint **mmprofile=gMMProfile[curnodeid];
+      aint **mmprofile=ctx->mmProfile[curnodeid];
       
       for(int i=0;i<listlen;i++)
       {
@@ -375,7 +369,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                 for(int k=0;k<nodei_n;k++)
                 {
                   int curnodeid = nodei->seqIDs.p[k];
-                  aint **mmprofile=gMMProfile[curnodeid];
+                  aint **mmprofile=ctx->mmProfile[curnodeid];
                   
                   //int *mmprofile_curMismatchCntP1_i=mmprofile[1+curMismatchCnt[i]];
                   aint *mmprofile_curMismatchCnt_i=mmprofile[curMismatchCnt[i]];
@@ -399,7 +393,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                 for(int k=0;k<nodei_n;k++)
                 {
                   int curnodeid = nodei->seqIDs.p[k];
-                  aint **mmprofile=gMMProfile[curnodeid];
+                  aint **mmprofile=ctx->mmProfile[curnodeid];
                   
                   //int *mmprofile_curMismatchCntP1_i=mmprofile[1+curMismatchCnt[i]];
                   aint *mmprofile_curMismatchCnt_i=mmprofile[curMismatchCnt[i]];
@@ -422,7 +416,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                 for(int k=0;k<nodei->n;k++)
                 {
                   int curnodeid = nodei->seqIDs.p[k];
-                  aint **mmprofile=gMMProfile[curnodeid];
+                  aint **mmprofile=ctx->mmProfile[curnodeid];
                   
                   aint *mmprofile_curMismatchCntP1_i=mmprofile[1+curMismatchCnt[i]];
                   
@@ -435,11 +429,11 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                 for(int k=0;k<nodei->n;k++)
                 {
                   int curnodeid = nodei->seqIDs.p[k];
-                  //int **mmprofile=gMMProfile[curnodeid];
+                  //int **mmprofile=ctx->mmProfile[curnodeid];
                   
                   //int *mmprofile_curMismatchCntP1_i=mmprofile[1+curMismatchCnt[i]];
                   //int *mmprofile_curMismatchCnt_i=mmprofile[curMismatchCnt[i]];
-                  addmmprof(gMMProfile[curnodeid][1+curMismatchCnt[i]],nodej->seqIDs.p,nodej_n, curnodeid);
+                  addmmprof(ctx->mmProfile[curnodeid][1+curMismatchCnt[i]],nodej->seqIDs.p,nodej_n, curnodeid);
                 }
               }
               
@@ -476,11 +470,11 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
 }
   }
 
-void CLTreeS::DFSTiDL( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt,CbinMMtree **curMMtree, int pos, int alphabetSize)
+void CLTreeS::DFSTiDL( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt,CbinMMtree **curMMtree, int pos, int alphabetSize, const KernelContext *ctx)
 {
-  if(pos==gLM1) //LM1 is L-1
+  if(pos==ctx->LM1) //LM1 is L-1
   {
-    DFSTnIDL(matchingLmers, listlen, curMismatchCnt, curMMtree, alphabetSize); // process the node.
+    DFSTnIDL(matchingLmers, listlen, curMismatchCnt, curMMtree, alphabetSize, ctx); // process the node.
   }
   else
   {
@@ -583,7 +577,7 @@ void CLTreeS::DFSTiDL( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
       
       if (newlistlen!=0)
       {
-        daughter[bid].t->DFSTiDL(newlist,newlistlen,newMismatchCnt,newMMtree, pos+1,alphabetSize);
+        daughter[bid].t->DFSTiDL(newlist,newlistlen,newMismatchCnt,newMMtree, pos+1,alphabetSize, ctx);
       }
     }
     //delete []newlist;

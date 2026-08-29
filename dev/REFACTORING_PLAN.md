@@ -719,3 +719,16 @@ and text-vs-binary kernel size and R load time.
   `normalizePath`, duplicate-ID handling. `Version: 0.90.0`. CI gains a real `R CMD check --as-cran`
   job (`_R_CHECK_FORCE_SUGGESTS_=false`). Maintainer left as in this repository (Mahmoud); who
   publishes the next CRAN release is a question for Mike Beer (plan §3, Phase 0b).
+* **Phase 2b — done (PR: `phase2b/kernel-context`, stacked on Phase 0b).** `src/KernelContext.h`:
+  `KernelContext {mmProfile, maxmm, LM1}` threaded through `task1` → `DFSTiDL` → `DFSTnIDL` and
+  `calcinnerprod`; `ScoreContext {mmProfile0, maxmm, LM1}` + `ScoreScratch {listT, mmlist}` (per
+  batch, per level; in the namespace because they hold `CLTreeS` pointers) through `CLTreef::DFST` →
+  `DFSTn` and `svmScoreunorm`. The definitions of `gMMProfile`, `gMMProfile0`, `gMAXMM`, `gLM1`,
+  `gDFSlist`, `gDFSlistT`, `gDFSMMlist`, `gDFSMMtree` are deleted. Before that, every dead `CLTreeS`
+  DFS variant, the dead `CLTreeSptr` versions of `CLTreef::DFST/DFSTn` and the commented-out history
+  were removed (`LTreeS_impl.h` 2 368 → 679 lines, all live code). Golden 140/140, ASAN clean.
+  **Still global** (recorded, not done): `globalConverter` (the alphabet; reset at the start of every
+  call since Phase 1, read by `CSequence`, `CLList` and the drivers — making it per-call means giving
+  `CSequence` a converter parameter) and `globtmpstr` (the message buffer; a `Reporter` with its own
+  buffer per call would replace it). Both are safe for sequential calls; neither is touched by worker
+  threads except `globtmpstr` in the (now removed) per-pass print.

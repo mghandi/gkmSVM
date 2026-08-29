@@ -21,10 +21,7 @@
 #include "LList.h"
 #include "CbinMMtree.h"
 
-extern	int gLM1; //L-1
-extern	int gMAXMM; //MaxMismatch
-extern	aint ***gMMProfile; //mismatchprofile[seqidi][mm][seqidj]
-extern	myFlt **gMMProfile0; //mismatchprofile[seqidi][mm][seqidj]
+#include "KernelContext.h"
 
 namespace GKM_NS {
 union CLTreeSptr {
@@ -32,11 +29,6 @@ union CLTreeSptr {
   LTreeSnodeData *node;
 };
 
-extern	LTreeSnodeData ** gDFSlist[1000]; 
-//extern CLTreeSptr **gDFSlistT[1000]; // without nonEmptyDaughterCnt
-extern CLTreeS **gDFSlistT[1000]; // with nonEmptyDaughterCnt
-extern	int *gDFSMMlist[1000]; 
-extern CbinMMtree **gDFSMMtree[1000]; // for the iDL bound
 
 
 
@@ -74,11 +66,11 @@ public:
   //	void DFST( CLTreeSptr **matchingLmers, int listlen, int *curMismatchCnt, int pos, int alphabetSize);// without nonEmptyDaughterCnt
   //	void DFSTn(CLTreeSptr **matchingLmers, int listlen, int *curMismatchCnt, int alphabetSize);// without nonEmptyDaughterCnt
   
-  void DFSTiDL( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt,CbinMMtree **curMMtree, int pos, int alphabetSize); // this version has iDL (or more generally MMtree bound)
+  void DFSTiDL( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt,CbinMMtree **curMMtree, int pos, int alphabetSize, const KernelContext *ctx); // this version has iDL (or more generally MMtree bound)
   
   
   
-  void DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, CbinMMtree **curMMtree, int alphabetSize); // this version has iDL (or more generally MMtree bound)
+  void DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, CbinMMtree **curMMtree, int alphabetSize, const KernelContext *ctx); // this version has iDL (or more generally MMtree bound)
   
   //void DFSTf( CLTreeSptr **matchingLmers, int listlen, int *curMismatchCnt, int pos);  // this is for fast version -- yet to be implemented
   //void DFSTnf(CLTreeSptr **matchingLmers, int listlen, int *curMismatchCnt);
