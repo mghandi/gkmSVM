@@ -785,3 +785,9 @@ and text-vs-binary kernel size and R load time.
   builds are 6.34 s vs 6.31 s. Shared runners cannot resolve 2 %; the job now prints its numbers with
   `continue-on-error`, and the 2 % gate is applied to `dev/bench.sh` best-of-5 on this machine,
   quoted in each PR.
+* **#8 made green on Linux (at the user's request).** Cherry-picked into `phase1/latent-bug-fixes`
+  and forward-merged: the b=2 NaN weights fix (re-frozen two cases, identical to the tip's), the
+  `getReverseComplement` name self-copy (the `sprintf` form), and a new finding — `optind = 1` does
+  not re-initialise glibc's `getopt`, so a later in-process R call could misparse `-R` and return
+  without output (`k_small_noRC_a2` in the R job); glibc needs `optind = 0`, BSD/macOS `optreset = 1`.
+  Moot from Phase 2a on (no argv round-trip) but a real Phase 1 defect. Only #7 remains red on Linux.
