@@ -1,0 +1,399 @@
+# gkmSVM refactoring plan
+
+**Status: proposal for discussion. No functional code is changed by this PR.**
+Author: drafted 2026-08-29 against `master` @ `222cc50` (package version 0.80).
+Everything marked *(measured)* was produced by `dev/baseline.sh` on this machine
+(Apple M3 Ultra, clang 17, R 4.5.3); the script is included so the numbers can be re-checked.
+
+---
+
+## 0. Summary
+
+The goal is a cleaner, faster, more readable gkmSVM that keeps **bit-identical DNA results and
+the published user-facing contract**, and that opens the door to per-position alphabets
+(two-block, then general **B**).
+
+Three issues were raised, and the review confirms all three plus a set of latent memory bugs that
+should be fixed on the way:
+
+| # | Issue | Status found in the code |
+|---|---|---|
+| 1 | Reliance on unique sequence names | Worse than "an error message": duplicate names inside one file **silently merge two sequences into one kernel row** *(measured: a 60-record positive file with one repeated name produces `npos 59`)*. Names are truncated to 100 characters for matching, and names ≥100 chars **overflow a `new char[100]` buffer**. The kernel matrix itself carries **no identifiers at all** — row order is the only link to the sequences. |
+| 2 | Text data files | The kernel matrix is `%e`-formatted text. *(measured, n=5000: 155 MB text vs 47.7 MB binary float32; R load 16.5 s via `read.table` vs 0.25 s via `readBin` — **3.2× smaller, 65× faster**.)* A `-b`/`OutputBinary` flag is already parsed but does nothing. |
+| 3 | DNA-only optimisation | Not merely "optimised for b=4": with the shipped `MAX_ALPHABET_SIZE 4`, any alphabet larger than 4 **segfaults** *(measured: `-A` with a 5-letter and a 20-letter alphabet both exit 139)*. `readAlphabetFile` prints an error and `return`s **without aborting**, so execution continues writing past the end of every trie node. From R this kills the whole session. |
+
+Two further findings shape the plan:
+
+* **The GitHub tree and CRAN have diverged.** CRAN ships **0.83.0 (2023-08-20, maintainer Mike Beer)**;
+  this repo is **0.80 (2018)**. CRAN has the packaging/`snprintf` hardening, `useDynLib(..., .registration=TRUE)`
+  and Bioconductor deps demoted to `Suggests`; **it does not have** this repo's multithreading
+  (`std::thread`, `std::atomic`, `-T`), the duplicate-ID checks, or `normalizePath`. Refactoring
+  either tree in isolation would strand the other. **Reconciling them is step one.**
+* **`CCalcWmML::calcKernel` reads out of bounds on every single run.** `wm` is `new double[K+1]`
+  but the loop indexes `wm[i]` for `i ≤ m ≤ L` (`src/CalcWmML.cpp:30` vs `:145-150`). With the
+  defaults L=10, K=6 that is a 4-double overread, ASAN-confirmed on a plain DNA run. It is normally
+  masked because `dCombinations(L-m, K-i)` returns 0 for `i>K` — but `0 × NaN = NaN`, so it is a
+  latent silent-corruption bug, not only a formality. *(measured: bounding the loop with
+  `i<=m && i<=K` makes the DNA output **byte-identical** and the plain DNA run **ASAN-clean** — so it
+  is a zero-risk one-line fix. With it applied, the next finding to surface is the 100-character name
+  overflow at `mainGkmKernel.cpp:696`, which ASAN otherwise never reaches.)*
+
+The plan is **eight phases**, ordered so that every phase is independently reviewable, keeps the
+test suite green, and can be released on its own. Phases 0–2 change no behaviour.
+
+---
+
+## 1. What must not break (the compatibility contract)
+
+Anything in this list is covered by a golden test in Phase 0 and may only change with an explicit
+version bump and a documented migration.
+
+**R API** — `gkmsvm_kernel`, `gkmsvm_train`, `gkmsvm_trainCV`, `gkmsvm_classify`, `gkmsvm_delta`,
+`genNullSeqs`: names, argument order, defaults, and the positional call forms used in the tutorial
+(`gkmsvm_kernel(posfn, negfn, kernelfn)` etc.).
+
+**File formats**
+* Kernel matrix: tab-separated **lower triangle including the diagonal**, `%e` off-diagonal, the
+  literal string `1.0` on the diagonal, one row per sequence, rows = positives in file order then
+  negatives in file order, no header, no names. Read back by
+  `read.table(fill=TRUE, col.names=paste("V",1:nseq))`.
+* `{prefix}_svalpha.out`: `name<TAB>%11.6e alpha`, negative-class alphas negated.
+* `{prefix}_svseq.fa`: SV sequences in kernel-row order, named by their FASTA names.
+* classify output: `name<TAB>%f score`, one line per test sequence, test-file order.
+* `gkmsvm_delta` output: space-separated `name score`, subtraction **by row position**.
+* `genNullSeqs` bed/fasta outputs and their `chr_start_end_{pos,neg}_i` naming.
+
+**CLI** — the standalone `gkmsvm_kernel` / `gkmsvm_classify` flag set
+(`-l -k -d -m -n -t -a -b -M -L -A -T -R -p` + positional files), which mirrors the published
+gkmsvm-2.0 binaries.
+
+**Numerics** — for DNA, every kernel value must match the current output to the last printed digit.
+
+---
+
+## 2. Target architecture
+
+Today `src/` is 63 files / ~13 k lines in one flat directory, of which a large majority is
+unreachable from the two R entry points. The proposed layout:
+
+```
+src/
+  core/                 # pure computation: no file I/O, no globals, no R headers
+    alphabet.{h,cpp}          Alphabet: symbols, b, code table, optional complement
+    weights.{h,cpp}           GkmWeights (was CCalcWmML): wm, kernel, cTr, h, c, wildcard, mismatch
+    lmer_trie.h               template<int B> LmerTrie  +  LmerTrieDyn
+    passes.{h,cpp}            iDL pass construction (was CiDLPasses + CbinMMtree/CbinMMtable)
+    profile.{h,cpp}           mismatch-profile / kernel accumulation, thread pool
+    kernel_matrix.{h,cpp}     the gkmsvm_kernel computation
+    scorer.{h,cpp}            the gkmsvm_classify computation
+  io/
+    fasta.{h,cpp}             streaming reader, no statics, bounded, std::string names
+    sequence_set.{h,cpp}      SeqRecord/SequenceSet: ids, names, labels (see §4)
+    kernel_file.{h,cpp}       text + binary v1, auto-detecting reader
+    model_file.{h,cpp}        SV model: legacy pair + new single-file format
+  cli/
+    main_kernel.cpp           getopt front-end, byte-compatible with today
+    main_classify.cpp
+  r/
+    RcppExports.cpp
+    api.cpp                   R -> core via a params struct (no argv round-trip)
+  legacy/                     quarantined, compiled only with -DGKM_LEGACY (see §3.2)
+```
+
+Three cross-cutting rules for the new code:
+
+1. **No mutable globals.** `gMMProfile`, `gMAXMM`, `gLM1`, `gDFSlistT[1000]`, `gDFSMMlist[1000]`,
+   `gDFSMMtree[1000]`, `gGTreeLeaves*`, `globalConverter`, `globtmpstr` all become members of a
+   `KernelContext` / `ScoreContext` passed down the recursion. This is what makes the code
+   re-entrant, thread-safe, and safe to call repeatedly from one R session. (Today the alphabet
+   loaded by `-A` *persists into the next call* in the same R session — a real bug.)
+2. **RAII everywhere.** `std::vector` / `std::unique_ptr` / a bump allocator for trie nodes;
+   no raw `new`/`delete`, no fixed-size arrays sized by `#define`.
+3. **One output sink.** A `Reporter` interface with an `Rprintf` implementation for the package and
+   a `printf` implementation for the CLI. Today `RPACKAGE` is commented out
+   (`src/gkmCommonLib.cpp:208`), so the *package* writes to stdout with `printf` and calls `rand()` —
+   both are R CMD check violations.
+
+---
+
+## 3. Phase plan
+
+Each phase = one PR. "Gate" = what must hold before merging.
+
+### Phase 0 — Baseline, safety net, decisions (no code changes)
+
+1. **Reconcile CRAN 0.83.0 with `master`.** Import the CRAN 0.83.0 tree as a branch, diff, and
+   produce a single reconciled `master` that has *both* lineages' improvements: CRAN's `snprintf`
+   hardening / native-routine registration / `Suggests` demotion **and** this repo's threading,
+   duplicate-ID handling and `normalizePath`. Decide with Mike Beer who releases to CRAN afterwards.
+2. **Golden-test corpus.** Fixture FASTAs (DNA small/medium, duplicate names, names >100 chars,
+   empty records, lowercase, `N`s, CRLF, b=2 alphabet) × a parameter grid
+   (L ∈ {6,8,10,12}, K ∈ {4,6,8}, d ∈ {-1,2,3,4}, t ∈ {0,1,2,3,4}, alg ∈ {1,2}, ±RC, ±pseudocount).
+   Freeze the current outputs as reference; compare exactly for text and to 1e-12 for values.
+   `testthat` for the R layer, a small C++ harness for the core.
+3. **Independent numerical oracle.** Cross-check `c[m]`, `h[m]`, `kernel[m]`, `kernelTruncated[m]`
+   and whole small kernels against the exact-arithmetic pure-Python implementation in
+   `gkmsvm3/generalb/generalb_gkm.py` (uses `fractions.Fraction`, already unit-tested). This is a
+   genuinely independent oracle, and it is also the bridge to Phase 7.
+4. **CI**: GitHub Actions matrix (macOS/Linux, gcc/clang, R release/devel) running R CMD check,
+   the golden tests, an **ASAN+UBSAN** job, and a **benchmark gate** (DNA kernel wall-clock, fail on
+   >2 % regression).
+5. **Baseline measurements** committed (`dev/baseline.sh`, this document's *(measured)* numbers).
+
+*Gate:* golden tests reproduce today's output byte-for-byte on both lineages.
+
+### Phase 1 — Build hygiene and latent-bug fixes (behaviour-preserving)
+
+Confirmed defects to fix, each with a regression test. None of these change correct-input results
+(except where noted), so they can land before any restructuring:
+
+| Bug | Location | Fix |
+|---|---|---|
+| `wm[i]` read past end for `i>K` (ASAN-confirmed, **every run**) | `CalcWmML.cpp:145-150` vs `:30` | bound the inner loop by `min(m,K)` — *verified byte-identical output* |
+| `h[L-K+1 .. L]` never initialised, read on all `useTgkm==2` paths | `CalcWmML.cpp:97-104`, `LList.cpp:503,575` | zero-fill `h` |
+| `seqBaseId[-1]` written on every zero-length read (i.e. at every EOF) | `Sequence.cpp:248` | early-return on `length==0` (as `readBasic`/`readString` already do) |
+| Sequence longer than `maxseqlen` overflows 4 heap buffers | `Sequence.cpp:222-227` | bounds check + clear error |
+| Names ≥100 chars overflow `new char[100]` (ASAN-confirmed once the row above is fixed) | `mainGkmKernel.cpp:695,747`; `SequenceNames.cpp:109` | `std::string` (removed entirely in Phase 3) |
+| More sequences than `-n maxnumseq` overruns `seqsB/seqname/norm/...` | all four read loops | bounds check + error (removed in Phase 2 by using `std::vector`) |
+| `b > MAX_ALPHABET_SIZE` prints an error then **continues** → segfault | `Converter.cpp:160-163` | return a status; abort the call with an R-level error |
+| classify passes literal `4` instead of `b` to wildcard/mismatch weights | `mainSVMclassify.cpp:503,509` | pass `b` (**changes results** for `-t 4` with b≠4 — currently wrong) |
+| `b==4` `calcnorm` sums all `m` while the score truncates at `maxnmm` | `mainSVMclassify.cpp:744` vs `:723-726` | truncate both consistently (**changes results** when `-d` is small; the b≠4 path is already consistent) |
+| Out-of-bounds write when a classify batch has zero unique L-mers | `mainSVMclassify.cpp:663,670` | skip empty batches |
+| `svmClassifySimple` never `fclose`s its output (data can be lost in a long-lived R session) | `mainSVMclassify.cpp:409` | RAII file handle |
+| Leaks: SV names per batch, `CiDLPasses::passTrees`, `seqsTS` root, `sgi`, whole `svmClassifySimple` | several | RAII |
+| `delete` vs `delete[]` mismatch | `LTreeS.cpp:2136`, `SequenceNames.cpp:41` | `delete[]` / containers |
+| `RPACKAGE` commented out → package `printf`s to stdout and calls `rand()` | `gkmCommonLib.cpp:208` | the `Reporter` sink + `R_unif_index` |
+| Signed-`char` indexing of 256-entry tables | `Sequence.cpp:222,245` | `unsigned char` |
+| Alphabet from `-A` persists into the next call in the same R session | `global.cpp:21` | context object (Phase 2); interim: reset per call |
+
+*Gate:* golden tests unchanged except the two rows marked **changes results**, which get their own
+before/after documentation.
+
+### Phase 2 — Core extraction: kill the globals, one path per job
+
+* Introduce `KernelContext`/`ScoreContext`; delete the `g*` globals and the `[1000]` scratch arrays.
+* Replace the **argv round-trip** (`R list → sprintf into 50×5000-char buffers → getopt`) with a
+  direct `struct Options` call. The CLI keeps `getopt` and fills the same struct. This removes the
+  silent path-length overflow at 5000 chars and makes parameter validation reportable to R
+  (today an invalid `K>L` just prints usage to stdout and returns 0 — R sees success).
+* Replace `CSequenceNames`' `MAXNSeqs=1000000` fixed arrays (**~16 MB per object**) with vectors.
+* Rewrite the FASTA reader without `static` look-ahead state (`Sequence.cpp:183-186`), so two files
+  can be read concurrently and the reader is thread-safe.
+* **Quarantine dead code.** Unreachable from both R entry points, with evidence:
+  `mainSVMtrain.cpp` + `SVMtrain`, `CountKLmers`, `CountKLmersGeneral`, `CountKLmersH`,
+  `MLEstimKLmers`, `MLEstimKLmersLog`, `KLmer`, `EstimLogRatio`, `SequenceData` (empty stubs),
+  `LKTree`, `CLTreeMemorize`, `GTree`/`GTreeLeafData` (never constructed), `GTree2`/`GTreeLeafData2`
+  (guarded by the literal `int UseGTree = 0;`), `CLTreeS::DFST/DFSTn` (dead **and** containing an
+  abandoned depth heuristic at `LTreeS.cpp:1580-1587` that would give wrong profiles), plus ~70 % of
+  `LTreeS.cpp` that is commented-out history. Move to `legacy/` in this phase (git keeps the history),
+  delete in Phase 6. Expected: **~13 k → ~5 k lines**.
+* Fold `FAST_TRACK` / `USE_GLOBAL` (never defined) and the `-b` no-op flag out of the live path.
+
+*Gate:* golden tests bit-identical; benchmark within 2 %; ASAN/UBSAN clean.
+
+### Phase 3 — Sequence identity (**issue 1**)
+
+**Design.** Identity becomes explicit and positional; names become metadata.
+
+```cpp
+struct SeqRecord {
+    int         index;   // 0..n-1  == kernel row
+    std::string id;      // assigned at read time: "pos1".."posN", "neg1".."negM", "seq1".. for test
+    std::string name;    // original FASTA name, may repeat, may be empty, any length
+    int8_t      label;   // +1 positive, -1 negative, 0 test
+    int64_t     nlmers;
+};
+class SequenceSet { std::vector<SeqRecord> records; ... };
+```
+
+* Ids are generated on read (`pos1…`, `neg1…`) and are unique **by construction**. Nothing downstream
+  ever compares FASTA names to establish identity.
+* **`mergeByName` becomes an explicit option, default OFF.** Today duplicate names inside one file
+  silently merge sequences (`find_str`, `mainGkmKernel.cpp:683-692,735-745`). That is a legitimate
+  feature (multi-exon regions) but a dangerous default. Default OFF = "one FASTA record = one kernel
+  row"; `mergeByName=TRUE` restores today's behaviour. *This is the one intentional behaviour change
+  in the plan and needs a NEWS entry.* (Users reaching gkmSVM through R cannot be relying on it
+  today: the R wrapper `stop()`s on duplicates before ever calling C++.)
+* **Row identity is written out.** Binary kernels embed the id/name/label table (§4). For text
+  kernels — whose format must not change — a sidecar `<outfile>.index` is written:
+  `row<TAB>id<TAB>name<TAB>label<TAB>length<TAB>nlmers`. `gkmsvm_train`/`trainCV` prefer it and fall
+  back to today's `read.fasta`-based counting when it is absent.
+* **Classify stops matching by name.** The new model file (§4) stores SVs by id/index, so lookup is
+  O(1) instead of the current O(records × Nseqs) linear scan with 100-char truncated comparisons.
+  For legacy `svalpha.out`/`svseq.fa` pairs the reader keeps name matching but uses a hash map and
+  **fails loudly** on a duplicate or missing name instead of silently dropping SVs (today: "the
+  sequences for only %d out of %d ... were found", then it scores with a partial model).
+* **R side:** remove the three `stop("Error: duplicated sequence ID")` blocks
+  (`gkmsvm_kernel.R:40-64`, `gkmsvm_train.R:25-39`, `gkmsvm_trainCV.R:118-132`) — they are no longer
+  needed and they cost a full `seqinr::read.fasta` of both files on every call. Emit an informational
+  message instead when duplicates are seen.
+
+*Gate:* new tests — duplicate names across pos/neg, duplicate names within a file (both
+`mergeByName` settings), 200-character names, empty names, non-ASCII names, names with tabs.
+Golden DNA results unchanged for unique-name inputs.
+
+### Phase 4 — Binary formats (**issue 2**)
+
+**`.gkmk` v1 kernel file**
+
+```
+offset  field
+0       magic       "GKMK" + uint8 version(=1)
+5       uint8  dtype        0=float32, 1=float64
+6       uint8  layout       0=lower triangle incl. diagonal, 1=full, 2=lower excl. diagonal
+7       uint8  flags        bit0 = names table present
+8       int32  n, npos
+16      int32  L, K, maxnmm, useTgkm, b, addRC, usePseudocnt      (provenance)
+        char[] alphabet (length-prefixed)
+        names table: n × (id, name, label, nlmers)  (length-prefixed UTF-8)
+        payload: n(n+1)/2 values, row-major lower triangle
+        uint32 crc32 of the payload
+```
+
+* **float32 by default** — the current text format prints `%e`, i.e. ~7 significant digits, so
+  float32 (24-bit mantissa, ~7.2 digits) *loses nothing relative to today's file*; float64 available
+  via `dtype`. *(measured, n=5000: 155 MB → 47.7 MB, and R load 16.5 s → 0.25 s.)*
+* Reader auto-detects text vs binary by magic, so `gkmsvm_train(kernelfn, ...)` works unchanged with
+  either.
+* New R helpers `read_gkm_kernel(file)` / `write_gkm_kernel(x, file)`.
+* `gkmsvm_kernel(..., format = c("text","binary"))`. **Default stays `"text"`** for this release
+  (implementing the long-dead `-b` flag along the way); the default flips to `"binary"` in the
+  release that bumps the minor version, with `format="text"` kept forever.
+* The same treatment for the SV model: a single `.gkmmodel` file (header + ids + alphas + sequences)
+  replacing the `{prefix}_svalpha.out` + `{prefix}_svseq.fa` pair, with the legacy pair still written
+  and still readable.
+* Optional gzip (zlib is already available to R packages) for the text path.
+
+*Gate:* round-trip tests (text→binary→text is identity to `%e` precision); a golden binary file
+committed as a fixture so future format changes are caught; cross-endian read test.
+
+### Phase 5 — Alphabet generalisation, single B (**issue 3, part 1**)
+
+The constraint is explicit: **DNA performance must not regress**. The design achieves that by making
+the alphabet size a *compile-time constant on the fast path* and a runtime value only on the slow path.
+
+```cpp
+template<int B> class LmerTrie { std::array<Child, B> child; ... };   // B=2,4 instantiated
+class LmerTrieDyn { std::vector<Child> child; ... };                  // any b
+
+// single runtime dispatch at the top of the computation:
+switch (alphabet.size()) {
+  case 2:  return runKernel<LmerTrie<2>>(ctx);
+  case 4:  return runKernel<LmerTrie<4>>(ctx);   // <- today's code, same constants, same codegen
+  default: return runKernel<LmerTrieDyn>(ctx);
+}
+```
+
+* DNA takes the `B=4` instantiation: identical loop bounds and identical node layout to today, so the
+  benchmark gate (≤2 %) is expected to pass trivially. Today's `MAX_ALPHABET_SIZE=24` workaround for
+  protein is exactly what this replaces — it would make **every** node carry 24 pointers even for DNA.
+* `Alphabet` validates at runtime and returns an error instead of crashing: the current
+  `readAlphabetFile` behaviour (print, `return`, continue, segfault) is the direct cause of the
+  measured `b=5`/`b=20` crashes.
+* Reverse complement becomes a property of the alphabet, not the assumption `complement(i)=b-1-i`
+  (`Converter.cpp:65`). DNA/RNA get built-in maps; an alphabet file may declare pairs; alphabets
+  without a complement reject `addRC=TRUE` with a clear message rather than silently disabling it.
+* The XOR/`CLList` algorithm (`alg=1`) stays **b=4 only** and is documented as such — it already is,
+  via the forced `alg=2` for b≠4, and its 2-bit packing (`<<2`, `&3`, `HamDist` tables) is not worth
+  generalising.
+* `gkmsvm_kernel(alphabetFN=)` gains a first-class R interface: `alphabet="dna"|"rna"|"protein"|<file>`.
+
+*Gate:* protein (b=20) and b=5 runs **complete and are numerically verified against
+`generalb_gkm.py`**; DNA benchmark within 2 %; DNA golden tests bit-identical.
+
+### Phase 6 — Performance
+
+Measured starting point *(n=500 sequences × 500 bp, L=10 K=6 d=3)*:
+
+| threads | wall | CPU | efficiency |
+|---|---|---|---|
+| 1 | 6.55 s | 6.53 s | — |
+| 4 | 2.04 s | 7.62 s | 80 % |
+| 20 | 0.97 s | 16.62 s | **34 %** |
+
+* **Atomics are not the bottleneck.** The comment at `global.h:25` claims removing `MULTI_THREAD_SAFE`
+  is ~2× faster; *measured*, single-threaded with and without atomics: 6.54 s vs 6.75 s — no
+  difference. The scaling loss comes from (a) the per-pass tree clone, (b) three heap allocations per
+  internal node visit in `DFSTiDL` (`LTreeS.cpp:1662-1666`), and (c) static `j % nThreads` pass
+  assignment with unequal pass costs. Fix with an arena allocator for DFS lists and a work-stealing
+  queue over passes. Then re-evaluate whether atomics can be dropped in favour of per-thread tiles.
+* **Drop the mismatch profile from the hot path.** `gMMProfile[n][d+1][n]` is the memory wall:
+  *(computed)* 0.47 GB at n=5000 and **7.45 GB at n=20 000**. At a leaf the mismatch count `m` is
+  known, so `K[i][j] += c[m]` can be accumulated directly, removing the `(d+1)` factor and the
+  second pass entirely; keep the full profile only when `usePseudocnt` or when a caller asks for it.
+  With lower-triangle-only storage: 7.45 GB → **0.8 GB** at n=20 000.
+* **Tile the computation** so peak memory is bounded independently of n (the classify path already
+  batches; the kernel path does not).
+* Only then consider micro-optimisation (SoA node layout, prefetch, `__builtin_popcount`).
+
+*Gate:* golden tests bit-identical (the accumulation reorder must be validated for
+floating-point associativity — use a fixed summation order); benchmark improves; memory ceiling
+documented.
+
+### Phase 7 — Two-block, then general B (**issue 3, part 2**)
+
+Only after Phases 3–6 are released and stable.
+
+* Generalise the coefficient tables from a single alphabet size to a vector
+  **B = (b₁,…,b_ℓ)**, reusing the theory and the *already-tested* exact implementations in the
+  `gkmsvm3` repo (`generalb/generalb_gkm.py`, `twoblock/`): `H(u,w) = (1/Πbᵢ) Σ_j e_j(w)` computed in
+  O(ℓk) per pair, block-wise mismatch classes, the truncated filter as a Kronecker contraction.
+  Note that today's `CCalcWmML::calcc` is precisely the single-block specialisation of the six-fold
+  sum in `twoblock/README`, and `dCombinations` already implements the generalised-binomial
+  convention that the general case needs — so the two code bases meet cleanly.
+* The trie generalises to a **per-position** alphabet size: `child` count depends on depth. Two-block
+  first (`B = (b₁,)·L₁ + (b₂,)·L₂`), which covers DNA+methylation and RNA+structure, then general B.
+* Validation: every new coefficient table is checked against `generalb_gkm.py` at exact
+  (`Fraction`) precision, and end-to-end kernels are checked against the pure-Python
+  `kernel_matrix()` on small inputs. The `gkmsvm3/experiments/` harness then provides real-data
+  regression tests.
+
+*Gate:* general-B kernels match the exact Python implementation; DNA path untouched and still
+bit-identical.
+
+---
+
+## 4. Effort and sequencing
+
+| Phase | Content | Rough size | Risk | Depends on |
+|---|---|---|---|---|
+| 0 | Reconcile CRAN/GitHub, golden tests, CI, ASAN | ~1 week | low | — |
+| 1 | Latent-bug fixes | ~3 days | low | 0 |
+| 2 | De-globalise, RAII, quarantine dead code | ~1–2 weeks | medium (large diff, zero behaviour change) | 0,1 |
+| 3 | Sequence identity | ~1 week | medium (one deliberate default change) | 2 |
+| 4 | Binary formats | ~1 week | low (additive) | 3 |
+| 5 | Runtime alphabet, templated trie | ~1–2 weeks | medium | 2 |
+| 6 | Performance | ~1–2 weeks | medium (numerics must be pinned) | 2,5 |
+| 7 | Two-block → general B | project-sized | high | 5,6 |
+
+Phases 3, 4 and 5 are independent of each other once 2 has landed and can be done in parallel or
+reordered by priority.
+
+---
+
+## 5. Decisions needed before starting
+
+1. **CRAN reconciliation** — do we merge the CRAN 0.83.0 changes into this repo and take the
+   maintainership question to Mike Beer first? Everything else builds on the answer.
+2. **`mergeByName` default** — confirm that "one FASTA record = one kernel row" is the right new
+   default (with the old behaviour opt-in). This is the only intentional result change in Phases 0–5.
+3. **Binary by default, and when** — keep `format="text"` until a minor bump, or flip immediately
+   with a compatibility reader?
+4. **Two fixes change results** (classify wildcard/mismatch weights with b≠4; `b==4` norm
+   truncation). Both are current bugs; confirm we fix rather than preserve them.
+5. **C++ standard** — moving to C++17 (`std::string_view`, `if constexpr`, structured bindings)
+   makes the templated-trie code substantially cleaner. CRAN accepts C++17 unconditionally now.
+6. **Scope of the standalone CLI** — keep shipping `gkmsvm_kernel`/`gkmsvm_classify` binaries from
+   this repo (they mirror gkmsvm-2.0), or let the R package be the only artefact?
+
+---
+
+## 6. Reproducing the measurements
+
+```bash
+dev/baseline.sh            # builds a standalone driver from src/, runs the measurements above
+```
+
+It builds `src/*.cpp` with a small `main()` shim, then reports: DNA kernel timing vs thread count,
+atomic vs non-atomic, duplicate-name merging, the `b>4` crash, name-length overflow (under ASAN),
+and text-vs-binary kernel size and R load time.
