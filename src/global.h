@@ -70,6 +70,7 @@ typedef int aint;
 int stringcompare(char *s1, char*s2, int maxlength) ; 
 int strlength(char *s);
 #define MYABS(x) (((x)<0)?-(x):x)
+inline double gkmCanon(double v) { return (v == 0.0) ? 0.0 : v; } // canonical +0 for printing (an exact zero can be -0.0 on one compiler and +0.0 on another)
 
 int Combinations(int n, int r);//
 double dCombinations(int n, int r);//

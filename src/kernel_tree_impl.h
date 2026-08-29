@@ -583,7 +583,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
         else v = (norm[i]*norm[j]<1E-50)?0.0:calcinnerprod(i,j,c,kc)/(norm[i]*norm[j]);
         if (v == 0.0) v = 0.0; // canonical +0 (an exact zero can be -0.0 on one compiler and +0.0 on another)
         if (fo) { if (i==j) fprintf(fo, "1.0\t"); else fprintf(fo, "%e\t", v); }
-        else bin.add(v);
+        else bin.add(gkmCanon(v));
       }
       if (fo) fprintf(fo, "\n"); 
     }
