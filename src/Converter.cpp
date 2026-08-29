@@ -19,6 +19,9 @@
 //#include "stdafx.h"
 #include "Converter.h"
 #include "global.h"
+#include <string>
+#include <string.h>
+#include <ctype.h>
 //#include <stdio.h>
 //#include <ctype.h>
 
@@ -30,6 +33,7 @@
 CConverter::CConverter()
 {
   b=4;
+  explicitComplement=0;
   alphabet[0]='A';
   alphabet[1]='C';
   alphabet[2]='G';
@@ -62,13 +66,15 @@ void CConverter::init(){
     icidx[ici]=toupper(alphabet[ici]);
     icidxL[ici]=tolower(alphabet[ici]);
     
-    bidcompl[ici]=b-ici-1; //only good for DNA
-    if (b==16){
-      // special case for dinucleotides
-      bidcompl[ici]= ((3-(ici&3))<<2) + (3-((ici&12)>>2)) ; //only good for DNA
+    if (!explicitComplement) {
+      bidcompl[ici]=b-ici-1; // the built-in rule: DNA/RNA in ACGT/ACGU order; any other 4-letter alphabet pairs 1st<->4th, 2nd<->3rd
+      if (b==16){
+        // special case for dinucleotides
+        bidcompl[ici]= ((3-(ici&3))<<2) + (3-((ici&12)>>2)) ; //only good for DNA
+      }
     }
-    
   }
+  hasComplement = explicitComplement || (b==4) || (b==16);
   
   //	bidcompl[0] = 3;
   //	bidcompl[1] = 2;
@@ -148,6 +154,7 @@ void CConverter::convertBasetoDinucl(char x[], dinuclId y[], int N) // x[0..N], 
 
 void CConverter::resetToDNA(){
   b=4;
+  explicitComplement=0;
   alphabet[0]='A';
   alphabet[1]='C';
   alphabet[2]='G';
@@ -158,32 +165,72 @@ void CConverter::resetToDNA(){
 }
 
 int CConverter::readAlphabetFile(const char *FN, int MAX_ALPHABET_SIZE_copy){
+  int named = setNamedAlphabet(FN);
+  if (named >= 0) { sprintf(globtmpstr,"Alphabet: %s (%d symbols)\n", FN, b);Printf(globtmpstr); return named; }
   FILE *f= fopen(FN,"r");
   if (f==NULL){
     sprintf(globtmpstr,"\n ERROR: cannot open alphabet file %s\n", FN);Printf(globtmpstr);
     return 1;
   }
+  // One symbol per line; an optional second symbol on the line is its complement ("A T"). When
+  // every symbol has a complement, reverse complements can be added (addRC); otherwise addRC is
+  // turned off by the caller. Lines starting with '#' are comments.
   char sline[1000+3];
   int nb=0;
+  char partner[256]; int npairs=0;
   while(fgets(sline, 1000, f)!=NULL){
-    if (sline[0]=='\n' || sline[0]=='\r' || sline[0]==0) continue;
+    if (sline[0]=='\n' || sline[0]=='\r' || sline[0]==0 || sline[0]=='#' || sline[0]==' ' || sline[0]=='\t') continue;
     if (nb>=MAX_ALPHABET_SIZE_copy) { nb++; break; }
-    alphabet[nb++]=sline[0];
+    alphabet[nb]=sline[0];
+    partner[nb]=0;
+    int i=1; while (sline[i]==' '||sline[i]=='\t') i++;
+    if (sline[i]!=0 && sline[i]!='\n' && sline[i]!='\r') { partner[nb]=sline[i]; npairs++; }
+    nb++;
   }
   fclose(f);
   sprintf(globtmpstr,"Alphabet Size = %d\n",nb);Printf(globtmpstr);
   if(nb>MAX_ALPHABET_SIZE_copy){
-    sprintf(globtmpstr,"\n ERROR: alphabet size (>%d) is greater than MAX_ALPHABET_SIZE=%d. Increase MAX_ALPHABET_SIZE in src/global.h and recompile.\n", MAX_ALPHABET_SIZE_copy, MAX_ALPHABET_SIZE_copy);Printf(globtmpstr);
+    sprintf(globtmpstr,"\n ERROR: alphabet size (>%d) is greater than the supported maximum of %d symbols.\n", MAX_ALPHABET_SIZE_copy, MAX_ALPHABET_SIZE_copy);Printf(globtmpstr);
     return 1;
   }
   if(nb<2){
     Printf("\n ERROR: alphabet file must contain at least two symbols, one per line.\n");
     return 1;
   }
+  for (int i=0;i<nb;i++) for (int j=0;j<i;j++) if (toupper(alphabet[i])==toupper(alphabet[j])) {
+    sprintf(globtmpstr,"\n ERROR: symbol '%c' appears twice in the alphabet file.\n", alphabet[i]);Printf(globtmpstr);
+    return 1;
+  }
+  return setAlphabet(alphabet, nb, npairs ? partner : NULL);
+}
+
+int CConverter::setAlphabet(const char *symbols, int nb, const char *partner){
+  if (symbols != alphabet) memcpy(alphabet, symbols, nb);
+  explicitComplement = 0;
+  if (partner != NULL) {
+    // every symbol must have a partner that is itself in the alphabet, and pairing must be symmetric
+    for (int i=0;i<nb;i++) {
+      if (partner[i]==0) { sprintf(globtmpstr,"\n ERROR: symbol '%c' has no complement while others do; declare a complement for every symbol or for none.\n", alphabet[i]);Printf(globtmpstr); return 1; }
+      int j; for (j=0;j<nb;j++) if (toupper(alphabet[j])==toupper(partner[i])) break;
+      if (j==nb) { sprintf(globtmpstr,"\n ERROR: complement '%c' of '%c' is not in the alphabet.\n", partner[i], alphabet[i]);Printf(globtmpstr); return 1; }
+      bidcompl[i]=j;
+    }
+    for (int i=0;i<nb;i++) if (bidcompl[bidcompl[i]]!=i) { sprintf(globtmpstr,"\n ERROR: complement pairs are not symmetric ('%c' -> '%c' -> '%c').\n", alphabet[i], alphabet[bidcompl[i]], alphabet[bidcompl[bidcompl[i]]]);Printf(globtmpstr); return 1; }
+    explicitComplement = 1;
+  }
   b=nb;
   delete []icidx;
   delete []icidxL;
   init();
   return 0;
+}
+
+// Built-in alphabets, selectable by keyword instead of a file: "dna", "rna", "protein".
+int CConverter::setNamedAlphabet(const char *name){
+  std::string n(name); for (size_t i=0;i<n.size();i++) n[i]=tolower(n[i]);
+  if (n=="dna") { resetToDNA(); return 0; }
+  if (n=="rna") { char rna[4]={'A','C','G','U'}; char part[4]={'U','G','C','A'}; return setAlphabet(rna, 4, part); }
+  if (n=="protein") { const char *aa="ACDEFGHIKLMNPQRSTVWY"; return setAlphabet(aa, 20, NULL); }
+  return -1; // not a keyword
 }
 

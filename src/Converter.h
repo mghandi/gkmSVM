@@ -64,8 +64,12 @@ public:
 
 	char alphabet[256];
 	int b; //alphabetSize;
-	int readAlphabetFile(const char *FN, int MAX_ALPHABET_SIZE_copy); // returns 0 on success, 1 on error (alphabet left as DNA)
-	void resetToDNA(); // back to the built-in ACGT alphabet (the object is a global that persists between calls)
+	int hasComplement; // 1 when every symbol has a complement (DNA/RNA built in, or declared in the alphabet file), so reverse complements can be added
+	int readAlphabetFile(const char *FN, int MAX_ALPHABET_SIZE_copy); // returns 0 on success, 1 on error (alphabet left as DNA); FN may also be a keyword: dna, rna, protein
+	int setAlphabet(const char *symbols, int nb, const char *partner); // partner[i] = complement symbol of symbols[i], or NULL
+	int setNamedAlphabet(const char *name);
+	void resetToDNA();
+	int explicitComplement; // complement pairs came from the alphabet file (bidcompl already filled) // back to the built-in ACGT alphabet (the object is a global that persists between calls)
 
 };
 

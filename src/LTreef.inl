@@ -20,6 +20,8 @@
 #include "LTreeS.h"
 #include "Sequence.h"
 
+namespace GKM_NS {
+
 CLTreef::CLTreef(void)
 {
 //	daughter[0].f=daughter[1].f=daughter[2].f=daughter[3].f=0;
@@ -1089,3 +1091,5 @@ void CLTreef::DFST( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, i
 		//delete []newMismatchCnt;
 	}
 }
+
+} // namespace GKM_NS

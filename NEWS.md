@@ -104,5 +104,17 @@ Crashes and memory errors fixed (all reproduced before the fix, all now ASAN/UBS
 * `gkmsvm_train(..., backend = "libsvm")` calls the same code from R; the default `backend =
   "kernlab"` is unchanged for this release.
 
+### Phase 5 — alphabets other than DNA
+
+* Alphabets of **up to 32 symbols** work (protein, DNA+N, …). Previously anything larger than 4
+  symbols crashed with SIGSEGV. DNA keeps a dedicated compiled fast path (identical code and node
+  layout to before), so DNA speed and results are unchanged; larger alphabets use a wider trie.
+* `alphabetFN` accepts the keywords `"dna"`, `"rna"` and `"protein"` in addition to a file name.
+* An alphabet file may declare complements (`A U` on a line); reverse complements are then added
+  for that alphabet. Without declared pairs, `addRC` is turned off for non-4-letter alphabets as
+  before (with a clearer message). Partial or asymmetric pair declarations are errors.
+* Protein and 5-letter kernels are verified against the exact-arithmetic reference
+  (`tests/oracle`), and frozen as golden cases.
+
 Build: C++17 (`SystemRequirements: C++17`, `src/Makevars`). The R package routes all console output
 through `Rprintf` and random numbers through R's RNG (`-DRPACKAGE`); the standalone CLI is unchanged.

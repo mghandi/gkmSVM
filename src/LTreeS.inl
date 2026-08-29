@@ -20,6 +20,14 @@
 #include "Sequence.h"
 #include "globalvar.h"
 
+namespace GKM_NS {
+
+// per-instantiation DFS scratch (were in gkmCommonLib.cpp; their element type depends on the namespace)
+LTreeSnodeData ** gDFSlist[1000];
+CLTreeS **gDFSlistT[1000]; // with nonEmptyDaughterCnt
+int *gDFSMMlist[1000];
+CbinMMtree **gDFSMMtree[1000]; // for the iDL bound 
+
 CLTreeS::CLTreeS(void)
 {
   //daughter[0].t=daughter[1].t=daughter[2].t=daughter[3].t=NULL;
@@ -2346,3 +2354,5 @@ daughter[i]->addToList(list, n+1, Lm1, single, tmpbid);
 }
 }
 */
+
+} // namespace GKM_NS

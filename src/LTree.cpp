@@ -22,7 +22,7 @@
 CLTree::CLTree(void)
 {
 //	daughter[0]=daughter[1]=daughter[2]=daughter[3]=NULL;
-	for(int i=0;i<MAX_ALPHABET_SIZE;i++){
+	for(int i=0;i<LTREE_ALPHABET;i++){
 		daughter[i]=NULL;
 	}
 
@@ -67,7 +67,7 @@ int CLTree::count(int *bid, int n) //returns the number of times the sequence is
 int CLTree::leavesCount(int withMultiplicity, int n)  //returns the number of sequences in the tree.  //call with n=L from outside
 {
 	int nleaves = 0; 
-	for (int i=0;i<MAX_ALPHABET_SIZE;i++)
+	for (int i=0;i<LTREE_ALPHABET;i++)
 	{
 		if (daughter[i]!=NULL)
 		{
@@ -96,7 +96,7 @@ void CLTree::deleteTree(int n)
 {
 	if (n>1)
 	{
-		for (int i=0;i<MAX_ALPHABET_SIZE;i++)
+		for (int i=0;i<LTREE_ALPHABET;i++)
 		{
 			if (daughter[i]!=NULL)
 			{
@@ -300,7 +300,7 @@ double CLTree::calcScore(int *bid,int *bidrc, int L, int slen, double *kernel, i
 
 void CLTree::addToList(class CLList *list, int n, int Lm1, int single, int *tmpbid) // used by LList. adds sequences to lis from tree 
 {
-	for (int i=0;i<MAX_ALPHABET_SIZE;i++)
+	for (int i=0;i<LTREE_ALPHABET;i++)
 	{
 		if (daughter[i]!=NULL)
 		{

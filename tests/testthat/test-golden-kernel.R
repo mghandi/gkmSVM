@@ -61,9 +61,11 @@ test_that("an alphabet file does not leak into the next call", {
   expect_identical(read_bytes(o2), read_bytes(file.path(golden_dir(), "expected", "k_small_t1_a2.out")))
 })
 
-test_that("an alphabet larger than MAX_ALPHABET_SIZE is an R error, not a crash", {
+test_that("an alphabet larger than the supported maximum (32) is an R error, not a crash", {
   skip_if_no_golden()
   fx <- file.path(golden_dir(), "fixtures")
+  big <- tempfile(fileext = ".txt")
+  writeLines(c(LETTERS, letters[1:7]), big)   # 33 symbols
   expect_error(capture.output(gkmsvm_kernel(file.path(fx, "b5_pos.fa"), file.path(fx, "b5_neg.fa"), tempfile(),
-                                            alphabetFN = file.path(fx, "alphabet_b5.txt"))), "gkmsvm_kernel failed")
+                                            alphabetFN = big)), "gkmsvm_kernel failed")
 })

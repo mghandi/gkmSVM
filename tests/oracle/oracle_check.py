@@ -6,10 +6,11 @@ Cross-checks the C++ implementation against dev/oracle/generalb_gkm.py, an exact
 no code with src/. Two levels:
 
   1. coefficient tables  c[m] (t=0, full filter), cTr[m] (t=1, truncated filter), h[m] (t=2, gkm
-     counts) as printed by gkmsvm_kernel, for a grid of (L, K) and alphabet sizes b in {2, 4};
+     counts) as printed by gkmsvm_kernel, for a grid of (L, K) and alphabet sizes b in {2, 4, 5, 20};
   2. whole kernel matrices on the small oracle fixtures (6+6 x 60 bp), with and without reverse
      complement, both algorithms, t in {0, 1, 2}, compared entry by entry to the normalised exact
-     kernel;
+     kernel; the same for b in {2, 5, 20} without reverse complement (Phase 5 gate: b=5 and protein
+     complete and match the exact implementation);
   3. gkmsvm_classify scores for the fixed SV model (sv_svseq.fa / sv_svalpha.out) against the exact
      score  sum_j alpha_j <x_i,x_j>_d / (|x_i|_d |x_j|_d), where <.,.>_d keeps mismatch levels
      m <= d only (the -d option; norm and score truncated alike, Phase 1 decision 4), for d in {3, L}.
@@ -51,9 +52,13 @@ def rel_close(a, b, rtol, atol):
 def check_tables(bindir, tmp, failures):
     n = 0
     grid = [(b, L, K) for b in (4, 2) for (L, K) in ((4, 2), (6, 4), (8, 5), (10, 6), (12, 8), (7, 3))]
+    grid += [(20, L, K) for (L, K) in ((4, 2), (5, 3), (6, 4))] + [(5, L, K) for (L, K) in ((6, 4), (8, 5))]
+    inputs = {4: (FIX + "/oracle_pos.fa", FIX + "/oracle_neg.fa", None),
+              2: (FIX + "/b2_pos.fa", FIX + "/b2_neg.fa", FIX + "/alphabet_b2.txt"),
+              20: (FIX + "/protein_pos.fa", FIX + "/protein_neg.fa", FIX + "/alphabet_protein.txt"),
+              5: (FIX + "/b5_pos.fa", FIX + "/b5_neg.fa", FIX + "/alphabet_b5.txt")}
     for b, L, K in grid:
-        pos, neg, alpha = (FIX + "/oracle_pos.fa", FIX + "/oracle_neg.fa", None) if b == 4 else \
-                          (FIX + "/b2_pos.fa", FIX + "/b2_neg.fa", FIX + "/alphabet_b2.txt")
+        pos, neg, alpha = inputs[b]
         for t, kind in KINDS.items():
             coef, _ = run_kernel(bindir, L, K, t, pos, neg, os.path.join(tmp, "k.txt"), alphabet=alpha)
             table = {m[0]: float(v) for m, v in gb.kernel_coefficients((b,) * L, K, kind).items()}
@@ -94,20 +99,28 @@ def check_kernels(bindir, tmp, failures):
                             v = float(s)
                             if not rel_close(v, exact[i][j], 2e-6, 1e-7):
                                 failures.append(f"kernel L={L} K={K} t={t} rc={rc} alg={alg}: K[{i}][{j}] C++ {v!r} vs exact {exact[i][j]!r}")
-    # two-letter alphabet, tree algorithm only (the XOR algorithm is b=4 only), no reverse complement
-    pos, neg = FIX + "/b2_pos.fa", FIX + "/b2_neg.fa"
-    seqs = gb.read_mfa(pos, ["AB"]) + gb.read_mfa(neg, ["AB"])
-    for L, K in ((6, 4), (8, 5)):
-        for t, kind in KINDS.items():
-            exact = gb.kernel_matrix(seqs, L, K, kind, revcomp=False)
-            out = os.path.join(tmp, "k.txt")
-            run_kernel(bindir, L, K, t, pos, neg, out, rc=False, alg=2, alphabet=FIX + "/alphabet_b2.txt")
-            rows = [ln.split() for ln in open(out).read().splitlines() if ln.strip()]
-            for i, row in enumerate(rows):
-                for j, s in enumerate(row):
-                    n += 1
-                    if not rel_close(float(s), exact[i][j], 2e-6, 1e-7):
-                        failures.append(f"kernel b=2 L={L} K={K} t={t}: K[{i}][{j}] C++ {s} vs exact {exact[i][j]!r}")
+    # non-DNA alphabets, tree algorithm only (the XOR algorithm is b=4 only), no reverse complement:
+    # b=2, b=5 (the plan's "crashes today" case) and protein b=20 (Phase 5 gate)
+    others = [(2, "AB", "b2", "alphabet_b2.txt", ((6, 4), (8, 5))),
+              (5, "ACGTN", "b5", "alphabet_b5.txt", ((6, 4), (8, 5))),
+              (20, "ACDEFGHIKLMNPQRSTVWY", "protein", "alphabet_protein.txt", ((4, 2), (5, 3), (6, 4)))]
+    for b, letters, stem, afile, LKs in others:
+        pos, neg = FIX + f"/{stem}_pos.fa", FIX + f"/{stem}_neg.fa"
+        seqs = gb.read_mfa(pos, [letters]) + gb.read_mfa(neg, [letters])
+        for L, K in LKs:
+            for t, kind in KINDS.items():
+                exact = gb.kernel_matrix(seqs, L, K, kind, revcomp=False)
+                out = os.path.join(tmp, "k.txt")
+                run_kernel(bindir, L, K, t, pos, neg, out, rc=False, alg=2, alphabet=FIX + "/" + afile)
+                rows = [ln.split() for ln in open(out).read().splitlines() if ln.strip()]
+                if len(rows) != len(seqs):
+                    failures.append(f"kernel b={b} L={L} K={K} t={t}: {len(rows)} rows, expected {len(seqs)}")
+                    continue
+                for i, row in enumerate(rows):
+                    for j, s in enumerate(row):
+                        n += 1
+                        if not rel_close(float(s), exact[i][j], 2e-6, 1e-7):
+                            failures.append(f"kernel b={b} L={L} K={K} t={t}: K[{i}][{j}] C++ {s} vs exact {exact[i][j]!r}")
     return n
 
 
