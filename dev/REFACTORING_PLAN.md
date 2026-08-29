@@ -645,3 +645,15 @@ and text-vs-binary kernel size and R load time.
   the dead `CLTreeS::DFST/DFSTn` and the commented-out history in `LTreeS.cpp`; the `-b` flag is kept as a
   parsed-but-inert option for Phase 4 to implement. Do 2b before Phase 6 (the thread-pool work needs the
   context object); Phases 3 and 4 do not depend on it.
+* **Phase 3 — done (PR: `phase3/sequence-identity`, stacked on Phase 2a).** `src/SequenceSet.h`
+  (`SeqRecord`, `seqRecordId`, `writeIndexSidecar`); `mergeByName` option (default off, `-N`, R
+  argument, documented) — `-N` reproduces the previous merged output byte-for-byte (`k_dupnames_merge`
+  == the old `k_dupnames`); `<outfile>.index` written by both kernel paths and frozen for eight golden
+  cases (the runner compares it whenever one exists); `CSequenceNames::nextSeq` rewritten on an
+  `unordered_map` with loud failures (duplicate in the alpha file, missing from or repeated in the
+  FASTA — three `expect-error` cases); R: `mergeByName=`, duplicate-name `stop()`s replaced by a
+  `message()`, `gkmsvm_train`/`trainCV` prefer the sidecar and fall back to unique-name counting for
+  old kernels, ids replace names in the legacy model pair when names are not unique. Name edge cases
+  (empty, tab, non-ASCII, 200 chars, cross-file duplicates) frozen with their sidecars. Not done: the
+  model file that stores SVs by id is Phase 4's `.gkmmodel`; the full `SequenceSet` class (readers
+  returning records) is folded into Phase 2b's reader rewrite.

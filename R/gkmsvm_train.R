@@ -17,25 +17,16 @@ gkmsvm_train = function (kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, 
   #  kernelfn= '/Users/mghandi/gkmsvm/test/test9kernel.txt'
     
     pos = seqinr::read.fasta(posfn)
-    npos = length(unique(names(pos))) #length(pos)
     neg = seqinr::read.fasta(negfn)
-    nneg = length(unique(names(neg))) #length(neg)
-    nseq = npos+nneg; 
-    
-    if(length(which(duplicated(names(pos))))>0){
-      print(paste("Error: duplicated sequence ID in", posfn))
-      print(names(pos)[which(duplicated(names(pos)))])
-      stop("Error: duplicated sequence ID");
-    }
-    if(length(which(duplicated(names(neg))))>0){
-      print(paste("Error: duplicated sequence ID in", negfn))
-      print(names(neg)[which(duplicated(names(neg)))])
-      stop("Error: duplicated sequence ID");
-    }
-    if(length(which(duplicated(c(names(pos),names(neg)))))>0){
-      print(paste("Error: Same sequence ID found in positive and negative sets:", posfn, negfn))
-      print(c(names(pos),names(neg))[which(duplicated(c(names(pos),names(neg))))])
-      stop("Error: duplicated sequence ID");
+    idx = .gkm_read_index(kernelfn)
+    if (!is.null(idx)) {
+      # rows are identified by position (Phase 3): the sidecar is authoritative
+      npos = sum(idx$label > 0); nneg = sum(idx$label < 0); nseq = nrow(idx)
+      seqnames = idx$name
+    } else {
+      # kernel written by an older version: it merged same-named records within a file
+      npos = length(unique(names(pos))); nneg = length(unique(names(neg))); nseq = npos+nneg
+      seqnames = c(unique(names(pos)), unique(names(neg)))
     }
     
     mat <- data.matrix( utils::read.table(file=kernelfn, fill=TRUE, col.names=paste("V", 1:nseq)))
@@ -47,20 +38,30 @@ gkmsvm_train = function (kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, 
   #  svp <- ksvm(K, y, type="C-svc", C=1)
     svp <- kernlab::ksvm(K, y, type=Type, C=C, shrinking=shrinking, ...)
     
-    seqnames = c(names(pos), names(neg))
-    
     if(svp@nSV>0){
       alpha = unlist(svp@alpha )
       ii = unlist(svp@SVindex)
       jj = which(ii>npos); 
       alpha[jj]= -alpha[jj];
       
-      utils::write.table(cbind(seqnames[ii], sprintf("%11.6e",alpha)),
+      # The legacy svalpha/svseq pair identifies support vectors by name, so the names written
+      # must be unique: fall back to the positional ids (pos1.., neg1..) when they are not.
+      svnames = seqnames
+      if (anyDuplicated(seqnames) && !is.null(idx)) {
+        message("Note: sequence names are not unique; the model files use the row ids from ", kernelfn, ".index instead")
+        svnames = idx$id
+      }
+      utils::write.table(cbind(svnames[ii], sprintf("%11.6e",alpha)),
                   file = paste(svmfnprfx, 'svalpha.out', sep='_'),
                   col.names=FALSE, row.names=FALSE, quote=FALSE, sep='\t')
       
-      svseqs = c(pos,neg)[ii]; 
-      seqinr::write.fasta(svseqs, names(svseqs),  file.out= paste(svmfnprfx, 'svseq.fa', sep='_'))
+      seqs = c(pos, neg)
+      if (length(seqs) == nseq) {
+        svseqs = seqs[ii]                                  # one record per row
+      } else {
+        svseqs = seqs[match(seqnames[ii], names(seqs))]    # merged rows: first record with that name
+      }
+      seqinr::write.fasta(svseqs, svnames[ii],  file.out= paste(svmfnprfx, 'svseq.fa', sep='_'))
     }
   }
 }

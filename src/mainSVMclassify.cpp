@@ -287,16 +287,9 @@ int svmClassifySimple(OptsSVMClassify &opt)
 
 	double *alphaovernorm = norm; 
 
-	for(i=0;i<svsn->Nseqs;i++)
+	if (svsn->error) return 1;
+	while ((sgi = svsn->nextSeq()) != NULL)
 	{
-		sgi = svsn->nextSeq(); 
-		if(sgi==NULL)
-		{
-            sprintf(globtmpstr,"\n the sequences for only %d out of %d sequence names in SVs file (%s) were found. \n", i,svsn->Nseqs, SVSeqIDsFN);Printf(globtmpstr);
-
-			break; 
-		}
-
 		if(sgi->getLength()>0)
 		{
 			if (nsvseqs>=nMAXSEQUENCES) return tooManySequences(nMAXSEQUENCES);
@@ -317,6 +310,7 @@ int svmClassifySimple(OptsSVMClassify &opt)
 		}
 	}
 
+	if (svsn->error) return 1;
 	sprintf(globtmpstr,"  %d SV seqs read \n",nsvseqs);Printf(globtmpstr);
 
 	FILE *sfi = fopen(SeqsFN, "r"); 
@@ -488,19 +482,11 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 	
 	//double *alphaovernorm = norm; 
 
-	for(i=0;i<svsn->Nseqs;i++)
+	if (svsn->error) return 1;
+	while ((sgi = svsn->nextSeq()) != NULL)
 	{
-		sgi = svsn->nextSeq(); 
-		if(sgi==NULL)
-		{
-            sprintf(globtmpstr,"\n the sequences for only %d out of %d sequence names in SVs file (%s) were found. \n", i,svsn->Nseqs, SVSeqIDsFN);Printf(globtmpstr);
-
-			break; 
-		}
-
 		if(sgi->getLength()>0)
 		{
-//			printf(" %d %s\n", i,sgi->getName()); 
 			//seqsL[nsvseqs] = new CLList(L, 2*maxseqlen+5, hdist);  
 			
 			double alphaovernorm = sgi->getWeight()/calcnorm(sgi, addRC, &psetL, c, mmcnt,L,maxnmm);
@@ -514,6 +500,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 		}
 	}
 	
+	if (svsn->error) return 1;
 	sprintf(globtmpstr,"  %d SV seqs read \n",nsvseqs); Printf(globtmpstr);
 
 	delete svsn; 

@@ -14,7 +14,8 @@ gkmsvm_kernel <- function( posfile,
                            wildcardLambda=1.0, 
                            wildcardMismatchM=2,
                            alphabetFN="NULL",
-                           nmaxThreads=1000){
+                           nmaxThreads=1000,
+                           mergeByName=FALSE){
   
   params = list(L=L, 
                 K=K, 
@@ -32,37 +33,36 @@ gkmsvm_kernel <- function( posfile,
                 wildcardLambda=wildcardLambda, 
                 wildcardMismatchM=wildcardMismatchM,
                 alphabetFN=alphabetFN, 
-                nmaxThreads=nmaxThreads
+                nmaxThreads=nmaxThreads,
+                mergeByName=mergeByName
                 ); 
  # print(params)
   
   
-  ## test for duplicate id 
-  if (requireNamespace("seqinr", quietly = TRUE)){
-    
-    posfn = posfile; 
-    negfn = negfile;
-    
-    pos = seqinr::read.fasta(posfn)
-    neg = seqinr::read.fasta(negfn)
-    
-    if(length(which(duplicated(names(pos))))>0){
-      print(paste("Error: duplicated sequence ID in", posfn))
-      print(names(pos)[which(duplicated(names(pos)))])
-      stop("Error: duplicated sequence ID");
-    }
-    if(length(which(duplicated(names(neg))))>0){
-      print(paste("Error: duplicated sequence ID in", negfn))
-      print(names(neg)[which(duplicated(names(neg)))])
-      stop("Error: duplicated sequence ID");
-    }
-    if(length(which(duplicated(c(names(pos),names(neg)))))>0){
-      print(paste("Error: Same sequence ID found in positive and negative sets:", posfn, negfn))
-      print(c(names(pos),names(neg))[which(duplicated(c(names(pos),names(neg))))])
-      stop("Error: duplicated sequence ID");
-    }
+  ## Identity is positional since Phase 3 (one FASTA record = one kernel row, written to
+  ## <outfile>.index); duplicated names are allowed and only reported for information.
+  dups <- unique(c(intersect(.gkm_fasta_names(posfile), .gkm_fasta_names(negfile)),
+                   .gkm_fasta_names(posfile)[duplicated(.gkm_fasta_names(posfile))],
+                   .gkm_fasta_names(negfile)[duplicated(.gkm_fasta_names(negfile))]))
+  if (length(dups) > 0) {
+    message(sprintf("Note: %d sequence name(s) are not unique (e.g. '%s'); rows are identified by position (see %s.index)%s",
+                    length(dups), dups[1], outfile, if (mergeByName) "; records with the same name within a file are merged" else ""))
   }
-  
-  
+
  invisible(.Call('gkmSVM_gkmsvm_kernel', PACKAGE = 'gkmSVM', params))
+}
+
+# First whitespace-delimited token of every FASTA header (what the C++ reader uses as the name).
+.gkm_fasta_names <- function(fn) {
+  h <- grep("^>", readLines(fn, warn = FALSE), value = TRUE)
+  sub("[[:space:]].*$", "", substring(h, 2))
+}
+
+# Row identity for a kernel file: the <kernelfn>.index sidecar written by gkmsvm_kernel (Phase 3+),
+# or NULL for kernels produced by older versions.
+.gkm_read_index <- function(kernelfn) {
+  fn <- paste0(kernelfn, ".index")
+  if (!file.exists(fn)) return(NULL)
+  utils::read.delim(fn, header = TRUE, stringsAsFactors = FALSE, colClasses = c("integer", "character", "character", "integer", "numeric", "numeric"),
+                    quote = "", comment.char = "", na.strings = character(0))
 }

@@ -25,6 +25,7 @@ struct OptsGkmKernel {
 	bool addRC = true;
 	bool usePseudocnt = false;
 	bool OutputBinary = false;  // parsed for compatibility; implemented in Phase 4
+	bool mergeByName = false;   // -N: records with the same FASTA name inside one file are merged into one kernel row (pre-Phase-3 behaviour)
 	std::string posfile, negfile, outfile;
 	double wildcardLambda = 1.0;
 	int wildcardMismatchM = 2;

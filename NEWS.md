@@ -51,5 +51,24 @@ Crashes and memory errors fixed (all reproduced before the fix, all now ASAN/UBS
 * Thirteen unreachable source files were moved to `src/legacy/` and are no longer compiled.
 * Kernel and classify outputs are byte-identical to the previous version.
 
+### Phase 3 — sequence identity (one intentional behaviour change)
+
+* **One FASTA record is now one kernel row.** Previously, records that shared a name *within* one
+  file were silently merged into a single row (a 60-record file with one repeated name produced a
+  59-row kernel). That behaviour is still available as `gkmsvm_kernel(..., mergeByName = TRUE)` /
+  `gkmsvm_kernel -N` and reproduces the old output byte-for-byte; the default is off.
+* `gkmsvm_kernel` writes `<outfile>.index` next to the kernel: `row id name label length nlmers`,
+  one line per row. Ids (`pos1..`, `neg1..`) are unique by construction; names may be empty,
+  repeated, non-ASCII or arbitrarily long. `gkmsvm_train` and `gkmsvm_trainCV` use the sidecar
+  when it exists and fall back to the old `read.fasta` counting for kernels made by older versions.
+* The R functions no longer `stop()` on duplicated sequence names (a duplicate is reported with a
+  `message()`), and no longer read both FASTA files a second time just to check.
+* When names are not unique, `gkmsvm_train` writes the row ids instead of the names into
+  `_svalpha.out` / `_svseq.fa`, so the legacy model files stay unambiguous.
+* `gkmsvm_classify` matches support vectors to sequences with a hash map instead of a linear scan
+  and **fails** when a name listed in `_svalpha.out` is duplicated there, missing from `_svseq.fa`,
+  or present twice in `_svseq.fa`. It used to print "the sequences for only N out of M ... were
+  found" and score with a partial model.
+
 Build: C++17 (`SystemRequirements: C++17`, `src/Makevars`). The R package routes all console output
 through `Rprintf` and random numbers through R's RNG (`-DRPACKAGE`); the standalone CLI is unchanged.

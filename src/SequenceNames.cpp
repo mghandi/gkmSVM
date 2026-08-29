@@ -29,6 +29,7 @@ CSequenceNames::CSequenceNames(void)
 	nSeqsRead=0;
 	nextSeqtoRead=0;
 	curSeq=NULL; 
+	error=0;
 }
 
 
@@ -41,7 +42,7 @@ CSequenceNames::~CSequenceNames(void)
 		{
 			delete []seqNames[i]; 
 		}
-		seqNames.clear(); weight.clear();
+		seqNames.clear(); weight.clear(); used.clear(); nameIndex.clear();
 		Nseqs = 0; 		
 	}
 
@@ -64,7 +65,7 @@ int CSequenceNames::readSeqNames(const char *seqNamesFN)
 		{
 			delete []seqNames[i]; 
 		}
-		seqNames.clear(); weight.clear();
+		seqNames.clear(); weight.clear(); used.clear(); nameIndex.clear();
 		Nseqs = 0; 		
 	}
 	
@@ -98,7 +99,7 @@ int CSequenceNames::readSeqNamesandWeights(const char *seqNamesFN)
 		{
 			delete []seqNames[i]; 
 		}
-		seqNames.clear(); weight.clear();
+		seqNames.clear(); weight.clear(); used.clear(); nameIndex.clear();
 		Nseqs = 0; 		
 	}
 	
@@ -114,7 +115,12 @@ int CSequenceNames::readSeqNamesandWeights(const char *seqNamesFN)
 				char *name = new char[strlen(stmp)+1];  // a %s token can never be longer than the line (was a fixed 100 bytes)
 				double w = 0;
 				if (sscanf(stmp, "%s%lf", name, &w)!=2) { delete []name; continue; } // blank/malformed line
-				seqNames.push_back(name); weight.push_back(w);
+				if (nameIndex.count(name)) {
+					sprintf(globtmpstr,"\n ERROR: sequence name '%s' appears more than once in %s\n", name, seqNamesFN); Printf(globtmpstr);
+					delete []name; error = 1; break;
+				}
+				nameIndex[name] = Nseqs;
+				seqNames.push_back(name); weight.push_back(w); used.push_back(0);
 				Nseqs++; 
 			}
 		}
@@ -134,39 +140,36 @@ void CSequenceNames::openSeqFile( const char *seqFN,  int maxSeqLength)
 	this->curSeq = new CSequence(maxSeqLength); 
 }
 
+// Returns the next FASTA record (in file order) whose name is listed in the alpha file, with its
+// weight attached; NULL at the end of the file or on error (check `error`). Every alpha entry must
+// be matched exactly once: a listed name missing from the FASTA, or present twice, is an error
+// instead of silently scoring with a partial model (pre-Phase-3 behaviour).
 CSequence *CSequenceNames::nextSeq()
 {
 	while (seqf!=NULL && !feof(seqf))
 	{
-		if (this->nextSeqtoRead ==0)
-		{
-			if (curSeq->readFsa(this->seqf) < 0) { fclose(seqf); seqf = NULL; return NULL; }  // read a new sequence; -1 = too long
+		if (curSeq->readFsa(this->seqf) < 0) { fclose(seqf); seqf = NULL; error = 1; return NULL; }
+		if (curSeq->getLength() <= 0) continue;
+		std::unordered_map<std::string, int>::iterator it = nameIndex.find(curSeq->getName());
+		if (it == nameIndex.end()) continue; // not a support vector
+		int k = it->second;
+		if (used[k]) {
+			sprintf(globtmpstr,"\n ERROR: support vector '%s' appears more than once in the sequence file\n", curSeq->getName()); Printf(globtmpstr);
+			fclose(seqf); seqf = NULL; error = 1; return NULL;
 		}
-
-		while (nextSeqtoRead<this->Nseqs)
-		{
-			if (stringcompare(this->seqNames[nextSeqtoRead], curSeq->getName(), MAX_LINE_WIDTH)) // full-length comparison (was truncated at 100 chars)			//if (strcmp(this->seqNames[nextSeqtoRead], curSeq->getName())==0) 
-			{
-				curSeq->setWeight(weight[nextSeqtoRead]); 
-				curSeq->setNameLink(seqNames[nextSeqtoRead]); 
-
-				nextSeqtoRead++; 
-				nSeqsRead++; 
-
-				if (nSeqsRead==Nseqs)
-				{
-					fclose(seqf);
-					seqf = NULL; 
-				}
-
-				return curSeq; 
-			}
-			nextSeqtoRead++; 
-		}
-		nextSeqtoRead = 0; 
+		used[k] = 1;
+		curSeq->setWeight(weight[k]); 
+		curSeq->setNameLink(seqNames[k]); 
+		nSeqsRead++; 
+		return curSeq; 
 	}
 
 	if (seqf!=NULL) fclose(seqf); 
 	seqf = NULL; 
+	if (nSeqsRead < Nseqs) {
+		int firstMissing = 0; while (firstMissing < Nseqs && used[firstMissing]) firstMissing++;
+		sprintf(globtmpstr,"\n ERROR: the sequences for only %d out of %d support vectors were found in the sequence file (first missing: '%s')\n", nSeqsRead, Nseqs, seqNames[firstMissing]); Printf(globtmpstr);
+		error = 1;
+	}
 	return NULL; 
 }

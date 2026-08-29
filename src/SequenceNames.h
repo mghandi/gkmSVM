@@ -21,6 +21,8 @@
 #include "Sequence.h"
 
 #include <vector>
+#include <string>
+#include <unordered_map>
 
 class CSequenceNames
 {
@@ -41,6 +43,10 @@ public:
 private: 
 	FILE *seqf; 
 	int nSeqsRead;  // number of times a sequence was returned by nextSeq()
-	int nextSeqtoRead;  // index to the next potential sequence 
+	int nextSeqtoRead;  // (unused since Phase 3; kept for layout stability)
+	std::unordered_map<std::string, int> nameIndex; // name -> position in seqNames/weight
+	std::vector<char> used;                         // which alpha entries have been matched
+public:
+	int error;      // set when a name in the alpha file is duplicated, missing from the FASTA, or repeated in the FASTA
 };
 

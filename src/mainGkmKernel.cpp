@@ -29,6 +29,8 @@
 #include "global.h"
 #include "globalvar.h"
 #include "gkmOptions.h"
+#include "SequenceSet.h"
+#include <vector>
 
 #include "Sequence.h"
 #include "CalcWmML.h"
@@ -78,6 +80,7 @@ void print_usage_and_exit_gkmKernel(const char *prog)
 	sprintf(globtmpstr,"%s", "  -L             lambda for wildcard kernel, defaul=1.0\n"); Printf(globtmpstr);
     sprintf(globtmpstr,"%s", "  -A             alphabets file name, if not specified, it is assumed the inputs are DNA sequences \n"); Printf(globtmpstr);
     sprintf(globtmpstr,"%s", "  -T             maximum number of threads, defaul=2*l\n"); Printf(globtmpstr);
+    sprintf(globtmpstr,"%s", "  -N             merge records that share a name within a file into one row (default: one record = one row)\n"); Printf(globtmpstr);
     
     Printf(" \n");
 }
@@ -89,7 +92,7 @@ static int gkmKernelParseArgs(int argc, char** argv, OptsGkmKernel &opt)
     int c;
     if (argc == 1) { print_usage_and_exit_gkmKernel(argv[0]); return 1;}
 
-	while ((c = getopt (argc, argv, "l:k:d:m:n:t:a:L:M:A:T:Rpb")) != -1)
+	while ((c = getopt (argc, argv, "l:k:d:m:n:t:a:L:M:A:T:RpbN")) != -1)
 	{
 		switch (c) 
 		{
@@ -107,6 +110,7 @@ static int gkmKernelParseArgs(int argc, char** argv, OptsGkmKernel &opt)
 			case 'L': opt.wildcardLambda = atof(optarg); break;
 			case 'A': opt.alphabetFN = optarg; break;
 			case 'T': opt.maxnThread = atoi(optarg); break;
+			case 'N': opt.mergeByName = true; break;
 			default: print_usage_and_exit_gkmKernel(argv[0]); return 1;
 		}
 	}
@@ -221,6 +225,7 @@ int gkmKernelSimple(OptsGkmKernel &opt)  //Use XOR precomputed hash table
 
 	CLList **seqsL = new CLList *[nMAXSEQUENCES];
 	double *norm = new double [nMAXSEQUENCES];
+	std::vector<SeqRecord> records; // row identity, written to <outfile>.index
 
 	int i; 
 	CSequence *sgi= new CSequence(maxseqlen+3);
@@ -338,6 +343,7 @@ int gkmKernelSimple(OptsGkmKernel &opt)  //Use XOR precomputed hash table
 			seqsL[nseqs]->addFromLTree(psetT); 
 			psetT->deleteTree(L); 
 			delete psetT; 
+			records.push_back(SeqRecord{nseqs, "", sgi->getName(), 0, sgi->getLength(), (long)(sgi->getLength()-L+1 > 0 ? sgi->getLength()-L+1 : 0) * (addRC ? 2 : 1)});
 			nseqs++; 
 		}
 	}
@@ -364,12 +370,14 @@ int gkmKernelSimple(OptsGkmKernel &opt)  //Use XOR precomputed hash table
 			seqsL[nseqs]->addFromLTree(psetT); 
 			psetT->deleteTree(L); 
 			delete psetT; 
+			records.push_back(SeqRecord{nseqs, "", sgi->getName(), 0, sgi->getLength(), (long)(sgi->getLength()-L+1 > 0 ? sgi->getLength()-L+1 : 0) * (addRC ? 2 : 1)});
 			nseqs++; 
 		}
 	}
 	fclose(sfi); 
 
 	nneg = nseqs - npos;
+	for(i=0;i<nseqs;i++) { records[i].id = seqRecordId(i, npos); records[i].label = (i<npos) ? 1 : -1; }
 
 	for(i=0;i<nseqs;i++)
 	{
@@ -396,6 +404,7 @@ int gkmKernelSimple(OptsGkmKernel &opt)  //Use XOR precomputed hash table
 	}
 
 	fclose(fo); 
+	if (writeIndexSidecar(opt.outfile, records) != 0) { sprintf(globtmpstr,"\n WARNING: could not write %s.index\n", outFN); Printf(globtmpstr); }
 	//delete []tmps; 
 	delete []mmcnt;
 	for(i=0;i<nseqs;i++)
@@ -586,6 +595,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   char**seqname2= NULL; 
   
   seqname2 = new char *[nMAXSEQUENCES];
+  std::vector<SeqRecord> records; // row identity, written to <outfile>.index
   
   //read positive sequence file
   FILE *sfi = fopen(posSeqsFN, "r"); 
@@ -594,7 +604,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   char *tmpSeq=new char[maxseqlen+3];
   int  *tmpSeqB=new int[maxseqlen+3];
   
-  int multiseq_allowed=1;
+  int multiseq_allowed = opt.mergeByName ? 1 : 0; // Phase 3: default one record = one row
   
   
   while (!feof(sfi))
@@ -609,6 +619,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
         dupl_seq_idx = find_str(seqname,nseqs, sgi->getName());
       }
       if (dupl_seq_idx>=0){
+        records[dupl_seq_idx].length += sgi->getLength();
         sgi->getSubseqBaseId(0, sgi->getLength()-1, tmpSeqB);
         ntotal-=LmersCnt[dupl_seq_idx];
         LmersCnt[dupl_seq_idx]+= seqsTS->addSequence(tmpSeqB, sgi->getLength(),L, dupl_seq_idx);
@@ -640,6 +651,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
         }
         
         ntotal = ntotal + LmersCnt[nseqs]; 
+        records.push_back(SeqRecord{nseqs, "", sgi->getName(), 0, sgi->getLength(), 0});
         nseqs++;
       }
     }
@@ -663,6 +675,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
       }
       if (dupl_seq_idx>=0){
         dupl_seq_idx+=npos;
+        records[dupl_seq_idx].length += sgi->getLength();
         sgi->getSubseqBaseId(0, sgi->getLength()-1, tmpSeqB);
         ntotal-=LmersCnt[dupl_seq_idx];
         LmersCnt[dupl_seq_idx] += seqsTS->addSequence(tmpSeqB, sgi->getLength(),L, dupl_seq_idx);
@@ -694,6 +707,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
         }
         
         ntotal = ntotal + LmersCnt[nseqs]; 
+        records.push_back(SeqRecord{nseqs, "", sgi->getName(), 0, sgi->getLength(), 0});
         nseqs++; 
         
       }
@@ -705,6 +719,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   delete []tmpSeqB;
   
   nneg = nseqs - npos;
+  for(int i=0;i<nseqs;i++) { records[i].id = seqRecordId(i, npos); records[i].label = (i<npos) ? 1 : -1; records[i].nlmers = LmersCnt[i]; }
   
   // global vars init: 
   gLM1=L-1;
@@ -946,6 +961,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   }
   
   fclose(fo); 
+  if (writeIndexSidecar(opt.outfile, records) != 0) { sprintf(globtmpstr,"\n WARNING: could not write %s.index\n", outFN); Printf(globtmpstr); }
   
   delete []norm;
   delete []LmersCnt;

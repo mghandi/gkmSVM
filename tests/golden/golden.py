@@ -47,6 +47,8 @@ def build_argv(c, bindir, outfile):
         argv.append("-R")
     if c["p"] == "1":
         argv.append("-p")
+    if c.get("N", "") == "1":
+        argv.append("-N")
     if c["tool"] == "kernel":
         argv += [os.path.join(FIX, c["pos"]), os.path.join(FIX, c["neg"]), outfile]
     else:
@@ -88,6 +90,7 @@ def main():
     ap.add_argument("--filter", help="regex on the case name")
     ap.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 2) // 2))
     ap.add_argument("--tol", type=float, default=None, help="report max relative numeric diff on failure")
+    ap.add_argument("--index", action="store_true", help="freeze: also freeze the <out>.index sidecar")
     a = ap.parse_args()
 
     cases = load_cases()
@@ -136,6 +139,9 @@ def main():
         if a.cmd == "freeze":
             with open(exp, "wb") as f:
                 f.write(actual)
+            if a.index and os.path.exists(r["out"] + ".index"):
+                with open(exp + ".index", "wb") as f:
+                    f.write(open(r["out"] + ".index", "rb").read())
             print(f"froze  {r['name']:32s} {len(actual):8d} bytes  {r['secs']:.2f}s")
             continue
         if not os.path.exists(exp):
@@ -147,8 +153,12 @@ def main():
             if a.tol is not None:
                 msg += f" (max relative numeric diff {max_rel_diff(actual, expected):.3e})"
             failed.append((r, msg))
-        else:
-            print(f"ok     {r['name']:32s} {r['secs']:.2f}s")
+            continue
+        # the .index sidecar (row identity) is compared too whenever one was frozen for this case
+        if os.path.exists(exp + ".index") and open(r["out"] + ".index", "rb").read() != open(exp + ".index", "rb").read():
+            failed.append((r, "the .index sidecar differs"))
+            continue
+        print(f"ok     {r['name']:32s} {r['secs']:.2f}s")
     if a.cmd == "freeze":
         print(f"froze {len(results)} cases into {EXP}")
         return
