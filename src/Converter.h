@@ -64,7 +64,7 @@ public:
 
 	char alphabet[256];
 	int b; //alphabetSize;
-	int readAlphabetFile(char *FN, int MAX_ALPHABET_SIZE_copy); // returns 0 on success, 1 on error (alphabet left as DNA)
+	int readAlphabetFile(const char *FN, int MAX_ALPHABET_SIZE_copy); // returns 0 on success, 1 on error (alphabet left as DNA)
 	void resetToDNA(); // back to the built-in ACGT alphabet (the object is a global that persists between calls)
 
 };

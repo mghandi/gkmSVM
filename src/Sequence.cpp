@@ -41,6 +41,9 @@ CSequence::CSequence(int maxLength,  CSequence *sCopyFrom )
 	length = 0; 
 	dinucl = new dinuclId[maxLength]; 
 	reverseComplement = NULL; 
+	sline = new char[MAX_LINE_WIDTH+3];
+	nextName = new char[MAX_LINE_WIDTH];
+	hasNextName = 0;
 
 //	seqName = new char(maxLength); 
 	sprintf(seqName,"seq_%d",serialnumber++);	 
@@ -92,6 +95,8 @@ CSequence::~CSequence()
 	freeMem(seqLabel); 
 	freeMem(dinucl); 
 	freeMem(seqBaseId); 
+	freeMem(sline); 
+	freeMem(nextName); 
 
 	length = 0; 
 }
@@ -182,10 +187,6 @@ int CSequence::readFsa(FILE *f, int SkipAlphabetCheck)  // reads one sequence fr
 {
 	length = 0; 
 	readError = 0; 
-	static char nextName[MAX_LINE_WIDTH];
-	static int hasNextName = 0;
-	
-	static char sline[MAX_LINE_WIDTH+3];
 	
 	if (f==NULL) 
 	{
@@ -193,11 +194,11 @@ int CSequence::readFsa(FILE *f, int SkipAlphabetCheck)  // reads one sequence fr
 	}
 	int overflow = 0; 
 
-	fgets(sline, MAX_LINE_WIDTH, f); 
+	if (fgets(sline, MAX_LINE_WIDTH, f) == NULL) sline[0] = 0; 
 	if (sline[0]=='>') //first line
 	{
-		sscanf(sline+1, "%s", nextName); 
-		fgets(sline, MAX_LINE_WIDTH, f);
+		if (sscanf(sline+1, "%s", nextName) != 1) nextName[0] = 0; // ">" with no name
+		if (fgets(sline, MAX_LINE_WIDTH, f) == NULL) sline[0] = 0;
 		hasNextName = 1;  
 	}
 
@@ -231,11 +232,11 @@ int CSequence::readFsa(FILE *f, int SkipAlphabetCheck)  // reads one sequence fr
 				i++;
 			}
 		}
-		fgets(sline, MAX_LINE_WIDTH, f); 
+		if (fgets(sline, MAX_LINE_WIDTH, f) == NULL) sline[0] = 0; 
 	}
 	if (sline[0]=='>') //first line
 	{
-		sscanf(sline+1, "%s", nextName); 
+		if (sscanf(sline+1, "%s", nextName) != 1) nextName[0] = 0; 
 		hasNextName =1; 
 	}
 	
@@ -297,14 +298,12 @@ int CSequence::readBasic(FILE *f)  // reads one sequence from already opened fil
 
 	length = 0; 
 	
-	static char sline[MAX_LINE_WIDTH+3];
-	
 	if (f==NULL) 
 	{
 		return 0; 
 	}
 
-	fgets(sline, MAX_LINE_WIDTH, f); 
+	if (fgets(sline, MAX_LINE_WIDTH, f) == NULL) sline[0] = 0; 
 
 	sscanf(sline,"%s%s%s", this->seqName, this->seqLabel, this->seq);
 	

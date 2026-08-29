@@ -25,17 +25,11 @@
 #include "global.h"
 
 #include "LTreeS.h"
-#include "GTree.h"
-//#include "GTreeLeafData.h"
 
 int gLM1; //L-1
 int gMAXMM; //MaxMismatch
 aint ***gMMProfile; //mismatchprofile[seqidi][mm][seqidj]
 myFlt **gMMProfile0; //gMMProfile[0]
-
-GTreeLeafData *gGTreeLeaves; // list of all the leaf nodes
-GTreeLeafData2 *gGTreeLeaves2; // list of all the leaf nodes
-int gGTreeLeavesCnt; // number of all leaf nodes
 
 LTreeSnodeData ** gDFSlist[1000];
 //CLTreeSptr **gDFSlistT[1000]; // without nonEmptyDaughterCnt

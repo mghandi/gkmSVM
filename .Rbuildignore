@@ -4,6 +4,7 @@
 ^Makefile$
 ^build(-asan)?$
 ^src/cli$
+^src/legacy$
 ^tests/golden$
 ^tests/oracle$
 ^CLAUDE\.md$

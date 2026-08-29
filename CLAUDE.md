@@ -20,9 +20,10 @@ numerical oracle for this refactor, and its theory is the target of Phase 7.
 * `master` = **0.80**, plus the refactor scaffolding merged from PR #5 (`ebd50e9`):
   `dev/REFACTORING_PLAN.md`, `dev/baseline.sh`, `CLAUDE.md`, `.claude/settings.json`,
   `.Rbuildignore`, `.gitignore`. `src/` and `R/` are untouched at `222cc50`.
-* **Phase 0 is on branch `phase0/baseline-safety-net` (PR #7, not merged) and Phase 1 on
-  `phase1/latent-bug-fixes` (stacked on it, PR open, not merged).** See §7 of the plan for what each
-  contains and `NEWS.md` for user-visible changes. Key commands: `make`, `make test` (golden), `make oracle`,
+* **Branch stack (none merged): `phase0/baseline-safety-net` (PR #7) ← `phase1/latent-bug-fixes`
+  (PR #8) ← `phase2/core-extraction` (Phase 2a).** See §7 of the plan for what each contains and what
+  is left (Phase 2b = the context object), and `NEWS.md` for user-visible changes. Merge in order and
+  retarget each PR to `master` after its base merges. Key commands: `make`, `make test` (golden), `make oracle`,
   `make bench`, `dev/scratch_install.sh` then `Rscript -e 'testthat::test_dir("tests/testthat",
   package="gkmSVM", load_package="installed")'`. Later phases branch from `master` but need Phase 0's
   files — until it is merged, branch from the Phase 0 branch and say so in the PR.

@@ -627,3 +627,21 @@ and text-vs-binary kernel size and R load time.
   (`-DRPACKAGE`: `Rprintf`, `R_unif_index`). Worker threads no longer print (Rprintf is main-thread
   only). The R golden tests run in-process again, plus new regression tests (60 calls in one session,
   alphabet does not leak between calls, alg=1 classify output complete).
+* **Phase 2a — done (PR: `phase2/core-extraction`, stacked on Phase 1).** Dead code quarantined into
+  `src/legacy/` (13 translation units, the `UseGTree=0` branch, `CLTreeS::addToGTree`, the GTree
+  globals; live source 13.2k → 10.1k lines); the never-defined `FAST_TRACK`/`USE_GLOBAL` blocks removed
+  (comment-aware — a naive unifdef unbalanced one of `LTreeS.cpp`'s comment blocks and silently changed
+  results, which the golden corpus caught); `src/gkmOptions.h` with `OptsGkmKernel`/`OptsSVMClassify`,
+  `gkmKernelRun()`/`svmClassifyRun()` shared by the CLI (getopt) and the R bindings (direct struct fill —
+  no more `sprintf` into 50×5000-char buffers); parameter validation is now an error (exit 1 / R
+  `stop()`, six new `expect-error` cases) instead of "print usage, return 0"; `CSequenceNames` on
+  `std::vector` (was two 1 M-entry fixed arrays, 16 MB per object); the FASTA reader's look-ahead state
+  is per object (was function-static). Gates: golden 108/108 byte-identical, ASAN/UBSAN clean, oracle OK,
+  testthat 10/10, bench 6.41 s (+1.2 % vs Phase 0).
+* **Phase 2b — TODO (not started).** The remaining Phase 2 items: `KernelContext`/`ScoreContext` replacing
+  `gMMProfile`, `gMMProfile0`, `gMAXMM`, `gLM1`, `gDFSlistT/gDFSMMlist/gDFSMMtree/gDFSlist[1000]`,
+  `globalConverter`, `globtmpstr` (≈150 use sites, ~110 of them inside the `CLTreeS`/`CLTreef` recursion in
+  `LTreeS.cpp`/`LTreef.cpp` — needs a context parameter threaded through `DFST*`/`cloneReorder`); deleting
+  the dead `CLTreeS::DFST/DFSTn` and the commented-out history in `LTreeS.cpp`; the `-b` flag is kept as a
+  parsed-but-inert option for Phase 4 to implement. Do 2b before Phase 6 (the thread-pool work needs the
+  context object); Phases 3 and 4 do not depend on it.

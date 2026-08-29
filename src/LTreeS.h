@@ -19,7 +19,6 @@
 #pragma once
 #include "global.h"
 #include "LList.h"
-#include "GTree2.h"
 #include "CbinMMtree.h"
 
 union CLTreeSptr {
@@ -44,9 +43,6 @@ class CLTreeS
 public:
   CLTreeSptr daughter[MAX_ALPHABET_SIZE]; int maxSeqID;  int minSeqID;
   int nonEmptyDaughterIdxs[MAX_ALPHABET_SIZE]; int nonEmptyDaughterCnt; //keeps the list of non empty daughters. this is good for sparser trees
-#ifdef FAST_TRACK
-  int *FT_seq; int FT_cnt;  int FT_seqID; // these are for fast track. FT_seq is a link to the last sequence added to this node. FT_cnt is the number of downstream nodes.
-#endif
   int addSequence(int *bid, int n, int L, int seqID);  //adds all the L-subseqs 
   //	int addSequence(int *bid, int n, int L);  //adds all the L-subseqs 
   void addLTreeSnodeData(int *bid, int n, LTreeSnodeData* nodeData, int mnSeqID, int mxSeqID); // similar to addseq (but adds multiple seqs at once)
@@ -55,7 +51,6 @@ public:
   void initTree(); //initialize the tree
   
   int addToList(LTreeSnodeData **list, int n, int single, int listlen, int alphabetSize);
-  void addToGTree(GTree2 *gtree, int n,int *tmpArray,int alphabetSize,int L);
   
   
   //void DFS( LTreeSnodeData **matchingLmers, int listlen,  int *curMismatchCnt, int pos);

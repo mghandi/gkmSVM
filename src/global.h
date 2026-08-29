@@ -33,14 +33,10 @@
 #define DEF_MAXNUMSEQ 1000000
 #define DEF_TGKM 1
 #define DEF_BATCHSIZE 100000
-#ifndef MULTI_THREAD_SAFE
-//    #define USE_GLOBAL /* may improve speed in some cases. but may make is slower in other cases.  */
-#endif
 
 #define TALK 0
 //#define DEBUG 0 /*0 1*/
 //#define TALK DEBUG /*1*/
-//#define FAST_TRACK  // if enabled, it may make the algorithm faster for sparse trees.
 #define PI 3.141593
 #include <stdio.h>
 #include <stdlib.h>
@@ -65,6 +61,7 @@ typedef int aint;
 int stringcompare(char *s1, char*s2, int maxlength) ; 
 int strlength(char *s);
 #define MYABS(x) (((x)<0)?-(x):x)
+inline double gkmCanon(double v) { return (v == 0.0) ? 0.0 : v; } // canonical +0 for printing (an exact zero can be -0.0 on one compiler and +0.0 on another)
 
 int Combinations(int n, int r);//
 double dCombinations(int n, int r);//
@@ -112,8 +109,8 @@ extern CConverter globalConverter;
 #define Epsilon 0.0000000000001
 #define MAX_LINE_WIDTH 10000	/* maximum line width */
 
-#define min(x,y) ((x<y)?x:y)
-#define max(x,y) ((x>y)?x:y)
+// (the former min/max macros are gone: they broke <vector> in libstdc++ 14 when included after global.h;
+//  no live code used them)
 #define lcase(c) ((c>='a')?c:c-'A'+'a')
 #define ucase(c) ((c>='a')?c-'a'+'A':c)
 
@@ -152,14 +149,6 @@ union LTreeSnodeDataptr {
 };
 
 
-/*
- struct GTreeLeafData {
- int n;
- intintptr seqIDs_gbits; //if n==1, it is int and contains the ID, otherwise it is int* and is the array of IDs;
- //  LPTr Lmers; //pointer to the starts of the sequences
- int first_gbits; // gbits for the case n==1, otherwise, seqIDs and gapped_bits are both written in seqIDs_gbits (2 numbers for each L-mer)
- };
- */
 
 
 #define myFlt double

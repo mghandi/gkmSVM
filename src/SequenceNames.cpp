@@ -41,6 +41,7 @@ CSequenceNames::~CSequenceNames(void)
 		{
 			delete []seqNames[i]; 
 		}
+		seqNames.clear(); weight.clear();
 		Nseqs = 0; 		
 	}
 
@@ -54,7 +55,7 @@ CSequenceNames::~CSequenceNames(void)
 
 }
 
-int CSequenceNames::readSeqNames(char *seqNamesFN)
+int CSequenceNames::readSeqNames(const char *seqNamesFN)
 {
 	int i; 
 	if (Nseqs!=0)
@@ -63,20 +64,22 @@ int CSequenceNames::readSeqNames(char *seqNamesFN)
 		{
 			delete []seqNames[i]; 
 		}
+		seqNames.clear(); weight.clear();
 		Nseqs = 0; 		
 	}
 	
 	char stmp[10000]; 
 	
 	FILE *f = fopen(seqNamesFN, "r") ; 
+	if (f == NULL) { sprintf(globtmpstr,"\n ERROR: cannot open %s\n", seqNamesFN); Printf(globtmpstr); return 0; }
 	while (!feof(f))
 	{
 		if (fgets(stmp, 10000-5, f))
 		{
 			if (stmp[0]!=0) {
-				if (Nseqs>=MAXNSeqs) { Printf("\n ERROR: too many sequence names (limit MAXNSeqs).\n"); break; }
-				seqNames[Nseqs] = new char[strlen(stmp)+1];  // a %s token can never be longer than the line
-				if (sscanf(stmp, "%s", seqNames[Nseqs])!=1) { delete []seqNames[Nseqs]; continue; }
+				char *name = new char[strlen(stmp)+1];  // a %s token can never be longer than the line
+				if (sscanf(stmp, "%s", name)!=1) { delete []name; continue; }
+				seqNames.push_back(name); weight.push_back(0.0);
 				Nseqs++; 
 			}
 		}
@@ -86,7 +89,7 @@ int CSequenceNames::readSeqNames(char *seqNamesFN)
 }
 
 
-int CSequenceNames::readSeqNamesandWeights(char *seqNamesFN)
+int CSequenceNames::readSeqNamesandWeights(const char *seqNamesFN)
 {
 	int i; 
 	if (Nseqs!=0)
@@ -95,20 +98,23 @@ int CSequenceNames::readSeqNamesandWeights(char *seqNamesFN)
 		{
 			delete []seqNames[i]; 
 		}
+		seqNames.clear(); weight.clear();
 		Nseqs = 0; 		
 	}
 	
 	char stmp[10000]; 
 	
 	FILE *f = fopen(seqNamesFN, "r") ; 
+	if (f == NULL) { sprintf(globtmpstr,"\n ERROR: cannot open %s\n", seqNamesFN); Printf(globtmpstr); return 0; }
 	while (!feof(f))
 	{
 		if (fgets(stmp, 10000-5, f)) 
 		{
 			if (stmp[0]!=0) {
-				if (Nseqs>=MAXNSeqs) { Printf("\n ERROR: too many support vectors (limit MAXNSeqs).\n"); break; }
-				seqNames[Nseqs] = new char[strlen(stmp)+1];  // a %s token can never be longer than the line (was a fixed 100 bytes)
-				if (sscanf(stmp, "%s%lf", seqNames[Nseqs], weight+Nseqs)!=2) { delete []seqNames[Nseqs]; continue; } // blank/malformed line
+				char *name = new char[strlen(stmp)+1];  // a %s token can never be longer than the line (was a fixed 100 bytes)
+				double w = 0;
+				if (sscanf(stmp, "%s%lf", name, &w)!=2) { delete []name; continue; } // blank/malformed line
+				seqNames.push_back(name); weight.push_back(w);
 				Nseqs++; 
 			}
 		}
@@ -118,7 +124,7 @@ int CSequenceNames::readSeqNamesandWeights(char *seqNamesFN)
 	return Nseqs; 
 }
 
-void CSequenceNames::openSeqFile( char *seqFN,  int maxSeqLength)
+void CSequenceNames::openSeqFile( const char *seqFN,  int maxSeqLength)
 {
 	this->seqf = fopen(seqFN, "r"); 
 	if (this->seqf == NULL) { sprintf(globtmpstr,"\n ERROR: cannot open %s\n", seqFN); Printf(globtmpstr); }

@@ -46,5 +46,15 @@ Crashes and memory errors fixed (all reproduced before the fix, all now ASAN/UBS
   call could misparse its options and silently write nothing), and the reverse-complement code
   copied a sequence name onto itself (undefined; flagged by AddressSanitizer on Linux).
 
+### Phase 2a — core extraction (behaviour-preserving)
+
+* Invalid parameters (`K > L`, `maxnmm > L`, `useTgkm` outside 0–4, `alg` outside 0–2, `batchSize < 1`)
+  are now errors (`stop()` in R, exit status 1 on the command line). They used to print the usage
+  text and return success, leaving no output file.
+* The R bindings pass their arguments to the C++ core directly instead of re-serialising them into a
+  command line; file paths are no longer silently truncated at 5000 characters.
+* Thirteen unreachable source files were moved to `src/legacy/` and are no longer compiled.
+* Kernel and classify outputs are byte-identical to the previous version.
+
 Build: C++17 (`SystemRequirements: C++17`, `src/Makevars`). The R package routes all console output
 through `Rprintf` and random numbers through R's RNG (`-DRPACKAGE`); the standalone CLI is unchanged.
