@@ -21,6 +21,8 @@ expected outputs stay small, and each file exercises one edge of the FASTA reade
   sv_svseq.fa / sv_svalpha.out  a hand-made support-vector model: 5 pos + 5 neg from dna_small with fixed alphas
   sv_longnames_* / test_longnames.fa  the same model and 10 test sequences with 120-character names   (Phase 1)
   sv_b2_* / test_b2.fa     a fixed model and 8 test sequences over the "AB" alphabet                  (Phase 1)
+  names_edge_pos.fa        empty / tab / non-ASCII / 200-char / cross-file-duplicate names              (Phase 3)
+  sv_dupalpha_svalpha.out, sv_missing_svalpha.out  invalid SV models (duplicate / missing name)         (Phase 3)
 """
 import argparse, os, random, sys
 
@@ -106,6 +108,18 @@ def build():
     files["sv_b2_svseq.fa"] = fasta(svb2)
     files["sv_b2_svalpha.out"] = "".join(f"{n}\t{a:11.6e}\n" for (n, _), a in zip(svb2, ab2))
     files["test_b2.fa"] = fasta([(f"tb{i}", s) for i, s in enumerate(seqs(rng, 8, 80, alpha="AB", motif="ABBABAA"))])
+    # --- added in Phase 3: name edge cases (kernel values depend only on the sequences)
+    edge = [("", small_pos[0][1]),                       # empty name
+            ("a\tb c", small_pos[1][1]),                  # tab and space in the header: name is "a"
+            ("s\u00e9q_\u00fc\u00f1", small_pos[2][1]),  # non-ASCII (UTF-8) name
+            ("X" * 200, small_pos[3][1]),                 # 200-character name
+            ("neg0", small_pos[4][1]),                    # same name as a record in the negative file
+            ("neg0", small_pos[5][1]),                    # ... twice
+            ("pos6", small_pos[6][1]), ("pos7", small_pos[7][1])]
+    files["names_edge_pos.fa"] = fasta(edge)
+    # SV models that must be rejected: a name listed twice, a name absent from the sequence file
+    files["sv_dupalpha_svalpha.out"] = files["sv_svalpha.out"] + "pos2\t 1.000000e-01\n"
+    files["sv_missing_svalpha.out"] = files["sv_svalpha.out"] + "pos99\t 1.000000e-01\n"
     return files
 
 

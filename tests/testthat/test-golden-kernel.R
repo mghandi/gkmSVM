@@ -7,7 +7,7 @@
 test_that("gkmsvm_kernel reproduces the golden corpus", {
   skip_if_no_golden()
   cases <- golden_cases("kernel")
-  skip_tags <- c("dupnames", "xfail-phase1", "xfail-phase5")
+  skip_tags <- c("xfail-phase1", "xfail-phase5")
   keep <- !vapply(strsplit(cases$tags, " "), function(t) any(t %in% skip_tags), logical(1))
   cases <- cases[keep, ]
   expect_gt(nrow(cases), 40)
@@ -27,13 +27,6 @@ test_that("gkmsvm_kernel reproduces the golden corpus", {
   }
 })
 
-test_that("gkmsvm_kernel rejects duplicated sequence names at the R level", {
-  skip_if_no_golden()
-  fx <- file.path(golden_dir(), "fixtures")
-  expect_error(suppressWarnings(capture.output(
-    gkmsvm_kernel(file.path(fx, "dupnames_pos.fa"), file.path(fx, "dna_small_neg.fa"), tempfile()))),
-    "duplicated sequence ID")
-})
 
 test_that("the multithreaded kernel is identical to the single-threaded one", {
   skip_if_no_golden()

@@ -25,6 +25,7 @@ void gkmsvm_kernel(SEXP params){
   std::string alphabetFN = Rcpp::as<std::string>(rparam["alphabetFN"]);
   if (alphabetFN != "NULL") opt.alphabetFN = alphabetFN; // the R default is the string "NULL"
   opt.maxnThread = Rcpp::as<int>(rparam["nmaxThreads"]);
+  opt.mergeByName = Rcpp::as<bool>(rparam["mergeByName"]);
 
   if (gkmKernelRun(opt) != 0) Rcpp::stop("gkmsvm_kernel failed (see the messages above)");
 }
