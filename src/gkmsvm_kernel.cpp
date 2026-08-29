@@ -28,6 +28,7 @@ void gkm_kernel_cpp(SEXP params){
   opt.mergeByName = Rcpp::as<bool>(rparam["mergeByName"]);
   opt.tileRows = Rcpp::as<int>(rparam["tileRows"]);
   opt.tileMemoryMB = Rcpp::as<int>(rparam["tileMemoryMB"]);
+  if (rparam.containsElementNamed("passDesign")) opt.passDesign = Rcpp::as<int>(rparam["passDesign"]);
 
   if (gkmKernelRun(opt) != 0) Rcpp::stop("gkmsvm_kernel failed (see the messages above)");
 }

@@ -60,8 +60,9 @@ void task1(int L, CiDLPasses *iDL, CLTreeS *seqsTS, int M, std::atomic<int> *nex
     int *tmpArray1 = new int[L];
     int *tmpArray2 = new int[L];
     //for(int j=0;j<iDL->M;j++){
-    CLTreeS *seqsTSj= new CLTreeS();
-    seqsTS->cloneReorder(seqsTSj, iDL->passOrder[j], L,L,b, tmpArray1, tmpArray2);
+    // Phase 7: prefix-split passes use the identity order -> traverse the shared trie itself (read-only)
+    CLTreeS *seqsTSj = seqsTS;
+    if (!iDL->identityOrder) { seqsTSj = new CLTreeS(); seqsTS->cloneReorder(seqsTSj, iDL->passOrder[j], L,L,b, tmpArray1, tmpArray2); }
     // Phase 7: class-index increment per depth of the reordered trie = that of the original position placed there
     std::vector<int> step(L);
     for(int d=0; d<L; d++) step[d] = kc->stepPos[iDL->passOrder[j][d]];
@@ -73,8 +74,7 @@ void task1(int L, CiDLPasses *iDL, CLTreeS *seqsTS, int M, std::atomic<int> *nex
     int zero=0;
     if(!((iDL->passTrees[j]->child0==NULL)&&(iDL->passTrees[j]->child1==NULL))) // i.e. if not empty tree
       seqsTSj->DFSTiDL(&seqsTSj,1, &zero, iDL->passTrees+j, 0, b, kc, step.data());
-    seqsTSj->deleteTree(L, b, 1);
-    delete seqsTSj;
+    if (!iDL->identityOrder) { seqsTSj->deleteTree(L, b, 1); delete seqsTSj; }
     
     // print mismatch profile:
     /* for(int si=0;si<nseqs; si++){
@@ -140,6 +140,14 @@ static int gkmKernelPassesAndOutput(OptsGkmKernel &opt, KernelContext &kc, CLTre
     //iDL.initPassOrderAll(L, kc.maxmm);
     //iDL.newGreedyIDLPasses(L,iDL.M,  kc.maxmm, nodesAtDepthCnt, p);
     
+    // Phase 7: the greedy iDL design materialises every mismatch pattern with <= maxmm ones; for long
+    // words (multi-track, large -d) the prefix-split design enumerates them implicitly instead
+    bool prefixSplit = (opt.passDesign == 2) || (opt.passDesign == 0 && CiDLPasses::patternCount(L, kc.maxmm) > GKM_MAX_PATTERN_TABLE);
+    if (prefixSplit) {
+      int q = 6; if (q > L) q = L;
+      iDL.newPrefixSplitPasses(L, kc.maxmm, q);
+      gkmMsg("Long words: %d prefix-split passes (%.3g mismatch patterns).\n", iDL.M, CiDLPasses::patternCount(L, kc.maxmm));
+    } else
     iDL.newGreedyIDLPasses(L,2*L,  kc.maxmm, nodesAtDepthCnt, p);
     
     //iDL.newGreedy2IDLPasses(L,2*L,  kc.maxmm, nodesAtDepthCnt, p);
@@ -681,11 +689,6 @@ int gkmKernelMultiTrack(OptsGkmKernel &opt, const TrackAlphabets &ta)
   gkmMsg("\n maximumMismatch = %d (%d of %d classes reachable)\n", maxnmm, (int)reach.size(), av.nclasses);
   for (size_t q = 0; q < reach.size(); q++) gkmMsg("\n c[%s] = %e", av.classLabel(reach[q]).c_str(), c[reach[q]]);
   Printf("\n");
-  // the pass design enumerates every mismatch pattern with <= maxnmm ones (D10; lifted in 7d)
-  {
-    double npat = 0; for (int i = 0; i <= maxnmm; i++) npat += dCombinations(ell, i);
-    if (npat > 4.0 * 1048576.0) { gkmMsg("\n ERROR: %d positions with up to %d mismatches give %.3g mismatch patterns; this version supports at most 4 million (lower -d, or use a shorter window).\n", ell, maxnmm, npat); return 1; }
-  }
 
   CLTreeS *seqsTS = new CLTreeS();
   std::vector<int> LmersCnt;

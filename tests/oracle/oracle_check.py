@@ -198,9 +198,15 @@ def check_multitrack_kernels(bindir, tmp, failures):
     import twoblock_gkm as tb
     n = 0
     cases = [("meth", ["ACGT", "01"], "dna,=01", 6, 4, [None, 4]),
-             ("mt3", ["ACGT", "NUM"], "dna,=NUM", 5, 3, [None, 3])]
+             ("mt3", ["ACGT", "NUM"], "dna,=NUM", 5, 3, [None, 3]),
+             # Phase 7d, general B: three tracks (r = 3), and four tracks with two 4-symbol tracks (r = 3, T = 4)
+             ("three_tracks", ["ACGT", "01", "abc"], "dna,=01,=abc", 3, 4, [None, 5]),
+             ("mt4", ["ACGT", "01", "NUM", "wxyz"], "dna,=01,=NUM,=wxyz", 4, 5, [None, 4])]
     for stem, alphabets, spec, L, K, ds in cases:
-        pos, neg = FIX + f"/{stem}_pos.mfa", FIX + f"/{stem}_neg.mfa"
+        if stem == "three_tracks":
+            pos = neg = FIX + "/three_tracks.mfa"
+        else:
+            pos, neg = FIX + f"/{stem}_pos.mfa", FIX + f"/{stem}_neg.mfa"
         seqs = gb.read_mfa(pos, alphabets) + gb.read_mfa(neg, alphabets)
         for rc in (True, False):
             for t, kind in KINDS.items():
@@ -210,22 +216,26 @@ def check_multitrack_kernels(bindir, tmp, failures):
                     argv = [os.path.join(bindir, "gkmsvm_kernel"), "-l", str(L), "-k", str(K), "-d", str(-1 if d is None else d), "-t", str(t), "-A", spec]
                     if not rc:
                         argv.append("-R")
-                    argv += [pos, neg, out]
-                    p = subprocess.run(argv, capture_output=True, text=True)
-                    if p.returncode != 0:
-                        failures.append(f"{' '.join(argv)} failed: {p.stdout[-300:]}")
-                        continue
-                    rows = [ln.split() for ln in open(out).read().splitlines() if ln.strip()]
-                    if len(rows) != len(seqs):
-                        failures.append(f"multitrack {stem} t={t} rc={rc} d={d}: {len(rows)} rows, expected {len(seqs)}")
-                        continue
-                    for i, row in enumerate(rows):
-                        for j, sv in enumerate(row):
-                            n += 1
-                            if not rel_close(float(sv), exact[i][j], 2e-6, 1e-7):
-                                failures.append(f"multitrack {stem} t={t} rc={rc} d={d}: K[{i}][{j}] C++ {sv} vs exact {exact[i][j]!r}")
+                    for design in (0, 2):   # automatic (greedy table here) and the prefix-split passes: identical results
+                        # options before the positionals: BSD getopt (macOS) stops at the first non-option
+                        p = subprocess.run(argv + ["-P", str(design), pos, neg, out], capture_output=True, text=True)
+                        if p.returncode != 0:
+                            failures.append(f"{' '.join(argv)} -P {design} failed: {p.stdout[-300:]}")
+                            if os.path.exists(out):
+                                os.remove(out)   # never let a later comparison read a stale file
+                            continue
+                        rows = [ln.split() for ln in open(out).read().splitlines() if ln.strip()]
+                        if len(rows) != len(seqs):
+                            failures.append(f"multitrack {stem} t={t} rc={rc} d={d} P={design}: {len(rows)} rows, expected {len(seqs)}")
+                            continue
+                        for i, row in enumerate(rows):
+                            for j, sv in enumerate(row):
+                                n += 1
+                                if not rel_close(float(sv), exact[i][j], 2e-6, 1e-7):
+                                    failures.append(f"multitrack {stem} t={t} rc={rc} d={d} P={design}: K[{i}][{j}] C++ {sv} vs exact {exact[i][j]!r}")
                     # the independent two-block implementation (automatic d only: it has no bound)
-                    if stem == "meth" and d is None:
+                    if stem == "meth" and d is None and os.path.exists(out):
+                        rows = [ln.split() for ln in open(out).read().splitlines() if ln.strip()]
                         tseqs = tb.read_2fa(pos) + tb.read_2fa(neg)
                         tk = tb.kernel_matrix(tseqs, L, K, kind, revcomp=rc)
                         for i, row in enumerate(rows):
@@ -262,6 +272,26 @@ def check_classify_multitrack(bindir, tmp, failures):
     rho = [float(ln.split()[1]) for ln in open(FIX + "/sv_meth.gkmmodel") if ln.startswith("#rho")][0]
     L, K = 6, 4
     B = (4,) * L + (2,) * L
+    # Phase 7d: a four-track model (r = 3) through the .gkmmodel route
+    a4 = ["ACGT", "01", "NUM", "wxyz"]
+    test4 = gb.read_mfa(FIX + "/test_mt4.mfa", a4)
+    svs4 = gb.read_mfa(FIX + "/sv_mt4.gkmmodel", a4)
+    alphas4 = [float(ln.split("\t")[1]) for ln in open(FIX + "/sv_mt4.gkmmodel") if ln.startswith(">")]
+    rho4 = [float(ln.split()[1]) for ln in open(FIX + "/sv_mt4.gkmmodel") if ln.startswith("#rho")][0]
+    for rc in (True, False):
+        for t, kind in KINDS.items():
+            exact = exact_scores(test4, svs4, alphas4, 4, 5, kind, 16, rc, (4,) * 4 + (2,) * 4 + (3,) * 4 + (4,) * 4, rho4)
+            out = os.path.join(tmp, "s4.txt")
+            argv = [os.path.join(bindir, "gkmsvm_classify"), "-l", "4", "-k", "5", "-d", "-1", "-t", str(t)] + (["-R"] if not rc else []) + [FIX + "/test_mt4.mfa", FIX + "/sv_mt4.gkmmodel", FIX + "/sv_mt4.gkmmodel", out]
+            p = subprocess.run(argv, capture_output=True, text=True)
+            if p.returncode != 0:
+                failures.append(f"classify four-track t={t} rc={rc}: exit {p.returncode}: {p.stdout[-300:]}")
+                continue
+            got = [float(ln.split()[1]) for ln in open(out) if ln.strip()]
+            for i, (g, e) in enumerate(zip(got, exact)):
+                n += 1
+                if abs(g - e) > 2e-6:
+                    failures.append(f"classify four-track t={t} rc={rc}: seq {i} C++ {g} vs exact {e:.7f}")
     for model in ("pair", "gkmmodel"):
         for rc in (True, False):
             for t, kind in KINDS.items():

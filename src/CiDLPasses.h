@@ -10,6 +10,7 @@
 #define __gkmsvmXC__CiDLPasses__
 
 #include <stdio.h>
+#include <vector>
 #include "CbinMMtree.h"
 
 class CiDLPasses
@@ -30,6 +31,17 @@ public:
     void newIDLPasses(int L, int Dmax); // generates M circular passes and assigns L-mers to the trees based on min iDL rule.
     void newGreedyIDLPasses(int L, int M, int Dmax, int *nodesAtDepthCnt, double p); // uses the greedty alg to assign to trees. p =1/b prob(match)
     void newGreedy2IDLPasses(int L, int M, int Dmax, int *nodesAtDepthCnt, double p); // uses the greedty 2alg to assign to trees. p =1/b prob(match)
+    // Phase 7 (long words): one pass per match/mismatch pattern of the first q positions (with <= Dmax
+    // mismatches), the remaining positions bounded by an implicit (depth, mismatches used) DAG that plugs
+    // into the DFS through the same child0/child1 pointers. Every pattern with <= Dmax mismatches is
+    // enumerated exactly once, no pattern table is materialised, and all passes use the identity order
+    // (identityOrder = 1: the driver traverses the trie itself instead of a reordered clone).
+    void newPrefixSplitPasses(int L, int Dmax, int q);
+    int identityOrder;      // 1 when every passOrder is the identity (prefix-split passes)
+    static double patternCount(int L, int Dmax); // number of binary L-mers with <= Dmax ones
+private:
+    std::vector<CbinMMtree> arena; // nodes of the prefix-split passes (shared DAG; not deleted through deleteTree)
+public:
 
     void deletePassOrder();
     double calcSlope(int *lmer, int *order, int L); // calculates slope (max #1s / total)

@@ -13,6 +13,7 @@
 CiDLPasses::CiDLPasses(void){
   L=0; // Length
   M=0; // number of passes
+  identityOrder=0;
   //Dmax=0; // maximum number of mismatches
   passOrder=NULL; // order of the bases to be traversed. each of passOrder[0..M-1] is a permutation of 0..L-1
   passTrees=NULL; // for each of the M passes, there is a tree that holds all the mismatch (binary) L-mers that
@@ -565,11 +566,63 @@ void CiDLPasses::deletePassOrder(){
 
 void CiDLPasses::deletePassTrees(){
   if(passTrees!=NULL){
-    for(int i=0;i<M;i++){
-      if(passTrees[i]!=NULL){ passTrees[i]->deleteTree(); delete passTrees[i]; }
+    if(arena.empty()){
+      for(int i=0;i<M;i++){
+        if(passTrees[i]!=NULL){ passTrees[i]->deleteTree(); delete passTrees[i]; }
+      }
     }
     delete []passTrees;
     passTrees=NULL;
+  }
+  arena.clear();
+  identityOrder=0;
+}
+
+double CiDLPasses::patternCount(int L, int Dmax){
+  double n = 0;
+  for(int i=0;i<=Dmax && i<=L;i++) n += dCombinations(L, i);
+  return n;
+}
+
+void CiDLPasses::newPrefixSplitPasses(int L, int Dmax, int q){
+  if(q>L) q=L;
+  if(q<0) q=0;
+  deletePassTrees();
+  deletePassOrder();
+  this->L = L;
+  // the passes: every q-bit prefix with at most Dmax ones
+  std::vector<int> prefixes;
+  for(int pat=0; pat<(1<<q); pat++){
+    int ones=0; for(int i=0;i<q;i++) ones += (pat>>i)&1;
+    if(ones<=Dmax) prefixes.push_back(pat);
+  }
+  M = (int)prefixes.size();
+  passOrder = new int *[M];
+  for(int j=0;j<M;j++){ passOrder[j] = new int[L]; for(int d=0;d<L;d++) passOrder[j][d]=d; }
+  identityOrder = 1;
+  // arena: chain nodes (M*q) + DAG nodes for depths q..L and 0..Dmax mismatches used
+  int nd = L-q+1;
+  arena.assign((size_t)M*q + (size_t)nd*(Dmax+1), CbinMMtree());
+  CbinMMtree *dag = arena.data() + (size_t)M*q; // dag[(d-q)*(Dmax+1)+u]
+  for(int d=q; d<=L; d++){
+    for(int u=0;u<=Dmax;u++){
+      CbinMMtree &node = dag[(size_t)(d-q)*(Dmax+1)+u];
+      if(d==L){ node.child0=node.child1=NULL; continue; } // leaf level: never dereferenced by the DFS
+      node.child0 = &dag[(size_t)(d+1-q)*(Dmax+1)+u];
+      node.child1 = (u<Dmax) ? &dag[(size_t)(d+1-q)*(Dmax+1)+u+1] : NULL;
+    }
+  }
+  passTrees = new CbinMMtree *[M];
+  for(int j=0;j<M;j++){
+    int pat = prefixes[j], ones=0;
+    CbinMMtree *chain = arena.data() + (size_t)j*q;
+    for(int i=0;i<q;i++){
+      int bit = (pat>>i)&1; ones += bit;
+      CbinMMtree *next = (i+1<q) ? &chain[i+1] : &dag[(size_t)0*(Dmax+1)+ones];
+      chain[i].child0 = bit ? NULL : next;
+      chain[i].child1 = bit ? next : NULL;
+    }
+    passTrees[j] = (q>0) ? &chain[0] : &dag[0];
   }
 }
 

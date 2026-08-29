@@ -40,7 +40,7 @@ run_golden_case_R <- function(case, outfile) {
     args <- c(list(posfile = fx(case$pos), negfile = fx(case$neg), outfile = outfile), common,
               list(nmaxThreads = num_or(case$T, 1000), mergeByName = identical(case$N, "1"),
                    format = if (identical(case$bin, "1")) "binary" else "text",
-                   tileRows = num_or(case$r, 0)))
+                   tileRows = num_or(case$r, 0), passDesign = num_or(case$P, 0)))
     do.call(gkmSVM::gkmsvm_kernel, args)
   } else {
     args <- c(list(seqfile = fx(case$seq), svmfnprfx = NA, outfile = outfile), common,

@@ -33,6 +33,7 @@ struct OptsGkmKernel {
 	int maxnThread = 1000;
 	int tileRows = 0;          // -r: rows of the mismatch profile held at once (0 = automatic from tileMemoryMB)
 	int tileMemoryMB = 1024;   // memory budget for the profile when tileRows is automatic
+	int passDesign = 0;        // -P: 0 automatic (greedy iDL table up to GKM_MAX_PATTERN_TABLE patterns, prefix-split beyond), 1 greedy iDL, 2 prefix-split (Phase 7)
 };
 
 struct OptsSVMClassify {
