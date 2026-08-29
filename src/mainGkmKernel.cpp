@@ -60,7 +60,7 @@ static int gkmKernelSuffixTree(OptsGkmKernel &opt)
 void print_usage_and_exit_gkmKernel(const char *prog)
 {
     Printf("\n");
-    sprintf(globtmpstr, " Usage: %s [options] <pos_seqfile> <neg_seqfile> <outfile>\n",prog );Printf(globtmpstr);
+    snprintf(globtmpstr, GKM_TMPSTR_LEN, " Usage: %s [options] <pos_seqfile> <neg_seqfile> <outfile>\n",prog );Printf(globtmpstr);
     Printf("\n");
 	Printf("  generates a lower triangle of kernel matrix (i.e. pairwise similarities)\n");
 	Printf("  between the sequences.\n");
@@ -71,26 +71,26 @@ void print_usage_and_exit_gkmKernel(const char *prog)
 	Printf("  outfile: output file name\n");
     Printf(" \n");
     Printf(" Options:\n");
-    sprintf(globtmpstr,"  -l L           set word length, default= %d\n", DEF_L); Printf(globtmpstr);
-	sprintf(globtmpstr,"  -k K           set number of informative columns, default= %d \n",DEF_K); Printf(globtmpstr);
-	sprintf(globtmpstr,"  -d maxMismatch set maximum number of mismatches to consider, default= %d \n", DEF_D); Printf(globtmpstr);
-    sprintf(globtmpstr,"%s","  -m maxSeqLen   set maximum sequence length in the sequence files,\n"); Printf(globtmpstr);
-	sprintf(globtmpstr,"                 default= %d \n", DEF_MAXSEQLEN); Printf(globtmpstr);
-	sprintf(globtmpstr,"%s", "  -n maxNumSeq   set maximum number of sequences in the sequence files,\n"); Printf(globtmpstr);
-	sprintf(globtmpstr, "                 default= %d\n", DEF_MAXNUMSEQ); Printf(globtmpstr);
-	sprintf(globtmpstr,"%s", "  -t filterType  set filter type: 0(use full filter), 1(use truncated filter:\n" ); Printf(globtmpstr);
-	sprintf(globtmpstr,"%s", "                 this gaurantees non-negative counts for all L-mers), 2(use h[m],\n"); Printf(globtmpstr);
-	sprintf(globtmpstr, "                 gkm count vector), 3(wildcard), 4(mismatch), default=%d\n",DEF_TGKM ); Printf(globtmpstr);
-	sprintf(globtmpstr,"%s", "  -a algorithm   set algorithm type: 0(auto), 1(XOR Hashtable), 2(tree),\n"); Printf(globtmpstr);
-	sprintf(globtmpstr,"%s", "                 default=0\n"); Printf(globtmpstr);
-	sprintf(globtmpstr,"%s", "  -R             if set, reverse complement sequences will NOT be considered\n"); Printf(globtmpstr);
-	sprintf(globtmpstr,"%s", "  -p             if set, a constant to will be added to the count estimates\n"); Printf(globtmpstr);
-	sprintf(globtmpstr,"%s", "  -M             max mismatch for Mismatch kernel or wildcard kernel, default=2\n"); Printf(globtmpstr);
-	sprintf(globtmpstr,"%s", "  -L             lambda for wildcard kernel, defaul=1.0\n"); Printf(globtmpstr);
-    sprintf(globtmpstr,"%s", "  -A             alphabets file name, if not specified, it is assumed the inputs are DNA sequences \n"); Printf(globtmpstr);
-    sprintf(globtmpstr,"%s", "  -T             maximum number of threads, defaul=2*l\n"); Printf(globtmpstr);
-    sprintf(globtmpstr,"%s", "  -N             merge records that share a name within a file into one row (default: one record = one row)\n"); Printf(globtmpstr);
-    sprintf(globtmpstr,"%s", "  -b             write the kernel in the binary .gkmk format (float32) instead of text\n"); Printf(globtmpstr);
+    snprintf(globtmpstr, GKM_TMPSTR_LEN,"  -l L           set word length, default= %d\n", DEF_L); Printf(globtmpstr);
+	snprintf(globtmpstr, GKM_TMPSTR_LEN,"  -k K           set number of informative columns, default= %d \n",DEF_K); Printf(globtmpstr);
+	snprintf(globtmpstr, GKM_TMPSTR_LEN,"  -d maxMismatch set maximum number of mismatches to consider, default= %d \n", DEF_D); Printf(globtmpstr);
+    snprintf(globtmpstr, GKM_TMPSTR_LEN,"%s","  -m maxSeqLen   set maximum sequence length in the sequence files,\n"); Printf(globtmpstr);
+	snprintf(globtmpstr, GKM_TMPSTR_LEN,"                 default= %d \n", DEF_MAXSEQLEN); Printf(globtmpstr);
+	snprintf(globtmpstr, GKM_TMPSTR_LEN,"%s", "  -n maxNumSeq   set maximum number of sequences in the sequence files,\n"); Printf(globtmpstr);
+	snprintf(globtmpstr, GKM_TMPSTR_LEN, "                 default= %d\n", DEF_MAXNUMSEQ); Printf(globtmpstr);
+	snprintf(globtmpstr, GKM_TMPSTR_LEN,"%s", "  -t filterType  set filter type: 0(use full filter), 1(use truncated filter:\n" ); Printf(globtmpstr);
+	snprintf(globtmpstr, GKM_TMPSTR_LEN,"%s", "                 this gaurantees non-negative counts for all L-mers), 2(use h[m],\n"); Printf(globtmpstr);
+	snprintf(globtmpstr, GKM_TMPSTR_LEN, "                 gkm count vector), 3(wildcard), 4(mismatch), default=%d\n",DEF_TGKM ); Printf(globtmpstr);
+	snprintf(globtmpstr, GKM_TMPSTR_LEN,"%s", "  -a algorithm   set algorithm type: 0(auto), 1(XOR Hashtable), 2(tree),\n"); Printf(globtmpstr);
+	snprintf(globtmpstr, GKM_TMPSTR_LEN,"%s", "                 default=0\n"); Printf(globtmpstr);
+	snprintf(globtmpstr, GKM_TMPSTR_LEN,"%s", "  -R             if set, reverse complement sequences will NOT be considered\n"); Printf(globtmpstr);
+	snprintf(globtmpstr, GKM_TMPSTR_LEN,"%s", "  -p             if set, a constant to will be added to the count estimates\n"); Printf(globtmpstr);
+	snprintf(globtmpstr, GKM_TMPSTR_LEN,"%s", "  -M             max mismatch for Mismatch kernel or wildcard kernel, default=2\n"); Printf(globtmpstr);
+	snprintf(globtmpstr, GKM_TMPSTR_LEN,"%s", "  -L             lambda for wildcard kernel, defaul=1.0\n"); Printf(globtmpstr);
+    snprintf(globtmpstr, GKM_TMPSTR_LEN,"%s", "  -A             alphabets file name, if not specified, it is assumed the inputs are DNA sequences \n"); Printf(globtmpstr);
+    snprintf(globtmpstr, GKM_TMPSTR_LEN,"%s", "  -T             maximum number of threads, defaul=2*l\n"); Printf(globtmpstr);
+    snprintf(globtmpstr, GKM_TMPSTR_LEN,"%s", "  -N             merge records that share a name within a file into one row (default: one record = one row)\n"); Printf(globtmpstr);
+    snprintf(globtmpstr, GKM_TMPSTR_LEN,"%s", "  -b             write the kernel in the binary .gkmk format (float32) instead of text\n"); Printf(globtmpstr);
     
     Printf(" \n");
 }
@@ -304,9 +304,9 @@ int gkmKernelSimple(OptsGkmKernel &opt)  //Use XOR precomputed hash table
 
     }
 
-	sprintf(globtmpstr,"\n maximumMismatch = %d\n", maxnmm);Printf(globtmpstr);
+	snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n maximumMismatch = %d\n", maxnmm);Printf(globtmpstr);
 	for(int ii=0;ii<=maxnmm;ii++) {
-		sprintf(globtmpstr,"\n c[%d] = %e",ii,c[ii] ); Printf(globtmpstr);
+		snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n c[%d] = %e",ii,c[ii] ); Printf(globtmpstr);
 	}
 	Printf("\n");
 
@@ -375,6 +375,7 @@ int gkmKernelSimple(OptsGkmKernel &opt)  //Use XOR precomputed hash table
 
 	nneg = nseqs - npos;
 	for(i=0;i<nseqs;i++) { records[i].id = seqRecordId(i, npos); records[i].label = (i<npos) ? 1 : -1; }
+	(void)nneg; (void)n0; // kept for symmetry with the tree path (pseudo-counts are not applied by the XOR algorithm)
 
 	for(i=0;i<nseqs;i++)
 	{
@@ -399,7 +400,7 @@ int gkmKernelSimple(OptsGkmKernel &opt)  //Use XOR precomputed hash table
 
 	if (fo) fclose(fo); 
 	else if (bin.write(opt.outfile, records) != 0) return gkmCannotOpen(outFN);
-	if (writeIndexSidecar(opt.outfile, records) != 0) { sprintf(globtmpstr,"\n WARNING: could not write %s.index\n", outFN); Printf(globtmpstr); }
+	if (writeIndexSidecar(opt.outfile, records) != 0) { snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n WARNING: could not write %s.index\n", outFN); Printf(globtmpstr); }
 	//delete []tmps; 
 	delete []mmcnt;
 	for(i=0;i<nseqs;i++)

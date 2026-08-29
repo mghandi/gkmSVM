@@ -710,3 +710,12 @@ and text-vs-binary kernel size and R load time.
   gate; the exact alternative *is* the per-`m` count, i.e. the profile), tiling for bounded memory,
   the per-pass tree clone, and 4b-2 (kernel on the fly). Suggested next step: keep integer per-`m`
   counts but accumulate them per *tile* of sequence pairs, which keeps exactness and bounds memory.
+* **Phase 0b — done (PR: `phase0b/cran-reconciliation`, stacked on Phase 6).** CRAN 0.83.0 diffed
+  against `222cc50`: taken — `Imports`/`Suggests` layout with `::`-qualified Bioconductor calls
+  (`genNullSeqs.R` wholesale, `gkmsvm_delta.R`, `gkmsvm_trainCV.R`), `.registration = TRUE`,
+  the `genNullSeqs`/`gkmsvm_delta`/package `.Rd` fixes, `snprintf` hardening (done on this tree's
+  sources with explicit bounds: `GKM_TMPSTR_LEN`, `MAX_LINE_WIDTH`, `strcpy` into `strlen+1` buffers —
+  0 unbounded `sprintf` left outside `src/libsvm`); this tree wins on `alg=2`, `nmaxThreads`,
+  `normalizePath`, duplicate-ID handling. `Version: 0.90.0`. CI gains a real `R CMD check --as-cran`
+  job (`_R_CHECK_FORCE_SUGGESTS_=false`). Maintainer left as in this repository (Mahmoud); who
+  publishes the next CRAN release is a question for Mike Beer (plan §3, Phase 0b).

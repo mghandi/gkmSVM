@@ -1,8 +1,4 @@
 
-if (requireNamespace("GenomicRanges", quietly = TRUE)&
-    requireNamespace("rtracklayer", quietly = TRUE)&
-    requireNamespace("BSgenome", quietly = TRUE)){
-
 # generates null sequences (negative set) with matching repeat and GC content
 # example: 
 #
@@ -28,6 +24,16 @@ genNullSeqs = function(
   nMaxTrials = 20, 
   genome = NULL  # if genome is provided, genome version is ignored 
 ){
+  
+  
+  if (requireNamespace("GenomicRanges", quietly = TRUE)&
+      requireNamespace("rtracklayer", quietly = TRUE)&
+      requireNamespace("BiocGenerics", quietly = TRUE)&
+      requireNamespace("Biostrings", quietly = TRUE)&
+      requireNamespace("GenomeInfoDb", quietly = TRUE)&
+      requireNamespace("IRanges", quietly = TRUE)&
+      requireNamespace("S4Vectors", quietly = TRUE)){
+    
     
     #inputBedFile = '~/Downloads/ctcfpos.bed'
     #xfold = 1; 
@@ -281,7 +287,7 @@ genNullSeqs = function(
     }
 
     outbed = gsub(' ','', outbed)
-    write.table(as.matrix(outbed[,1:3]),quote = FALSE, sep='\t',row.names = FALSE, col.names = FALSE , file = outputBedFN)  
+    utils::write.table(as.matrix(outbed[,1:3]),quote = FALSE, sep='\t',row.names = FALSE, col.names = FALSE , file = outputBedFN)  
     if(requireNamespace("seqinr", quietly = TRUE)){
       outseqnams = paste(outbed[,1], outbed[,2], outbed[,3], 'neg', 1:nrow(outbed), sep='_')
       seqinr::write.fasta(sequences = sapply(as.character(outSeq), strsplit,''), names =outseqnams,file.out =   outputNegFastaFN); 
@@ -290,13 +296,15 @@ genNullSeqs = function(
     }
     return(outputNegFastaFN)
     
-  }
+      }else{
+        cat('\n "GenomicRanges" and "rtracklayer" packages are needed. \n')
+      }
 }
 
 if(FALSE){
   
-  genNullSeqs('~/Downloads/ctcfpos.bed', nMaxTrials=2,xfold=3, genomeVersion = 'hg18' );
-  genNullSeqs('~/Downloads/ctcfpos.bed', genomeVersion = 'hg18' );
+#  genNullSeqs('~/Downloads/ctcfpos.bed', nMaxTrials=2,xfold=3, genomeVersion = 'hg18' );
+#  genNullSeqs('~/Downloads/ctcfpos.bed', genomeVersion = 'hg18' );
   
 #   
 #   inputBedFN='~/Downloads/segway.bed'

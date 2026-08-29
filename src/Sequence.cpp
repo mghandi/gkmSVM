@@ -46,9 +46,9 @@ CSequence::CSequence(int maxLength,  CSequence *sCopyFrom )
 	hasNextName = 0;
 
 //	seqName = new char(maxLength); 
-	sprintf(seqName,"seq_%d",serialnumber++);	 
-	sprintf(seq,"%s","");
-	sprintf(seqLabel,"%s","");
+	snprintf(seqName, MAX_LINE_WIDTH,"seq_%d",serialnumber++);	 
+	seq[0] = 0;
+	snprintf(seqLabel, MAX_LINE_WIDTH,"%s","");
 	//bendingData = NULL; 
 	//this->occupancyData = NULL;
 	weight = 0; 
@@ -60,8 +60,8 @@ CSequence::CSequence(int maxLength,  CSequence *sCopyFrom )
 		// does not copy reverseCompl, if needed later, will recalculate that
 		CSequence *s = sCopyFrom;
 		length = s->getLength(); 
-		sprintf(seqName,"%s", s->getName());
-		sprintf(seqLabel,"%s", s->getLabel());
+		snprintf(seqName, MAX_LINE_WIDTH,"%s", s->getName());
+		snprintf(seqLabel, MAX_LINE_WIDTH,"%s", s->getLabel());
 		int i; 
 		char *sseq = s->getSeq(); 
 		char *ssubseq = s->getSubseq(); 
@@ -202,7 +202,7 @@ int CSequence::readFsa(FILE *f, int SkipAlphabetCheck)  // reads one sequence fr
 		hasNextName = 1;  
 	}
 
-	sprintf(seqName,"%s",(hasNextName?nextName:"NA")); 
+	snprintf(seqName, MAX_LINE_WIDTH,"%s",(hasNextName?nextName:"NA")); 
 	hasNextName = 0; 
 	
 	while(true)
@@ -244,7 +244,7 @@ int CSequence::readFsa(FILE *f, int SkipAlphabetCheck)  // reads one sequence fr
 
 	if (overflow)
 	{
-		sprintf(globtmpstr,"\n ERROR: sequence '%s' is longer than the maximum sequence length %d (set -m / maxseqlen to at least its length).\n", seqName, maxLength-3); Printf(globtmpstr);
+		snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n ERROR: sequence '%s' is longer than the maximum sequence length %d (set -m / maxseqlen to at least its length).\n", seqName, maxLength-3); Printf(globtmpstr);
 		readError = 1; 
 		length = 0; 
 		return -1; 
@@ -371,7 +371,7 @@ void CSequence::mutateOneBase(int pos, baseId nwbid)
 {
 	if (pos>=length)
 	{
-		sprintf(globtmpstr,"\n error : cannot mutate pos %d while length is %d",pos, length); Printf(globtmpstr);
+		snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n error : cannot mutate pos %d while length is %d",pos, length); Printf(globtmpstr);
 		return; 
 	}
 
@@ -398,8 +398,8 @@ CSequence *CSequence::getReverseComplement()
 	else
 	{
 		this->reverseComplement->length = length; 
-		sprintf(this->seqName,"%s", seqName);
-		sprintf(this->seqLabel,"%s",seqLabel); 
+		snprintf(this->seqName, MAX_LINE_WIDTH,"%s", seqName);
+		snprintf(this->seqLabel, MAX_LINE_WIDTH,"%s",seqLabel); 
 	}
 	int i;
 

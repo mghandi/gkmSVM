@@ -7,7 +7,11 @@ Calculating deltaSVM scores
 \description{
 Given support vectors SVs and corresponding coefficients alphas and a pair of file test sequence files (one for reference allele, and one for alternate allele), calculates the deltaSVM scores for the sequences.}
 \usage{
-gkmsvm_delta(seqfile_allele1, seqfile_allele2, svmfnprfx, outfile, L = 10, K = 6, maxnmm = 3, maxseqlen = 10000, maxnumseq = 1e+06, useTgkm = 1, alg = 0, addRC = TRUE, usePseudocnt = FALSE, batchSize = 1e+05, wildcardLambda = 1, wildcardMismatchM = 2, alphabetFN = "NULL", svseqfile = NA, alphafile = NA, outfile_allele1 = NA, outfile_allele2 = NA)
+gkmsvm_delta(seqfile_allele1, seqfile_allele2, svmfnprfx, outfile, L = 10, 
+K = 6, maxnmm = 3, maxseqlen = 10000, maxnumseq = 1e+06, useTgkm = 1, alg = 2, 
+addRC = TRUE, usePseudocnt = FALSE, batchSize = 1e+05, wildcardLambda = 1, 
+wildcardMismatchM = 2, alphabetFN = "NULL", svseqfile = NA,alphafile = NA, 
+outfile_allele1 = NA, outfile_allele2 = NA)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -50,25 +54,24 @@ output filename for gkmSVM scores for the alternate sequences (optional)
   deltaSVM scores
 }
 \references{
+Ghandi M, Mohammad-Noori M, Ghareghani N, Lee D, Garraway LA, and Beer MA. gkmSVM: an R package for gapped-kmer SVM, Bioinformatics 2016.
+
 Ghandi M, Lee D, Mohammad-Noori M, Beer MA. 2014. Enhanced Regulatory Sequence Prediction Using Gapped k-mer Features. PLoS Comput Biol 10: e1003711. 
 
 Lee D, Gorkin DU, Baker M, Strober BJ, Asoni AL, McCallion AS, and Beer MA. A method to predict the impact of regulatory variants from DNA sequence. Nature Genetics 2015. 
-
-Ghandi M, Mohammad-Noori M, Ghareghani N, Lee D, Garraway LA, and Beer MA. gkmSVM an R package for gapped-kmer SVM, Bioinformatics (under review)
-
 }
 \author{
 Mahmoud Ghandi
 }
-\note{
+%%\note{
 %%  ~~further notes~~
-}
+%%}
 
 %% ~Make other sections like Warning with \section{Warning }{....} ~
 
-\seealso{
+%%\seealso{
 %% ~~objects to See Also as \code{\link{help}}, ~~~
-}
+%%}
 \examples{
 
   #Input file names:  
@@ -89,5 +92,5 @@ Mahmoud Ghandi
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
-\keyword{ ~kwd1 }
-\keyword{ ~kwd2 }% __ONLY ONE__ keyword per line
+\keyword{mutation impact}
+\keyword{variant impact}% __ONLY ONE__ keyword per line

@@ -9,5 +9,5 @@
 ^tests/golden$
 ^tests/oracle$
 ^CLAUDE\.md$
-^NEWS\.md$
 ^\.claude$
+^LICENSE$

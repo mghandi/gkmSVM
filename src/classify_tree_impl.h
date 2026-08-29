@@ -1,4 +1,4 @@
-/* classify_tree.inl : the tree (suffix-trie) classify driver, compiled once per alphabet size
+/* classify_tree_impl.h : the tree (suffix-trie) classify driver, compiled once per alphabet size
  * (see trie_b4.cpp / trie_b32.cpp and the note in global.h). Was the second half of mainSVMclassify.cpp.
  */
 #include <stdlib.h>
@@ -104,9 +104,9 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 
     }
     
-	sprintf(globtmpstr,"\n maximumMismatch = %d\n", maxnmm);Printf(globtmpstr);
+	snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n maximumMismatch = %d\n", maxnmm);Printf(globtmpstr);
 	for(int ii=0;ii<=maxnmm;ii++) {
-		sprintf(globtmpstr,"\n c[%d] = %e",ii,c[ii] ); 	Printf(globtmpstr);
+		snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n c[%d] = %e",ii,c[ii] ); 	Printf(globtmpstr);
 	}
 	Printf("\n");
 	
@@ -120,7 +120,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 
 	CSequenceNames *svsn= new CSequenceNames(); 
 	svsn->readSeqNamesandWeights(SVSeqIDsFN); 
-	sprintf(globtmpstr,"\n  %d SV ids read. \n",svsn->Nseqs);Printf(globtmpstr);
+	snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n  %d SV ids read. \n",svsn->Nseqs);Printf(globtmpstr);
 
 	svsn->openSeqFile(SVSeqsFN, maxseqlen);
 
@@ -148,7 +148,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 	
 	if (svsn->error) return 1;
 	double rho = svsn->rho;
-	sprintf(globtmpstr,"  %d SV seqs read \n",nsvseqs); Printf(globtmpstr);
+	snprintf(globtmpstr, GKM_TMPSTR_LEN,"  %d SV seqs read \n",nsvseqs); Printf(globtmpstr);
 
 	delete svsn; 
 
@@ -208,7 +208,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 
 			norm[nseqs]=calcnorm(sgi, addRC, &psetL, c, mmcnt,L, maxnmm);
 			seqname[nseqs] = new char [strlength(sgi->getName())+1]; //XXX: should be freed...
-			sprintf(seqname[nseqs],"%s", sgi->getName());
+			strcpy(seqname[nseqs], sgi->getName()); // buffer sized strlength+1 above
 			//seqname[nseqs] = sgi->getNameLink(); //seqsn->seqNames[ii]; 			
 
 			ntotal = ntotal + LmersCnt[nseqs]; 

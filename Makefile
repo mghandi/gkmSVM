@@ -28,7 +28,7 @@ CXXFLAGS += $(SANFLAGS) -Isrc -MMD -MP   # -MMD: header/.inl dependency files, s
 LDFLAGS  += $(SANFLAGS) -pthread
 
 # Everything in src/ except the Rcpp glue; each src/cli/*.cpp supplies one main().
-LIB_SRCS := $(filter-out src/RcppExports.cpp $(wildcard src/gkmsvm_*.cpp),$(wildcard src/*.cpp)) src/libsvm/svm.cpp
+LIB_SRCS := $(filter-out src/RcppExports.cpp $(wildcard src/gkmsvm_*.cpp),$(wildcard src/*.cpp))   # includes src/libsvm_svm.cpp (the vendored LIBSVM)
 LIB_OBJS := $(patsubst src/%.cpp,$(BUILD)/obj/%.o,$(LIB_SRCS))
 
 BINS := $(BUILD)/gkmsvm_kernel $(BUILD)/gkmsvm_classify $(BUILD)/gkmsvm_train
@@ -42,9 +42,6 @@ $(BUILD)/obj/%.o: src/%.cpp | $(BUILD)/obj
 $(BUILD)/obj/cli_%.o: src/cli/main_%.cpp | $(BUILD)/obj
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(BUILD)/obj/libsvm/svm.o: src/libsvm/svm.cpp | $(BUILD)/obj
-	mkdir -p $(BUILD)/obj/libsvm
-	$(CXX) $(CXXFLAGS) -Wno-unused-but-set-variable -c $< -o $@
 
 $(BUILD)/gkmsvm_%: $(BUILD)/obj/cli_%.o $(LIB_OBJS)
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
@@ -64,4 +61,4 @@ bench: all
 clean:
 	rm -rf build build-asan build-*
 
--include $(wildcard $(BUILD)/obj/*.d $(BUILD)/obj/libsvm/*.d)
+-include $(wildcard $(BUILD)/obj/*.d)

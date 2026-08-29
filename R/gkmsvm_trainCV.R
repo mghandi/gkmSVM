@@ -59,21 +59,21 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
     
     if (showPlots){
       if(!is.na(output)){
-        pdf(output, width=wd*fig.ncols, height=ht*fig.nrows)
+        grDevices::pdf(output, width=wd*fig.ncols, height=ht*fig.nrows)
       }
       
-      par(xaxs="i", yaxs="i", mar=c(3.5,3.5,2,2)+0.1, mgp=c(2,0.8,0), mfrow=c(fig.nrows, fig.ncols))
+      graphics::par(xaxs="i", yaxs="i", mar=c(3.5,3.5,2,2)+0.1, mgp=c(2,0.8,0), mfrow=c(fig.nrows, fig.ncols))
       
       ROCR::plot(perf_roc, colorize=FALSE, main="ROC curve", 
                  xlab="1-Specificity", ylab="Sensitivity", cex.lab=1.2,avg='vertical',spread.estimate='stddev')
-      text(0.2, 0.1, paste("AUC=", format(avgauc, digits=3, nsmall=3)))
+      graphics::text(0.2, 0.1, paste("AUC=", format(avgauc, digits=3, nsmall=3)))
       
       ROCR::plot(perf_prc, colorize=FALSE, main="P-R curve", 
                  xlab="Recall", ylab="Precision", cex.lab=1.2, xlim=c(0,1), ylim=c(0,1),avg='vertical',spread.estimate='stddev')
-      text(0.2, 0.1, paste("AUC=", format(avgprc, digits=3, nsmall=3)))
+      graphics::text(0.2, 0.1, paste("AUC=", format(avgprc, digits=3, nsmall=3)))
       
       if(!is.na(output)){
-        dev.off()
+        grDevices::dev.off()
       }
     }
     #cat(paste("auROC=", format(avgauc, digits=3, nsmall=3), '\n'))
@@ -134,7 +134,7 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
         
         if(nCV<2){
           print("Error:  nCV should be >= 2!")
-          return;
+          return(NULL);
         }
         if(nrepeat>=nseq){
           nrepeat = nseq-1; print(paste('Warning: nrepeat was reduced to',nrepeat));
@@ -205,32 +205,32 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
           for(i in 1:length(seqnames)){
             ii = which(mi==i)
             mnpred[i]=mean(cvpred[ii])
-            sdpred[i]=sd(cvpred[ii])
+            sdpred[i]=stats::sd(cvpred[ii])
           }
           #          res = cbind(seqnames,labels, format(round(cbind(mnpred, sdpred),5),nsmall = 5)); 
           res = cbind(seqnames,format(round(mnpred,5),nsmall = 5),2*labels-1,cv-1 ); 
           colnames(res)= c('seqID', 'cvpred_mean', 'label', 'cv_set')
-          write.table(res, file=paste(outputCVpredfn), quote = FALSE,row.names = FALSE, col.names=FALSE,sep='\t');
+          utils::write.table(res, file=paste(outputCVpredfn), quote = FALSE,row.names = FALSE, col.names=FALSE,sep='\t');
           outres$cvpred = data.frame(seqID=seqnames, cvpred_mean=mnpred, cvpred_sd=sdpred, label =2*labels-1, cv_set=cv-1); 
           #boxplot(as.numeric(res[,3])~as.numeric(res[,2]))
         }
         if(!is.na(outputROCfn)){
-          write.table(aucss, file = paste(outputROCfn), col.names=FALSE, row.names=FALSE, quote=FALSE, sep='\t')
+          utils::write.table(aucss, file = paste(outputROCfn), col.names=FALSE, row.names=FALSE, quote=FALSE, sep='\t')
         }
         
         if(showPlots){
           if(!is.na(outputPDFfn)){
-            pdf(outputPDFfn, width=8, height=4)
+            grDevices::pdf(outputPDFfn, width=8, height=4)
           }            
           if(length(Cs)>1){
-            par(mfrow=c(1,2))
-            plot(aucss[,2],aucss[,3], xlab ='C', ylab='ROC AUC', log='x' ); abline(v=Copt,lty=2)
-            plot(aucss[,2],aucss[,4], xlab ='C', ylab='PRC AUC', log='x' ); abline(v=Copt,lty=2)
+            graphics::par(mfrow=c(1,2))
+            graphics::plot(aucss[,2],aucss[,3], xlab ='C', ylab='ROC AUC', log='x' ); graphics::abline(v=Copt,lty=2)
+            graphics::plot(aucss[,2],aucss[,4], xlab ='C', ylab='PRC AUC', log='x' ); graphics::abline(v=Copt,lty=2)
           }
           rocprc(bestLpreds, bestLlabs,showPlots = TRUE)#, output="~/plots/rocprc.pdf") 
           
           if(!is.na(outputPDFfn)){
-            dev.off();
+            grDevices::dev.off();
           }
         }
         if (!is.na(svmfnprfx)){

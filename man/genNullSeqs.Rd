@@ -21,8 +21,7 @@ genNullSeqs(
   length_match_tol = 0.02, 
   batchsize = 5000, 
   nMaxTrials = 20, 
-  genome = NULL
-)
+  genome = NULL)
 
 }
 %- maybe also 'usage' for other objects documented here.
@@ -64,9 +63,9 @@ genNullSeqs(
      BSgenome object. Default=NULL. If this parameter is used, parameter genomeVersion is ignored. 
      }
 }
-\details{
+%%\details{
 %%  ~~ If necessary, more details than the description above ~~
-}
+%%}
 \value{
 Writes the null sequences to files with the provided filenames. Outputs the filename for the output negative sequences file. 
 %%  ~Describe the value returned
@@ -90,7 +89,8 @@ Mahmoud Ghandi
 # genNullSeqs('ctcfpos.bed', nMaxTrials=3, xfold=2, genomeVersion = 'hg18' );
 
 #Example 3:
-# genNullSeqs('ctcfpos.bed', xfold=2, genomeVersion = 'hg18', outputBedFN = 'ctcf_negSet.bed', outputPosFastaFN = 'ctcf_posSet.fa',outputNegFastaFN = 'ctcf_negSet.fa' );
+# genNullSeqs('ctcfpos.bed', xfold=2, genomeVersion = 'hg18', outputBedFN = 'ctcf_negSet.bed',
+# outputPosFastaFN = 'ctcf_posSet.fa',outputNegFastaFN = 'ctcf_negSet.fa' );
 
 #Example 4:
 # Input file names:  
@@ -106,7 +106,8 @@ Mahmoud Ghandi
   svmfnprfx= 'test_svmtrain'  #SVM files 
   outfn =   'output.txt'      #output scores for sequences in the test set       
 
-#  genNullSeqs(posBedFN, genomeVersion = genomeVer, outputPosFastaFN = posfn, outputNegFastaFN = negfn );
+#  genNullSeqs(posBedFN, genomeVersion = genomeVer, 
+#    outputPosFastaFN = posfn, outputNegFastaFN = negfn );
 
 #  gkmsvm_kernel(posfn, negfn, kernelfn);                #computes kernel 
 #  gkmsvm_train(kernelfn, posfn, negfn, svmfnprfx);       #trains SVM

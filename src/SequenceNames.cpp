@@ -74,7 +74,7 @@ int CSequenceNames::readSeqNames(const char *seqNamesFN)
 	char stmp[10000]; 
 	
 	FILE *f = fopen(seqNamesFN, "r") ; 
-	if (f == NULL) { sprintf(globtmpstr,"\n ERROR: cannot open %s\n", seqNamesFN); Printf(globtmpstr); return 0; }
+	if (f == NULL) { snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n ERROR: cannot open %s\n", seqNamesFN); Printf(globtmpstr); return 0; }
 	while (!feof(f))
 	{
 		if (fgets(stmp, 10000-5, f))
@@ -108,7 +108,7 @@ int CSequenceNames::readSeqNamesandWeights(const char *seqNamesFN)
 	char stmp[10000]; 
 	
 	FILE *f = fopen(seqNamesFN, "r") ; 
-	if (f == NULL) { sprintf(globtmpstr,"\n ERROR: cannot open %s\n", seqNamesFN); Printf(globtmpstr); return 0; }
+	if (f == NULL) { snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n ERROR: cannot open %s\n", seqNamesFN); Printf(globtmpstr); return 0; }
 	// A .gkmmodel file (Phase 4) is a FASTA file whose headers are ">id<TAB>alpha" and whose
 	// comment lines "#key value" carry the bias: "#gkmmodel 1" must be the first line.
 	while (!feof(f))
@@ -126,7 +126,7 @@ int CSequenceNames::readSeqNamesandWeights(const char *seqNamesFN)
 				double w = 0;
 				if (sscanf(stmp, "%s%lf", name, &w)!=2) { delete []name; continue; } // blank/malformed line
 				if (nameIndex.count(name)) {
-					sprintf(globtmpstr,"\n ERROR: sequence name '%s' appears more than once in %s\n", name, seqNamesFN); Printf(globtmpstr);
+					snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n ERROR: sequence name '%s' appears more than once in %s\n", name, seqNamesFN); Printf(globtmpstr);
 					delete []name; error = 1; break;
 				}
 				nameIndex[name] = Nseqs;
@@ -143,7 +143,7 @@ int CSequenceNames::readSeqNamesandWeights(const char *seqNamesFN)
 void CSequenceNames::openSeqFile( const char *seqFN,  int maxSeqLength)
 {
 	this->seqf = fopen(seqFN, "r"); 
-	if (this->seqf == NULL) { sprintf(globtmpstr,"\n ERROR: cannot open %s\n", seqFN); Printf(globtmpstr); }
+	if (this->seqf == NULL) { snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n ERROR: cannot open %s\n", seqFN); Printf(globtmpstr); }
 
 	if (this->curSeq!=NULL) delete curSeq; 
 
@@ -164,7 +164,7 @@ CSequence *CSequenceNames::nextSeq()
 		if (it == nameIndex.end()) continue; // not a support vector
 		int k = it->second;
 		if (used[k]) {
-			sprintf(globtmpstr,"\n ERROR: support vector '%s' appears more than once in the sequence file\n", curSeq->getName()); Printf(globtmpstr);
+			snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n ERROR: support vector '%s' appears more than once in the sequence file\n", curSeq->getName()); Printf(globtmpstr);
 			fclose(seqf); seqf = NULL; error = 1; return NULL;
 		}
 		used[k] = 1;
@@ -178,7 +178,7 @@ CSequence *CSequenceNames::nextSeq()
 	seqf = NULL; 
 	if (nSeqsRead < Nseqs) {
 		int firstMissing = 0; while (firstMissing < Nseqs && used[firstMissing]) firstMissing++;
-		sprintf(globtmpstr,"\n ERROR: the sequences for only %d out of %d support vectors were found in the sequence file (first missing: '%s')\n", nSeqsRead, Nseqs, seqNames[firstMissing]); Printf(globtmpstr);
+		snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n ERROR: the sequences for only %d out of %d support vectors were found in the sequence file (first missing: '%s')\n", nSeqsRead, Nseqs, seqNames[firstMissing]); Printf(globtmpstr);
 		error = 1;
 	}
 	return NULL; 

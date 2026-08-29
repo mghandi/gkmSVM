@@ -4,7 +4,8 @@
 \title{Training the SVM model}
 \description{Using the kernel matrix created by 'gkmsvm_kernel', this function trains the SVM classifier, either through the 'kernlab' package (default) or through the LIBSVM solver embedded in the package (\code{backend="libsvm"}).}
 \usage{gkmsvm_train(kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, shrinking=FALSE,
-             backend=c("kernlab", "libsvm"), posWeight=1, eps=0.001, nfold=0, quiet=TRUE, ...)}
+             backend=c("kernlab", "libsvm"), posWeight=1, eps=0.001, nfold=0,
+             quiet=TRUE, ...)}
 \arguments{
   \item{kernelfn}{kernel matrix file name}
   \item{posfn}{positive sequences file name}
