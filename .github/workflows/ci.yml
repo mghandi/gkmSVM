@@ -76,9 +76,14 @@ jobs:
         run: cat gkmSVM.Rcheck/00check.log || true
 
   bench:
-    name: Benchmark gate (vs. master, same runner)
+    name: Benchmark (advisory; vs. the base branch on the same runner)
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    # Shared runners vary by +-10% between runs of the same code (measured: 12.96 s / 13.45 s, then
+    # 18.70 s / 16.86 s for one unchanged kernel), so a 2% threshold here only produces noise. The
+    # numbers are printed for information; the real gate is `dev/bench.sh` best-of-5 on a quiet
+    # machine, recorded in every PR description.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }

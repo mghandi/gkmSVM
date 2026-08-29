@@ -780,3 +780,8 @@ and text-vs-binary kernel size and R load time.
   buffer, same `Printf` sink → `Rprintf` in the package, `printf` in the CLI). **Phase 2's rule 1 now
   holds in full: `src/` has no mutable globals** (the per-instantiation DFS scratch went in 2b, the
   alphabet in 2c). Golden 145/145, ASAN clean, oracle OK (it parses the `c[m] = …` lines, unchanged).
+* **CI benchmark job made advisory.** The same Phase 2d code measured base 12.96 s / new 13.45 s
+  (+3.75 %, "failed") and, re-run minutes later, base 18.70 s / new 16.86 s (−9.8 %); locally the two
+  builds are 6.34 s vs 6.31 s. Shared runners cannot resolve 2 %; the job now prints its numbers with
+  `continue-on-error`, and the 2 % gate is applied to `dev/bench.sh` best-of-5 on this machine,
+  quoted in each PR.

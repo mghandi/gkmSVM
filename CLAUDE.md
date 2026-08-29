@@ -21,7 +21,7 @@ numerical oracle for this refactor, and its theory is the target of Phase 7.
   `dev/REFACTORING_PLAN.md`, `dev/baseline.sh`, `CLAUDE.md`, `.claude/settings.json`,
   `.Rbuildignore`, `.gitignore`. `src/` and `R/` are untouched at `222cc50`.
 * **Branch stack (none merged): `phase0/baseline-safety-net` (PR #7) ← `phase1/latent-bug-fixes`
-  (PR #8) ← `phase2/core-extraction` (PR #9, Phase 2a) ← `phase3/sequence-identity` (PR #10) ← `phase4/binary-formats` (PR #11) ← `phase4b/libsvm-train` (PR #12) ← `phase5/alphabet-generalisation` (PR #13) ← `phase6/performance` (PR #14) ← `phase0b/cran-reconciliation` (PR #15) ← `phase2b/kernel-context` (PR #16) ← `phase6b/tiled-profile` (PR #17) ← `phase2c/alphabet-per-call` (PR #18) ← `phase2d/reporter`.** CI (ubuntu gcc/clang,
+  (PR #8) ← `phase2/core-extraction` (PR #9, Phase 2a) ← `phase3/sequence-identity` (PR #10) ← `phase4/binary-formats` (PR #11) ← `phase4b/libsvm-train` (PR #12) ← `phase5/alphabet-generalisation` (PR #13) ← `phase6/performance` (PR #14) ← `phase0b/cran-reconciliation` (PR #15) ← `phase2b/kernel-context` (PR #16) ← `phase6b/tiled-profile` (PR #17) ← `phase2c/alphabet-per-call` (PR #18) ← `phase2d/reporter` (PR #19).** CI (ubuntu gcc/clang,
   macOS, ASAN+UBSAN, R, benchmark gate) is green on every branch from #9 up after the Linux
   portability fixes were forward-merged through the stack; #7 and #8 are red on Linux by design
   (see the plan §7, "Linux CI reconciliation"). If you change something on a lower branch, merge it
@@ -106,6 +106,8 @@ Measured on this machine; `dev/baseline.sh` reproduces all of them.
   `dev/REFACTORING_PLAN.html` once. Add named paths.
 * Keep `dev/` out of the built package (`.Rbuildignore` already does this).
 * Every claim in a PR description that is a number must come from a command you actually ran.
+* The CI benchmark job is advisory (shared runners vary ±10 % run to run); the 2 % gate is
+  `dev/bench.sh` best-of-5 on a quiet local machine, quoted in the PR.
 
 ## 7. Unattended (overnight) runs — decision defaults
 
