@@ -49,7 +49,7 @@ def build_argv(c, bindir, outfile):
     exe = os.path.join(bindir, "gkmsvm_kernel" if c["tool"] == "kernel" else "gkmsvm_classify")
     argv = [exe]
     for col, flag in (("L", "-l"), ("K", "-k"), ("d", "-d"), ("t", "-t"), ("alg", "-a"),
-                      ("M", "-M"), ("lam", "-L"), ("T", "-T"), ("batch", "-b"), ("m", "-m"), ("n", "-n")):
+                      ("M", "-M"), ("lam", "-L"), ("T", "-T"), ("batch", "-b"), ("m", "-m"), ("n", "-n"), ("r", "-r")):
         if c.get(col, "") != "":
             argv += [flag, c[col]]
     if c["A"]:

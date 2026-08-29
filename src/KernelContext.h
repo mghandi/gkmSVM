@@ -16,10 +16,11 @@
 #include "global.h"
 
 struct KernelContext {
-	aint ***mmProfile;   // mmProfile[i][m][j], j <= i (lower triangle): number of L-mer pairs of sequences i, j with m mismatches
+	aint ***mmProfile;   // mmProfile[i][m][j], j <= i (lower triangle): number of L-mer pairs of sequences i, j with m mismatches; NULL outside the current tile
 	int maxmm;           // maximum number of mismatches recorded (was gMAXMM)
 	int LM1;             // L - 1 (was gLM1)
-	KernelContext() : mmProfile(NULL), maxmm(0), LM1(0) {}
+	int rowLo, rowHi;    // the tile: only rows i in [rowLo, rowHi] are recorded (Phase 6: bounded memory)
+	KernelContext() : mmProfile(NULL), maxmm(0), LM1(0), rowLo(0), rowHi(0x7fffffff) {}
 };
 
 struct ScoreContext {

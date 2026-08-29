@@ -732,3 +732,16 @@ and text-vs-binary kernel size and R load time.
   `CSequence` a converter parameter) and `globtmpstr` (the message buffer; a `Reporter` with its own
   buffer per call would replace it). Both are safe for sequential calls; neither is touched by worker
   threads except `globtmpstr` in the (now removed) per-pass print.
+* **Phase 6b — tiling, done (PR: `phase6b/tiled-profile`, stacked on Phase 2b).** `KernelContext`
+  gained `rowLo/rowHi`; `DFSTiDL` skips current subtrees whose id range is outside the band and the
+  leaf code skips ids outside it; the driver loops over tiles (allocate rows `lo..hi` in **one block
+  reused by every tile** — freeing and reallocating per tile did *not* lower the resident set on macOS,
+  measured with an instrumented build: the allocator keeps freed large blocks and each tile's block is
+  bigger than the last —, run all passes, write those rows, next tile). `-r rows` /
+  `tileRows`, `tileMemoryMB` (auto: largest tile whose profile fits 1 GB, so nothing changes below
+  n ≈ 16 000 at d=3). Also: `minSeqID` was initialised to 0 and never rose, so the existing
+  `minSeqID > maxSeqID` prune in `DFSTiDL` never fired; fixed (exact: it prunes only `j > i` pairs).
+  Measured (T=8): n=6 000×100 bp 550 → 429 MB, 8.4 → 16.2 s with 6 tiles; n=12 000×60 bp
+  **1 006 → 682 MB**, 20.4 → 35.6 s with 12 tiles; every tiled output byte-identical (13 manual
+  configurations + 5 golden cases + testthat). Remaining Phase 6 items: the per-pass tree clone
+  (the ~250–500 MB "other" term above, ×threads) and 4b-2.

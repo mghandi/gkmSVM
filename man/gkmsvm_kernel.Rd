@@ -7,7 +7,7 @@
 \usage{gkmsvm_kernel(posfile, negfile, outfile, L=10, K=6, maxnmm=3, maxseqlen=10000, 
 maxnumseq=1000000, useTgkm=1, alg=2, addRC=TRUE, usePseudocnt=FALSE, wildcardLambda=1.0,
 wildcardMismatchM=2, alphabetFN="NULL", nmaxThreads=1000, mergeByName=FALSE,
-format=c("text", "binary"))}
+format=c("text", "binary"), tileRows=0, tileMemoryMB=1024)}
 
 \arguments{
 \item{posfile}{positive sequences file name (FASTA format)}
@@ -27,6 +27,8 @@ format=c("text", "binary"))}
 \item{alphabetFN}{alphabet: one of the keywords "dna" (the default), "rna", "protein", or the name of a file listing one symbol per line. A second symbol on a line declares the complement of the first (e.g. "A U"); reverse complements (\code{addRC}) are only added when every symbol has a complement (built in for dna/rna and for any 4-letter file, which is paired 1st-4th, 2nd-3rd). Alphabets of up to 32 symbols are supported; DNA keeps a dedicated fast path.}
 \item{nmaxThreads}{maximum number of threads, defaul=2*L}
 \item{format}{"text" (default) writes the historical tab-separated lower-triangle text file; "binary" writes the compact \code{.gkmk} format (float32, about 3x smaller and much faster to load; see \code{\link{read_gkm_kernel}}). \code{gkmsvm_train} and \code{gkmsvm_trainCV} read both.}
+\item{tileRows}{number of kernel rows computed at once. The mismatch profile of a tile needs about \code{tileRows * (maxnmm+1) * 4 * n} bytes; the default 0 chooses the largest tile that fits \code{tileMemoryMB}. Results do not depend on the tiling (integer counts); more tiles cost more time.}
+\item{tileMemoryMB}{memory budget (MB) for the mismatch profile when \code{tileRows = 0}, default 1024}
 \item{mergeByName}{if TRUE, records that share a name within one FASTA file are merged into a single kernel row (the behaviour of versions before 0.90). Default FALSE: one record = one row. Row identity (id, name, label, length) is written to \code{<outfile>.index}.}
 
 }

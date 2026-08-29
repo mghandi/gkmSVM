@@ -30,7 +30,7 @@ CLTreeS::CLTreeS(void)
     daughter[i].t=NULL;
   }
   maxSeqID=0;
-  minSeqID=0;
+  minSeqID=0x7fffffff; // was 0, which made minSeqID meaningless and the minSeqID/maxSeqID pruning in DFSTiDL dead
   
   nonEmptyDaughterCnt=0;
 }
@@ -46,7 +46,7 @@ void CLTreeS::initTree()
     daughter[i].t=NULL;
   }
   maxSeqID=0;
-  minSeqID=0;
+  minSeqID=0x7fffffff; // was 0, which made minSeqID meaningless and the minSeqID/maxSeqID pruning in DFSTiDL dead
   
   nonEmptyDaughterCnt=0;
 }
@@ -272,6 +272,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
     if (nodei_n==1)
     {
       int curnodeid = nodei->seqIDs.i;
+      if (curnodeid < ctx->rowLo || curnodeid > ctx->rowHi) continue; // outside the tile
       aint **mmprofile=ctx->mmProfile[curnodeid];
       
       for(int i=0;i<listlen;i++)
@@ -369,6 +370,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                 for(int k=0;k<nodei_n;k++)
                 {
                   int curnodeid = nodei->seqIDs.p[k];
+                  if (curnodeid < ctx->rowLo || curnodeid > ctx->rowHi) continue; // outside the tile
                   aint **mmprofile=ctx->mmProfile[curnodeid];
                   
                   //int *mmprofile_curMismatchCntP1_i=mmprofile[1+curMismatchCnt[i]];
@@ -393,6 +395,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                 for(int k=0;k<nodei_n;k++)
                 {
                   int curnodeid = nodei->seqIDs.p[k];
+                  if (curnodeid < ctx->rowLo || curnodeid > ctx->rowHi) continue; // outside the tile
                   aint **mmprofile=ctx->mmProfile[curnodeid];
                   
                   //int *mmprofile_curMismatchCntP1_i=mmprofile[1+curMismatchCnt[i]];
@@ -416,6 +419,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                 for(int k=0;k<nodei->n;k++)
                 {
                   int curnodeid = nodei->seqIDs.p[k];
+                  if (curnodeid < ctx->rowLo || curnodeid > ctx->rowHi) continue; // outside the tile
                   aint **mmprofile=ctx->mmProfile[curnodeid];
                   
                   aint *mmprofile_curMismatchCntP1_i=mmprofile[1+curMismatchCnt[i]];
@@ -429,6 +433,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                 for(int k=0;k<nodei->n;k++)
                 {
                   int curnodeid = nodei->seqIDs.p[k];
+                  if (curnodeid < ctx->rowLo || curnodeid > ctx->rowHi) continue; // outside the tile
                   //int **mmprofile=ctx->mmProfile[curnodeid];
                   
                   //int *mmprofile_curMismatchCntP1_i=mmprofile[1+curMismatchCnt[i]];
@@ -510,6 +515,8 @@ void CLTreeS::DFSTiDL( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
       newMismatchCntnewlistlen = newMismatchCnt;
       newMMtreenewlistlen =newMMtree;
       int daughter_maxSeqID = daughter[bid].t->maxSeqID;
+      // Phase 6 tiling: only rows i in [rowLo, rowHi] are recorded; skip current subtrees outside the band
+      if (daughter_maxSeqID < ctx->rowLo || daughter[bid].t->minSeqID > ctx->rowHi) continue;
       for(int i=0;i<listlen;i++)
       {
         //CLTreeSptr *imatchingLmer =matchingLmers[i];
@@ -624,7 +631,7 @@ void CLTreeS::deleteTree(int n, int alphabetSize, int DontDeleteNodeData)
     daughter[i].t=NULL;
   }
   maxSeqID=0;
-  minSeqID=0;
+  minSeqID=0x7fffffff; // was 0, which made minSeqID meaningless and the minSeqID/maxSeqID pruning in DFSTiDL dead
 }
 
 int CLTreeS::addSequence(int *bid, int n, int L, int seqID)  //adds all the L-subseqs 

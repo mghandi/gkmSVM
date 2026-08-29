@@ -91,6 +91,7 @@ void print_usage_and_exit_gkmKernel(const char *prog)
     snprintf(globtmpstr, GKM_TMPSTR_LEN,"%s", "  -T             maximum number of threads, defaul=2*l\n"); Printf(globtmpstr);
     snprintf(globtmpstr, GKM_TMPSTR_LEN,"%s", "  -N             merge records that share a name within a file into one row (default: one record = one row)\n"); Printf(globtmpstr);
     snprintf(globtmpstr, GKM_TMPSTR_LEN,"%s", "  -b             write the kernel in the binary .gkmk format (float32) instead of text\n"); Printf(globtmpstr);
+    snprintf(globtmpstr, GKM_TMPSTR_LEN,"%s", "  -r rows        compute the kernel in tiles of this many rows (bounded memory; 0 = automatic, 1 GB budget)\n"); Printf(globtmpstr);
     
     Printf(" \n");
 }
@@ -102,7 +103,7 @@ static int gkmKernelParseArgs(int argc, char** argv, OptsGkmKernel &opt)
     int c;
     if (argc == 1) { print_usage_and_exit_gkmKernel(argv[0]); return 1;}
 
-	while ((c = getopt (argc, argv, "l:k:d:m:n:t:a:L:M:A:T:RpbN")) != -1)
+	while ((c = getopt (argc, argv, "l:k:d:m:n:t:a:L:M:A:T:r:RpbN")) != -1)
 	{
 		switch (c) 
 		{
@@ -121,6 +122,7 @@ static int gkmKernelParseArgs(int argc, char** argv, OptsGkmKernel &opt)
 			case 'A': opt.alphabetFN = optarg; break;
 			case 'T': opt.maxnThread = atoi(optarg); break;
 			case 'N': opt.mergeByName = true; break;
+			case 'r': opt.tileRows = atoi(optarg); break;
 			default: print_usage_and_exit_gkmKernel(argv[0]); return 1;
 		}
 	}
