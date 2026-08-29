@@ -745,3 +745,18 @@ and text-vs-binary kernel size and R load time.
   **1 006 → 682 MB**, 20.4 → 35.6 s with 12 tiles; every tiled output byte-identical (13 manual
   configurations + 5 golden cases + testthat). Remaining Phase 6 items: the per-pass tree clone
   (the ~250–500 MB "other" term above, ×threads) and 4b-2.
+* **Linux CI reconciliation (all branches from Phase 2a up; commit "Portability fixes for Linux builds").**
+  The first look at GitHub Actions showed every branch red. Findings, in order of discovery:
+  (1) `global.h`'s `min`/`max` macros break `<vector>` in libstdc++ 14 when included after it — every
+  branch from 2a failed to compile on Linux; no live code used the macros, deleted. (2) With that fixed,
+  all kernel *values* matched on Linux but every sequence name was empty: `getReverseComplement`
+  copied `seqName` onto itself (`snprintf(this->seqName, …, seqName)`, undefined for overlapping
+  buffers; glibc empties it, macOS does not); it now copies into the reverse-complement object as
+  intended. (3) The two remaining cases (`k_b2_t4_M2`, `c_b2_t4`) had been frozen as `nan`: the
+  mismatch-kernel weights for b=2 contain `pow(0, r<0) = inf` times a zero binomial. Fixed by skipping
+  `r < 0` terms (finite × 0 for b ≥ 3, so DNA is unchanged); both cases re-frozen with finite values.
+  (4) Exact zeros are printed as canonical `+0` (nine frozen files contain zeros; gcc and clang differ
+  on the sign). Phases 0 and 1 (#7, #8) are left red on Linux on purpose: their failures are the
+  original code's undefined behaviour (uninitialised `h[]` in the `t=2` cases, the empty-record
+  case not crashing under glibc), which #8 fixes; the Phase 0 corpus is a macOS snapshot of `222cc50`.
+  Tip after the fixes: ubuntu gcc/clang, ASAN+UBSAN, macOS and the R job all green.
