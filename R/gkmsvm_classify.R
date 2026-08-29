@@ -16,7 +16,8 @@ gkmsvm_classify <- function( seqfile,
                            wildcardMismatchM=2,
                            alphabetFN="NULL",
                            svseqfile=NA,
-                           alphafile=NA){
+                           alphafile=NA,
+                           legacyNorm=FALSE){
 
                              if(is.na(svseqfile)){
                                # a single-file model (Phase 4) is preferred over the legacy pair; it
@@ -46,7 +47,8 @@ gkmsvm_classify <- function( seqfile,
                                            batchSize=batchSize,
                                            wildcardLambda=wildcardLambda, 
                                            wildcardMismatchM=wildcardMismatchM,
-                                           alphabetFN=alphabetFN
+                                           alphabetFN=alphabetFN,
+                                           legacyNorm=isTRUE(legacyNorm)
                              ); 
                              # print(params)
                              

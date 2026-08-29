@@ -20,7 +20,7 @@
 
 namespace GKM_NS {
 
-double calcnorm(CSequence *sgi, int addRC, CLList *tmplist, double *c, int *mmcnt, int L, int maxmm, int b);
+double calcnorm(CSequence *sgi, int addRC, CLList *tmplist, double *c, int *mmcnt, int L, int maxmm, int b, bool legacyNorm);
 double svmScoreunorm(int i, double *c, const ScoreContext &sc); 
 
 //given fasta file for SVs and the corresponding weights, outputs and another file for the test sequences, gives the SVM score
@@ -137,7 +137,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt, const CConverter &conv)
 		{
 			//seqsL[nsvseqs] = new CLList(L, 2*maxseqlen+5, hdist);  
 			
-			double alphaovernorm = sgi->getWeight()/calcnorm(sgi, addRC, &psetL, c, mmcnt,L,maxnmm, conv.b);
+			double alphaovernorm = sgi->getWeight()/calcnorm(sgi, addRC, &psetL, c, mmcnt,L,maxnmm, conv.b, opt.legacyNorm);
 
 			tSVs->addSequence(sgi->getSeqBaseId(), sgi->getLength(),L, alphaovernorm); 
 			if(addRC)
@@ -208,7 +208,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt, const CConverter &conv)
 				seqsBrc[nseqs]=NULL; 
 			}
 
-			norm[nseqs]=calcnorm(sgi, addRC, &psetL, c, mmcnt,L, maxnmm, conv.b);
+			norm[nseqs]=calcnorm(sgi, addRC, &psetL, c, mmcnt,L, maxnmm, conv.b, opt.legacyNorm);
 			seqname[nseqs] = new char [strlength(sgi->getName())+1]; //XXX: should be freed...
 			strcpy(seqname[nseqs], sgi->getName()); // buffer sized strlength+1 above
 			//seqname[nseqs] = sgi->getNameLink(); //seqsn->seqNames[ii]; 			
@@ -312,7 +312,7 @@ double svmScoreunorm(int i, double *c, const ScoreContext &sc)
 	return(res); 
 }
 
-double calcnorm(CSequence *sgi, int addRC, CLList *tmplist, double *c, int *mmcnt, int L, int maxnmm, int b)
+double calcnorm(CSequence *sgi, int addRC, CLList *tmplist, double *c, int *mmcnt, int L, int maxnmm, int b, bool legacyNorm)
 {
 		if (b==4){
 			//calc norm 
@@ -329,6 +329,8 @@ double calcnorm(CSequence *sgi, int addRC, CLList *tmplist, double *c, int *mmcn
 			// The score only sums mismatch levels m <= maxnmm (svmScoreunorm), and so does the b!=4
 			// branch below; this branch used to sum all m <= L, i.e. norm and score were inconsistent
 			// whenever -d was smaller than the support of c[]. Truncate c[] the same way.
+			// legacyNorm (-y / legacyNorm=TRUE) reproduces the pre-0.90 scores exactly: norm over all m <= L.
+			if (legacyNorm) return sqrt(tmplist->calcInnerProd(tmplist, c, mmcnt)); 
 			double *cTrunc = new double[L+1];
 			for(int i=0;i<=L;i++){ cTrunc[i] = (i<=maxnmm) ? c[i] : 0.0; }
 			double s = tmplist->calcInnerProd(tmplist,cTrunc, mmcnt); 

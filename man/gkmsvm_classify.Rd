@@ -7,7 +7,7 @@
 \usage{gkmsvm_classify(seqfile, svmfnprfx, outfile, L=10, K=6, maxnmm=3, 
 maxseqlen=10000, maxnumseq=1000000, useTgkm=1, alg=2, addRC=TRUE, usePseudocnt=FALSE, 
 batchSize=100000, wildcardLambda=1.0, wildcardMismatchM=2, alphabetFN="NULL", 
-svseqfile=NA, alphafile=NA)}
+svseqfile=NA, alphafile=NA, legacyNorm=FALSE)}
 \arguments{
 \item{seqfile}{input sequences file name (FASTA format)}
 \item{svmfnprfx}{SVM model file name prefix}
@@ -21,6 +21,7 @@ svseqfile=NA, alphafile=NA)}
 \item{alg}{algorithm type: 0(auto), 1(XOR Hashtable), 2(tree), default=2}
 \item{addRC}{adds reverse complement sequences, default=TRUE}
 \item{usePseudocnt}{adds a constant to count estimates, default=FALSE}
+\item{legacyNorm}{if TRUE, normalise the sequences over all mismatch levels as versions up to 0.80 did, although the scores themselves only count mismatches up to \code{maxnmm}; this reproduces pre-0.90 scores exactly (DNA, \code{alg=2}). Default FALSE: norms and scores use the same truncation, consistent with the kernel the model was trained on. Deprecated; kept for reproducing old results.}
 \item{batchSize}{number of sequences to compute scores for in batch, default=100000}
 \item{wildcardLambda}{lambda for wildcard kernel, defaul=0.9}
 \item{wildcardMismatchM}{max mismatch for Mismatch kernel or wildcard kernel, default=2}

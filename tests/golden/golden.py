@@ -58,6 +58,8 @@ def build_argv(c, bindir, outfile):
         argv.append("-R")
     if c["p"] == "1":
         argv.append("-p")
+    if c.get("legacy", "") == "1" and c["tool"] == "classify":
+        argv.append("-y")
     if c.get("N", "") == "1":
         argv.append("-N")
     if c.get("bin", "") == "1" and c["tool"] == "kernel":
