@@ -362,7 +362,7 @@ int svmClassifySimple(OptsSVMClassify &opt)
 			svmscore += (seqsL[i]->calcInnerProd(seqsL[j],c,mmcnt)*alphaovernorm[i]*alphaovernorm[j]);
 		}
 
-		fprintf(fo, "%s\t%f\n",seqname[i], svmscore);
+		fprintf(fo, "%s\t%f\n",seqname[i], gkmCanon(svmscore));
 	}
 	fclose(fo); // was never closed: in a long-lived R session the scores stayed in the stdio buffer
 
@@ -612,7 +612,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 
 			for(i=0;i<nseqs;i++)
 			{
-				fprintf(fo, "%s\t%f\n",seqname[i], svmScoreunorm(i,c)/norm[i]);
+				fprintf(fo, "%s\t%f\n",seqname[i], gkmCanon(svmScoreunorm(i,c)/norm[i]));
 			}
 
 			seqsTS->deleteTree(L, ::globalConverter.b, 0);
