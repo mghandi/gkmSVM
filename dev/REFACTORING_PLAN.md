@@ -338,8 +338,10 @@ new pipeline. It is dead today only because nothing can call it (no `main()`; fi
 
 *Spike (verified, not hypothetical):* a ~60-line driver reading the lower-triangle kernel file that
 `gkmsvm_kernel` writes today, feeding it to libsvm as a `PRECOMPUTED` kernel, trains C-SVC on the
-motif fixture at C = 0.1 / 1 / 10 and returns sensible alphas bounded by ±C, a proper `rho`, and
-perfect separation. So the integration is a small, well-understood piece of work.
+motif fixture and returns alphas correctly bounded by ±C and a proper `rho`. `svm_cross_validation`
+on the same input gives **5-fold accuracy 0.725 at C = 0.1 and 0.775 at C = 1 and C = 10** — i.e.
+the regularisation parameter demonstrably matters on this data, and it is exactly the knob the
+current solver cannot express. The integration is a small, well-understood piece of work.
 
 Alternatives considered and rejected: **ThunderSVM** (Apache-2.0 — incompatible with GPL-2, would
 force GPL-3-only; plus a CUDA/OpenMP build), **LIBLINEAR** (linear only, no precomputed kernels),
