@@ -355,7 +355,7 @@ int svmClassifySimple(OptsSVMClassify &opt)
 			svmscore += (seqsL[i]->calcInnerProd(seqsL[j],c,mmcnt)*alphaovernorm[i]*alphaovernorm[j]);
 		}
 
-		fprintf(fo, "%s\t%f\n",seqname[i], svmscore - rho);
+		fprintf(fo, "%s\t%f\n",seqname[i], gkmCanon(svmscore - rho));
 	}
 	fclose(fo); // was never closed: in a long-lived R session the scores stayed in the stdio buffer
 
