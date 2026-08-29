@@ -847,3 +847,21 @@ and text-vs-binary kernel size and R load time.
   results), `compare_results.py`. `twoblock/examples` LOO centroid AUC reproduced exactly (gkm /
   filter / truncated 1.000, DNA-only 0.502, methylation-only 0.713; max |ΔK| = 5e-8 = the `%e`
   print precision).
+* **Phase 7c — two blocks: classify, train, R (PR `phase7/c-twoblock-classify`, stacked on 7b).**
+  `svmClassifyMultiTrack` (`classify_tree_impl.h`): SV weights by name (`CSequenceNames::lookupWeight`
+  / `checkAllMatched`, `#alphabets` parsed from a `.gkmmodel`), SV and test windows from
+  `encodeWindows`, norms by the class-aware DFS of a record against itself (`multiTrackNorm`),
+  `ScoreContext` rows per reachable class, score `Σ α_j⟨x,x_j⟩/(|x||x_j|) − rho`, `-rho` for a record
+  without windows; `-y` refused for T > 1. `svmClassifyRun` takes the alphabets from the model when
+  `-A` is absent and rejects a conflicting `-A`. `gkmsvm_train -A` (and from a `.gkmk` header):
+  `.mfa` records copied line by line, `#alphabets` written. R: `alphabets=` on `gkmsvm_classify`
+  and `gkmsvm_train` (kernlab path via new exported `read_mfa`/`write_mfa`; libsvm path passes the
+  spec), Rd pages, tests. Fixtures: a hand-made 6-SV two-block model (`sv_meth.gkmmodel` with rho and
+  the legacy pair `sv_meth_svseq.mfa` / `sv_meth_svalpha.out`) and `test_meth.mfa` (a record with an
+  `N`, a record shorter than L). **Oracle: 240 multi-track classify scores** (model and pair, ±RC,
+  t = 0/1/2, `-d` 4 and unbounded) agree with the exact scores to 2e-6. Golden: 9 new cases
+  (`c_mt_*` incl. two `expect-error`, `t_mt_meth` from the text and the `.gkmk` kernel), **172/172**.
+  Training the two-block example with LIBSVM separates it (all 40 training scores at ±1; the legacy
+  pair and the model differ by rho to 3e-8). Dropped case: a multi-track pair classified *without*
+  `-A` cannot be detected (the annotation lines are dropped by the single-track reader) — documented
+  in NEWS instead.

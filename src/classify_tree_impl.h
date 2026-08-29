@@ -18,6 +18,9 @@
 #include "LTreef.h"
 #include "LTreeS.h"
 #include "LList.h"
+#include "GeneralB.h"
+#include "MultiTrack.h"
+#include <vector>
 
 namespace GKM_NS {
 
@@ -366,6 +369,169 @@ double calcnorm(CSequence *sgi, int addRC, CLList *tmplist, double *c, int *mmcn
 		psetT->deleteTree(L, b);
 		delete psetT;
 		return(sqrt(s));
+}
+
+
+// ---------------------------------------------------------------------------------------- Phase 7
+// Classify multi-track records (T >= 2 aligned tracks) with a multi-track support-vector model
+// (the .gkmmodel or the svseq/svalpha pair written by gkmsvm_train for multi-track input). Same
+// score as the single-alphabet path: sum_j alpha_j <x, x_j> / (|x| |x_j|) - rho, where <.,.> keeps
+// the mismatch classes with at most maxnmm mismatches in total (norms truncated alike).
+
+// Scratch lists of the classify DFS, one per trie level, sized for `n` distinct l-mers.
+static void allocScoreScratch(ScoreScratch &sc, int levels, int n)
+{
+	sc.listT.resize(levels); sc.mmlist.resize(levels); sc.totlist.resize(levels);
+	for (int i = 0; i < levels; i++) { sc.listT[i] = new CLTreeS *[n > 0 ? n : 1]; sc.mmlist[i] = new int[n > 0 ? n : 1]; sc.totlist[i] = new int[n > 0 ? n : 1]; }
+}
+static void freeScoreScratch(ScoreScratch &sc)
+{
+	for (size_t i = 0; i < sc.listT.size(); i++) { delete []sc.listT[i]; delete []sc.mmlist[i]; delete []sc.totlist[i]; }
+	sc.listT.clear(); sc.mmlist.clear(); sc.totlist.clear();
+}
+
+// |x|: the record's windows against themselves, sum_m N(m) c(m) over the reachable classes.
+static double multiTrackNorm(const std::vector<int> &win, int nw, int ell, int b, const ScoreContext &base, const double *c, const std::vector<int> &reach)
+{
+	if (nw == 0) return 0.0;
+	CLTreeS self;
+	CLTreef selff;
+	for (int w = 0; w < nw; w++) { self.addSeq(const_cast<int *>(&win[(size_t)w * ell]), ell, const_cast<int *>(&win[(size_t)w * ell]), 0); selff.addSeq(const_cast<int *>(&win[(size_t)w * ell]), ell, (myFlt)1.0); }
+	ScoreContext sc = base;
+	sc.mmProfile0 = new myFlt *[sc.nclasses];
+	for (int m = 0; m < sc.nclasses; m++) sc.mmProfile0[m] = NULL;
+	for (size_t q = 0; q < reach.size(); q++) { sc.mmProfile0[reach[q]] = new myFlt[1]; sc.mmProfile0[reach[q]][0] = 0; }
+	int nunique = self.leavesCount(0, ell, b, NULL);
+	ScoreScratch scratch;
+	int levels = ell + 1; if (levels < 3) levels = 3;
+	allocScoreScratch(scratch, levels, nunique);
+	scratch.listT[0][0] = &self; scratch.mmlist[0][0] = 0; scratch.totlist[0][0] = 0;
+	selff.DFST(scratch.listT[0], 1, scratch.mmlist[0], scratch.totlist[0], 0, b, &sc, &scratch);
+	freeScoreScratch(scratch);
+	double s = 0;
+	for (size_t q = 0; q < reach.size(); q++) s += sc.mmProfile0[reach[q]][0] * c[reach[q]];
+	for (size_t q = 0; q < reach.size(); q++) delete []sc.mmProfile0[reach[q]];
+	delete []sc.mmProfile0;
+	self.deleteTree(ell, b, 0);
+	selff.deleteTree(ell, b);
+	return sqrt(s > 0 ? s : 0.0);
+}
+
+int svmClassifyMultiTrack(OptsSVMClassify &opt, const TrackAlphabets &ta)
+{
+	const int T = ta.T();
+	const int L = opt.L, K = opt.K, ell = T * L, b = ta.bmax();
+	const bool addRC = opt.addRC;
+	const int batchSize = opt.batchSize;
+	AlphabetVector av(ta.alphabetVector(L));
+	GeneralBTables tab(av, K);
+	int maxnmm = opt.maxnmm;
+	if (maxnmm == -1) maxnmm = tab.autoMaxmm(opt.useTgkm);
+	if (maxnmm > ell) maxnmm = ell;
+	const double *c = tab.table(opt.useTgkm);
+	if (c == NULL) { Printf("\n ERROR: filter types 3 and 4 (wildcard, mismatch kernels) are only available for a single alphabet.\n"); return 1; }
+	std::vector<int> reach = av.reachable(maxnmm);
+	gkmMsg("\n %d tracks, window %d -> l-mers of length %d; %s\n", T, L, ell, av.describe().c_str());
+	gkmMsg("\n maximumMismatch = %d (%d of %d classes reachable)\n", maxnmm, (int)reach.size(), av.nclasses);
+	for (size_t q = 0; q < reach.size(); q++) gkmMsg("\n c[%s] = %e", av.classLabel(reach[q]).c_str(), c[reach[q]]);
+	Printf("\n");
+
+	ScoreContext base;
+	base.LM1 = ell - 1; base.maxmm = maxnmm; base.nclasses = av.nclasses; base.step = av.step.data();
+
+	// support vectors: weights (and rho) from the alpha/model file, sequences from the .mfa records
+	CSequenceNames svsn;
+	svsn.readSeqNamesandWeights(opt.alphafile.c_str());
+	if (svsn.error) return 1;
+	gkmMsg("\n  %d SV ids read. \n", svsn.Nseqs);
+	CLTreef *tSVs = new CLTreef();
+	std::vector<int> win;
+	int nsvseqs = 0;
+	{
+		FILE *f = fopen(opt.svseqfile.c_str(), "r");
+		if (f == NULL) { delete tSVs; return gkmCannotOpen(opt.svseqfile.c_str()); }
+		std::string pending; MultiTrackRecord rec; int r;
+		while ((r = readMfaRecord(f, T, rec, pending, opt.maxseqlen)) == 1) {
+			double alpha;
+			int lk = svsn.lookupWeight(rec.name.c_str(), alpha);
+			if (lk == -1) continue;              // not a support vector
+			if (lk == -2) { fclose(f); delete tSVs; return 1; }
+			win.clear();
+			int nw = encodeWindows(rec, ta, L, addRC, win);
+			double norm = multiTrackNorm(win, nw, ell, b, base, c, reach);
+			if (norm > 0) {
+				double aon = alpha / norm;
+				for (int w = 0; w < nw; w++) tSVs->addSeq(&win[(size_t)w * ell], ell, (myFlt)aon);
+			}
+			nsvseqs++;
+		}
+		fclose(f);
+		if (r < 0 || svsn.checkAllMatched()) { delete tSVs; return 1; }
+	}
+	double rho = svsn.rho;
+	gkmMsg("  %d SV seqs read \n", nsvseqs);
+
+	// test records in batches
+	FILE *sfi = fopen(opt.seqfile.c_str(), "r");
+	if (sfi == NULL) { delete tSVs; return gkmCannotOpen(opt.seqfile.c_str()); }
+	FILE *fo = fopen(opt.outfile.c_str(), "w");
+	if (fo == NULL) { fclose(sfi); delete tSVs; return gkmCannotOpen(opt.outfile.c_str()); }
+	CLTreeS *seqsTS = new CLTreeS();
+	std::vector<std::string> names;
+	std::vector<double> norms;
+	std::string pending; MultiTrackRecord rec; int r = 0;
+	int ntotal = 0;
+	for (;;) {
+		r = readMfaRecord(sfi, T, rec, pending, opt.maxseqlen);
+		if (r == 1) {
+			if ((int)names.size() + ntotal >= opt.maxnumseq + ntotal && (int)names.size() >= opt.maxnumseq) { r = -1; gkmTooManySequences(opt.maxnumseq); }
+			else {
+				int idx = (int)names.size();
+				win.clear();
+				int nw = encodeWindows(rec, ta, L, addRC, win);
+				for (int w = 0; w < nw; w++) seqsTS->addSeq(&win[(size_t)w * ell], ell, &win[(size_t)w * ell], idx);
+				names.push_back(rec.name);
+				norms.push_back(multiTrackNorm(win, nw, ell, b, base, c, reach));
+			}
+		}
+		if (r < 0) break;
+		int nseqs = (int)names.size();
+		if (nseqs > 0 && ((nseqs % batchSize) == 0 || r == 0)) {
+			ScoreContext sctx = base;
+			sctx.mmProfile0 = new myFlt *[sctx.nclasses];
+			for (int m = 0; m < sctx.nclasses; m++) sctx.mmProfile0[m] = NULL;
+			for (size_t q = 0; q < reach.size(); q++) { sctx.mmProfile0[reach[q]] = new myFlt[nseqs]; for (int i = 0; i < nseqs; i++) sctx.mmProfile0[reach[q]][i] = 0; }
+			int nunique = seqsTS->leavesCount(0, ell, b, NULL);
+			ScoreScratch scratch;
+			int levels = ell + 1; if (levels < 3) levels = 3;
+			allocScoreScratch(scratch, levels, nunique);
+			scratch.listT[0][0] = seqsTS; scratch.mmlist[0][0] = 0; scratch.totlist[0][0] = 0;
+			if (nunique > 0) tSVs->DFST(scratch.listT[0], 1, scratch.mmlist[0], scratch.totlist[0], 0, b, &sctx, &scratch);
+			freeScoreScratch(scratch);
+			for (int i = 0; i < nseqs; i++) {
+				double sc = 0;
+				if (norms[i] > 0) { for (size_t q = 0; q < reach.size(); q++) sc += sctx.mmProfile0[reach[q]][i] * c[reach[q]]; sc /= norms[i]; }
+				sc -= rho;
+				if (sc == 0.0) sc = 0.0;
+				fprintf(fo, "%s\t%f\n", names[i].c_str(), sc);
+			}
+			for (size_t q = 0; q < reach.size(); q++) delete []sctx.mmProfile0[reach[q]];
+			delete []sctx.mmProfile0;
+			seqsTS->deleteTree(ell, b, 0);
+			seqsTS->initTree();
+			ntotal += nseqs;
+			names.clear(); norms.clear();
+		}
+		if (r == 0) break;
+	}
+	fclose(fo);
+	fclose(sfi);
+	seqsTS->deleteTree(ell, b, 0);
+	delete seqsTS;
+	tSVs->deleteTree(ell, b);
+	delete tSVs;
+	if (r < 0) { remove(opt.outfile.c_str()); return 1; }
+	return 0;
 }
 
 } // namespace GKM_NS

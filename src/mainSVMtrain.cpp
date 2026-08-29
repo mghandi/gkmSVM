@@ -33,6 +33,7 @@
 #include "global.h"
 #include "globalvar.h"
 #include "gkmOptions.h"
+#include "MultiTrack.h"
 #include "Sequence.h"
 #include "KernelFile.h"
 #include "libsvm/svm.h"
@@ -60,6 +61,7 @@ static void print_usage_train()
 	Printf("  -v nfold    report nfold cross-validation accuracy before training\n");
 	Printf("  -S          disable shrinking\n");
 	Printf("  -q          quiet (no solver output)\n");
+	Printf("  -A specs    per-track alphabets of multi-track FASTA inputs (e.g. dna,=01); taken from a .gkmk kernel when absent\n");
 	Printf("  -n niter20  accepted and ignored (parameter of the pre-4b solver)\n");
 	Printf("\n");
 }
@@ -109,6 +111,20 @@ static int readKernel(const std::string &fn, int &N, std::vector<double> &K)
 	return 0;
 }
 
+// Phase 7: multi-track records are kept as their T lines joined by '\n' (written back line by line)
+static int readMfa(const std::string &fn, int T, int maxseqlen, std::vector<std::string> &names, std::vector<std::string> &seqs)
+{
+	FILE *f = fopen(fn.c_str(), "r");
+	if (f == NULL) { gkmMsg("\n ERROR: cannot open file %s\n", fn.c_str()); return 1; }
+	std::string pending; MultiTrackRecord rec; int r;
+	while ((r = readMfaRecord(f, T, rec, pending, maxseqlen)) == 1) {
+		std::string joined; for (int t = 0; t < T; t++) { if (t) joined += '\n'; joined += rec.tracks[t]; }
+		names.push_back(rec.name); seqs.push_back(joined);
+	}
+	fclose(f);
+	return r < 0 ? 1 : 0;
+}
+
 static int readFasta(const std::string &fn, int maxseqlen, std::vector<std::string> &names, std::vector<std::string> &seqs)
 {
 	CSequence sgi(maxseqlen + 3);
@@ -126,10 +142,36 @@ int gkmTrainRun(OptsGkmTrain &opt)
 {
 	if (opt.C <= 0 || opt.posWeight <= 0 || opt.eps <= 0) { Printf("\n ERROR: C, the class weight and eps must be positive.\n"); return 1; }
 
+	// Phase 7: multi-track input when -A lists several alphabets, or when a .gkmk kernel was made from one
+	if (opt.alphabetFN.empty()) {
+		FILE *kf = fopen(opt.kernelfile.c_str(), "rb");
+		if (kf != NULL) {
+			unsigned char magic[4] = {0, 0, 0, 0};
+			if (fread(magic, 1, 4, kf) == 4 && memcmp(magic, "GKMK", 4) == 0) {
+				GkmkReader rd;
+				if (rd.read(kf) == 0 && (rd.hdr.alphabet.find(',') != std::string::npos || (!rd.hdr.alphabet.empty() && rd.hdr.alphabet[0] == '='))) {
+					opt.alphabetFN = rd.hdr.alphabet; gkmMsg("Alphabets from the kernel file: %s\n", opt.alphabetFN.c_str());
+				}
+			}
+			fclose(kf);
+		}
+	}
+	int ntracks = 1;
+	if (!opt.alphabetFN.empty()) {
+		TrackAlphabets ta;
+		if (ta.parse(opt.alphabetFN, GKM_MAX_ALPHABET) != 0) return 1;
+		ntracks = ta.T();
+		if (ntracks == 1) opt.alphabetFN.clear(); // a single alphabet changes nothing for training (sequences are copied as they are)
+	}
+
 	std::vector<std::string> names, seqs;
-	if (readFasta(opt.posfile, opt.maxseqlen, names, seqs) != 0) return 1;
+	if (ntracks > 1) {
+		if (readMfa(opt.posfile, ntracks, opt.maxseqlen, names, seqs) != 0) return 1;
+	} else if (readFasta(opt.posfile, opt.maxseqlen, names, seqs) != 0) return 1;
 	int npos = (int)names.size();
-	if (readFasta(opt.negfile, opt.maxseqlen, names, seqs) != 0) return 1;
+	if (ntracks > 1) {
+		if (readMfa(opt.negfile, ntracks, opt.maxseqlen, names, seqs) != 0) return 1;
+	} else if (readFasta(opt.negfile, opt.maxseqlen, names, seqs) != 0) return 1;
 	int N = (int)names.size();
 	int nneg = N - npos;
 	gkmMsg("npos=%d, nneg=%d, N=%d\n", npos, nneg, N);
@@ -199,6 +241,7 @@ int gkmTrainRun(OptsGkmTrain &opt)
 		fo_model = fopen(modelFN.c_str(), "w");
 		if (fo_model == NULL) { gkmMsg("\n ERROR: cannot write %s\n", modelFN.c_str()); svm_free_and_destroy_model(&model); return 1; }
 		fprintf(fo_model, "#gkmmodel 1\n#rho %.10e\n#nsv %d\n#npos %d\n#nneg %d\n#C %g\n#solver libsvm-%d\n", rho, nsv, npos, nneg, opt.C, LIBSVM_VERSION);
+		if (!opt.alphabetFN.empty()) fprintf(fo_model, "#alphabets %s\n", opt.alphabetFN.c_str());
 	}
 	for (int k = 0; k < nsv; k++) {
 		int i = svidx[k] - 1;                      // 1-based training index -> row
@@ -227,6 +270,7 @@ int mainSVMtrain(int argc, char *argv[]) //mainSVMtrain
 		else if (a == "-n" && hasArg) { i++; Printf("Note: -n niter20 belongs to the previous solver and is ignored; use -c C.\n"); }
 		else if (a == "-S") opt.shrinking = false;
 		else if (a == "-q") opt.quiet = true;
+		else if (a == "-A" && hasArg) opt.alphabetFN = argv[++i];
 		else if (a.size() > 0 && a[0] == '-') { gkmMsg("\n parameter not recognized: %s \n", argv[i]); perr = 1; }
 		else {
 			if (nfp == 0) opt.kernelfile = a; else if (nfp == 1) opt.posfile = a; else if (nfp == 2) opt.negfile = a; else if (nfp == 3) opt.outprefix = a;

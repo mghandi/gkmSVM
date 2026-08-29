@@ -1,7 +1,11 @@
 
 gkmsvm_train = function (kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, shrinking=FALSE,
-                         backend=c("kernlab", "libsvm"), posWeight=1, eps=0.001, nfold=0, quiet=TRUE, ...){
+                         backend=c("kernlab", "libsvm"), posWeight=1, eps=0.001, nfold=0, quiet=TRUE,
+                         alphabets=NULL, ...){
   backend <- match.arg(backend)
+  # Phase 7: multi-track inputs (two or more alphabets): records are header + one line per track
+  spec <- .gkm_alphabet_spec(alphabets)
+  multitrack <- !is.null(alphabets) && length(alphabets) > 1
   if (backend == "libsvm") {
     # Phase 4b: the C++ trainer (vendored LIBSVM, precomputed kernel). Same solver family as
     # kernlab's C-svc; writes the legacy pair and <prefix>.gkmmodel (with rho) itself.
@@ -9,7 +13,7 @@ gkmsvm_train = function (kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, 
     params <- list(kernelfn = normalizePath(kernelfn, mustWork = TRUE), posfn = normalizePath(posfn, mustWork = TRUE),
                    negfn = normalizePath(negfn, mustWork = TRUE), svmfnprfx = svmfnprfx,
                    C = as.numeric(C), posWeight = as.numeric(posWeight), eps = as.numeric(eps),
-                   shrinking = isTRUE(shrinking), nfold = as.integer(nfold), quiet = isTRUE(quiet))
+                   shrinking = isTRUE(shrinking), nfold = as.integer(nfold), quiet = isTRUE(quiet), alphabetFN = spec)
     return(invisible(.gkm_train_cpp(params)))
   }
 
@@ -26,8 +30,12 @@ gkmsvm_train = function (kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, 
   #  posfn= '/Users/mghandi/gkmsvm/test/testpos9.fa'
   #  kernelfn= '/Users/mghandi/gkmsvm/test/test9kernel.txt'
     
-    pos = seqinr::read.fasta(posfn)
-    neg = seqinr::read.fasta(negfn)
+    if (multitrack) {
+      pos = read_mfa(posfn, length(alphabets)); neg = read_mfa(negfn, length(alphabets))
+    } else {
+      pos = seqinr::read.fasta(posfn)
+      neg = seqinr::read.fasta(negfn)
+    }
     mat = read_gkm_kernel(kernelfn)   # text or binary (.gkmk), auto-detected
     idx = attr(mat, "index")
     if (!is.null(idx)) {
@@ -70,14 +78,20 @@ gkmsvm_train = function (kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, 
       } else {
         svseqs = seqs[match(seqnames[ii], names(seqs))]    # merged rows: first record with that name
       }
-      seqinr::write.fasta(svseqs, svnames[ii],  file.out= paste(svmfnprfx, 'svseq.fa', sep='_'))
+      if (multitrack) {
+        write_mfa(svseqs, paste(svmfnprfx, 'svseq.fa', sep='_'), names = svnames[ii])
+      } else {
+        seqinr::write.fasta(svseqs, svnames[ii],  file.out= paste(svmfnprfx, 'svseq.fa', sep='_'))
+      }
       
       # single-file model (Phase 4): FASTA with ">id<TAB>alpha" headers, "#" header lines carry the
       # bias rho = svp@b (kernlab's b), which gkmsvm_classify subtracts from the scores
       con = file(paste0(svmfnprfx, '.gkmmodel'), "w")
       writeLines(c("#gkmmodel 1", sprintf("#rho %.10e", svp@b), sprintf("#nsv %d", length(ii)), sprintf("#npos %d", npos), sprintf("#nneg %d", nneg)), con)
+      if (multitrack) writeLines(sprintf("#alphabets %s", spec), con)
       for (s in seq_along(ii)) {
-        writeLines(c(sprintf(">%s\t%11.6e", svnames[ii[s]], alpha[s]), toupper(paste(svseqs[[s]], collapse = ""))), con)
+        if (multitrack) writeLines(c(sprintf(">%s\t%11.6e", svnames[ii[s]], alpha[s]), svseqs[[s]]), con)
+        else writeLines(c(sprintf(">%s\t%11.6e", svnames[ii[s]], alpha[s]), toupper(paste(svseqs[[s]], collapse = ""))), con)
       }
       close(con)
     }

@@ -17,7 +17,9 @@ gkmsvm_classify <- function( seqfile,
                            alphabetFN="NULL",
                            svseqfile=NA,
                            alphafile=NA,
-                           legacyNorm=FALSE){
+                           legacyNorm=FALSE,
+                           alphabets=NULL){
+                             alphabetFN <- .gkm_alphabet_spec(alphabets, alphabetFN)
 
                              if(is.na(svseqfile)){
                                # a single-file model (Phase 4) is preferred over the legacy pair; it

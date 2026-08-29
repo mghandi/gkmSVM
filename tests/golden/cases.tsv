@@ -162,3 +162,12 @@ k_mt_meth_tile	kernel	multitrack tiling	meth_pos.mfa	meth_neg.mfa				6	4	-1	0	2	
 k_mt_tracks_mismatch	kernel	multitrack expect-error	dna_small_pos.fa	meth_neg.mfa				6	4	-1	0	2	1	0			dna,=01													
 k_mt_three_tracks	kernel	multitrack expect-error	meth_pos.mfa	meth_neg.mfa				6	4	-1	0	2	1	0			dna,=01,=abc													
 k_mt_t3	kernel	multitrack expect-error	meth_pos.mfa	meth_neg.mfa				6	4	-1	3	2	1	0			dna,=01													
+c_mt_model_t0	classify	multitrack classify			test_meth.mfa	sv_meth.gkmmodel	sv_meth.gkmmodel	6	4	-1	0	2	1	0																
+c_mt_model_t1	classify	multitrack classify			test_meth.mfa	sv_meth.gkmmodel	sv_meth.gkmmodel	6	4	-1	1	2	1	0																
+c_mt_model_t2_d4	classify	multitrack classify			test_meth.mfa	sv_meth.gkmmodel	sv_meth.gkmmodel	6	4	4	2	2	1	0																
+c_mt_pair_t0_noRC	classify	multitrack classify			test_meth.mfa	sv_meth_svseq.mfa	sv_meth_svalpha.out	6	4	-1	0	2	0	0			dna,=01													
+c_mt_model_A_ok	classify	multitrack classify			test_meth.mfa	sv_meth.gkmmodel	sv_meth.gkmmodel	6	4	-1	0	2	1	0			dna,=01													
+c_mt_model_A_conflict	classify	multitrack classify expect-error			test_meth.mfa	sv_meth.gkmmodel	sv_meth.gkmmodel	6	4	-1	0	2	1	0			dna,=NUM													
+c_mt_model_legacy	classify	multitrack classify expect-error			test_meth.mfa	sv_meth.gkmmodel	sv_meth.gkmmodel	6	4	-1	0	2	1	0																1
+t_mt_meth	train	multitrack train numeric	meth_pos.mfa	meth_neg.mfa									1	0			dna,=01							k_mt_meth_t0.out						
+t_mt_meth_gkmk	train	multitrack train numeric binary	meth_pos.mfa	meth_neg.mfa									1	0										k_mt_meth_t0_bin.out						

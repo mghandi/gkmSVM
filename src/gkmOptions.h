@@ -65,6 +65,8 @@ struct OptsGkmTrain {
 	bool legacyPair = true;     // write {prefix}_svalpha.out + {prefix}_svseq.fa
 	bool modelFile = true;      // write {prefix}.gkmmodel
 	bool quiet = false;
+	std::string alphabetFN;     // Phase 7: per-track alphabet specs ("dna,=01") when the inputs are multi-track FASTA; empty = single-track (any alphabet: the sequences are copied as they are)
+	int maxseqlenPad = 0;       // (unused)
 };
 int gkmTrainRun(OptsGkmTrain &opt);
 int mainSVMtrain(int argc, char *argv[]);

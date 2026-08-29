@@ -235,9 +235,9 @@ def check_multitrack_kernels(bindir, tmp, failures):
                                     failures.append(f"multitrack {stem} t={t} rc={rc} (twoblock): K[{i}][{j}] C++ {sv} vs twoblock {tk[i][j]!r}")
     return n
 
-def exact_scores(test, svs, alphas, L, K, kind, d, rc, B):
+def exact_scores(test, svs, alphas, L, K, kind, d, rc, B, rho=0.0):
     bl = gb.Blocks(B)
-    coeffs = {m: (v if m[0] <= d else gb.Fraction(0)) for m, v in gb.kernel_coefficients(B, K, kind).items()}
+    coeffs = {m: (v if sum(m) <= d else gb.Fraction(0)) for m, v in gb.kernel_coefficients(B, K, kind).items()}
     wt = [s.lmers(L, rc) for s in test]
     ws = [s.lmers(L, rc) for s in svs]
     nsv = [gb.inner_product(w, w, coeffs, bl) for w in ws]
@@ -246,8 +246,48 @@ def exact_scores(test, svs, alphas, L, K, kind, d, rc, B):
         nt = gb.inner_product(w, w, coeffs, bl)
         s = sum((gb.Fraction(a) * gb.inner_product(w, wj, coeffs, bl) / gb.Fraction(float((nt * nj) ** 0.5)) if nt * nj > 0 else 0
                  for wj, nj, a in zip(ws, nsv, alphas)), gb.Fraction(0))
-        out.append(float(s))
+        out.append(float(s) - rho)
     return out
+
+
+def check_classify_multitrack(bindir, tmp, failures):
+    """Phase 7: two-track classify scores (the .gkmmodel with rho and #alphabets, and the legacy pair)
+    against the exact scores; t in {0,1,2}, +-RC, automatic and bounded -d; the test set has a record
+    with an N and a record shorter than the window (score -rho)."""
+    n = 0
+    alphabets = ["ACGT", "01"]
+    test = gb.read_mfa(FIX + "/test_meth.mfa", alphabets)
+    svs = gb.read_mfa(FIX + "/sv_meth_svseq.mfa", alphabets)
+    alphas = [float(ln.split()[1]) for ln in open(FIX + "/sv_meth_svalpha.out") if ln.strip()]
+    rho = [float(ln.split()[1]) for ln in open(FIX + "/sv_meth.gkmmodel") if ln.startswith("#rho")][0]
+    L, K = 6, 4
+    B = (4,) * L + (2,) * L
+    for model in ("pair", "gkmmodel"):
+        for rc in (True, False):
+            for t, kind in KINDS.items():
+                for d in (4, 2 * L):
+                    exact = exact_scores(test, svs, alphas, L, K, kind, d, rc, B, rho if model == "gkmmodel" else 0.0)
+                    out = os.path.join(tmp, "s.txt")
+                    argv = [os.path.join(bindir, "gkmsvm_classify"), "-l", str(L), "-k", str(K), "-d", str(d if d < 2 * L else -1), "-t", str(t)]
+                    if not rc:
+                        argv.append("-R")
+                    if model == "pair":
+                        argv += ["-A", "dna,=01", FIX + "/test_meth.mfa", FIX + "/sv_meth_svseq.mfa", FIX + "/sv_meth_svalpha.out", out]
+                    else:
+                        argv += [FIX + "/test_meth.mfa", FIX + "/sv_meth.gkmmodel", FIX + "/sv_meth.gkmmodel", out]
+                    p = subprocess.run(argv, capture_output=True, text=True)
+                    if p.returncode != 0:
+                        failures.append(f"classify multitrack {model} t={t} d={d} rc={rc}: exit {p.returncode}: {p.stdout[-300:]}")
+                        continue
+                    got = [float(ln.split()[1]) for ln in open(out) if ln.strip()]
+                    if len(got) != len(exact):
+                        failures.append(f"classify multitrack {model} t={t} d={d} rc={rc}: {len(got)} scores, expected {len(exact)}")
+                        continue
+                    for i, (g, e) in enumerate(zip(got, exact)):
+                        n += 1
+                        if abs(g - e) > 2e-6:
+                            failures.append(f"classify multitrack {model} t={t} d={d} rc={rc}: seq {i} C++ {g} vs exact {e:.7f}")
+    return n
 
 
 def check_classify(bindir, tmp, failures):
@@ -302,6 +342,8 @@ def main():
         print(f"multi-track kernel: {nm} values compared")
         nc = check_classify(bindir, tmp, failures)
         print(f"classify scores:    {nc} values compared")
+        ncm = check_classify_multitrack(bindir, tmp, failures)
+        print(f"multi-track scores: {ncm} values compared")
     for f in failures[:50]:
         print("FAIL", f)
     if len(failures) > 50:

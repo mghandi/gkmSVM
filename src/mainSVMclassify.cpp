@@ -25,6 +25,7 @@
 #include "global.h"
 #include "globalvar.h"
 #include "gkmOptions.h"
+#include "MultiTrack.h"
 #include "gkmMainHelpers.h"
 
 #include "Sequence.h"
@@ -39,8 +40,23 @@ using namespace std;
 
 int svmClassifySimple(OptsSVMClassify &opt, const CConverter &conv);
 // the tree algorithm is instantiated per alphabet size (trie_b4.cpp / trie_b32.cpp, see global.h)
-namespace gkm_b4  { int svmClassifySuffixTree(OptsSVMClassify &opt, const CConverter &conv); }
-namespace gkm_b32 { int svmClassifySuffixTree(OptsSVMClassify &opt, const CConverter &conv); }
+namespace gkm_b4  { int svmClassifySuffixTree(OptsSVMClassify &opt, const CConverter &conv); int svmClassifyMultiTrack(OptsSVMClassify &opt, const TrackAlphabets &ta); }
+namespace gkm_b32 { int svmClassifySuffixTree(OptsSVMClassify &opt, const CConverter &conv); int svmClassifyMultiTrack(OptsSVMClassify &opt, const TrackAlphabets &ta); }
+
+// Phase 7: the "#alphabets" header line of a multi-track .gkmmodel file ("" when absent)
+static std::string modelAlphabets(const std::string &fn)
+{
+	FILE *f = fopen(fn.c_str(), "r");
+	if (f == NULL) return "";
+	char line[4200]; std::string out;
+	while (fgets(line, sizeof line, f) != NULL) {
+		if (line[0] != '#') break;
+		char abuf[4096];
+		if (sscanf(line, "#alphabets %4095s", abuf) == 1) { out = abuf; break; }
+	}
+	fclose(f);
+	return out;
+}
 static int svmClassifySuffixTree(OptsSVMClassify &opt, const CConverter &conv)
 {
 	if (conv.b <= 4) return gkm_b4::svmClassifySuffixTree(opt, conv);
@@ -81,7 +97,9 @@ void print_usage_and_exit(const char *prog)
 	Printf("  -y             legacy normalisation (versions <= 0.80): DNA norms over all mismatch levels; deprecated\n");
 	Printf("  -M             max mismatch for Mismatch kernel or wildcard kernel, default=2\n");
 	Printf("  -L             lambda for wildcard kernel, defaul=0.9\n");
-	Printf("  -A             alphabets file name, if not specified, it is assumed the inputs are DNA sequences\n");
+	Printf("  -A             alphabet: dna (default), rna, protein, an alphabet file, or =SYMBOLS; a comma-separated\n");
+	Printf("                 list gives one alphabet per track of multi-track FASTA input (see gkmsvm_kernel).\n");
+	Printf("                 A multi-track .gkmmodel records its alphabets, so -A can be omitted with it\n");
     Printf("\n");
 }
 
@@ -134,16 +152,39 @@ int svmClassifyRun(OptsSVMClassify &opt)
 {
 	if (opt.L < 1 || opt.K < 1) { Printf("\n ERROR: L and K must be positive.\n"); return 1; }
 	if ((opt.K > opt.L) && (opt.useTgkm < 3)) { Printf("\n ERROR: K must be less than or equal to L!\n"); return 1; }
-	if ((opt.maxnmm > 0) && (opt.L < opt.maxnmm)) { Printf("\n ERROR: maxMismatch must be less than or equal to L!\n"); return 1; }
 	if (opt.useTgkm < 0 || opt.useTgkm > 4) { Printf("\n ERROR: filter type (-t) must be between 0 and 4.\n"); return 1; }
 	if (opt.alg < 0 || opt.alg > 2) { Printf("\n ERROR: algorithm (-a) must be 0, 1 or 2.\n"); return 1; }
 	if (opt.batchSize < 1) { Printf("\n ERROR: batch size must be at least 1.\n"); return 1; }
 	if (opt.maxseqlen < opt.L || opt.maxnumseq < 1) { Printf("\n ERROR: maxSeqLen must be at least L and maxNumSeq at least 1.\n"); return 1; }
 
-	CConverter conv; // the alphabet of this call (DNA unless -A); Phase 2c: was a process-wide global
+	// Phase 7: a multi-track model records its alphabets; they are used when -A is absent and must agree with it otherwise
+	{
+		std::string ma = modelAlphabets(opt.alphafile);
+		if (!ma.empty()) {
+			if (opt.alphabetFN.empty()) { opt.alphabetFN = ma; gkmMsg("Alphabets from the model file: %s\n", ma.c_str()); }
+			else if (opt.alphabetFN != ma) { gkmMsg("\n ERROR: the model was trained with alphabets '%s' but '%s' were given (-A).\n", ma.c_str(), opt.alphabetFN.c_str()); return 1; }
+		}
+	}
+	TrackAlphabets ta; // the alphabet(s) of this call (DNA unless -A); Phase 7: one per track
+	if (ta.parse(opt.alphabetFN, GKM_MAX_ALPHABET) != 0) return 1;
+	if ((opt.maxnmm > 0) && (ta.T() * opt.L < opt.maxnmm)) {
+		if (ta.T() == 1) Printf("\n ERROR: maxMismatch must be less than or equal to L!\n");
+		else Printf("\n ERROR: maxMismatch must be less than or equal to the number of tracks times L!\n");
+		return 1;
+	}
+	if (ta.T() > 1) {
+		if (ta.T() > 2) { Printf("\n ERROR: this version supports two tracks (e.g. -A dna,=01); more tracks come with Phase 7d.\n"); return 1; }
+		if (opt.useTgkm > 2) { Printf("\n ERROR: filter types 3 and 4 (wildcard, mismatch kernels) are only available for a single alphabet.\n"); return 1; }
+		if (opt.usePseudocnt) { Printf("\n ERROR: pseudocounts (-p) are only available for a single alphabet.\n"); return 1; }
+		if (opt.legacyNorm) { Printf("\n ERROR: the legacy normalisation (-y) is only available for a single alphabet.\n"); return 1; }
+		if (opt.alg == 1) Printf("\nAlgorithm is set to 2 (Tree) for multi-track input.\n");
+		if (opt.addRC && !ta.conv[0]->hasComplement) { opt.addRC = false; Printf("\nAdd Reverse Complement option is turned off (the alphabet of track 1 declares no complement pairs).\n"); }
+		if (ta.bmax() <= 4) return gkm_b4::svmClassifyMultiTrack(opt, ta);
+		return gkm_b32::svmClassifyMultiTrack(opt, ta);
+	}
+	const CConverter &conv = *ta.conv[0];
 	int alg = opt.alg;
 	if (!opt.alphabetFN.empty()){
-		if (conv.readAlphabetFile(opt.alphabetFN.c_str(), GKM_MAX_ALPHABET)!=0) return 1;
 		if (opt.addRC&&!conv.hasComplement){
 			opt.addRC=false;
 			Printf("\nAdd Reverse Complement option is turned off (the alphabet declares no complement pairs).\n");

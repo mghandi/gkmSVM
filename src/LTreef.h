@@ -81,9 +81,9 @@ public:
 	CLTreef(void);
 	~CLTreef(void);
 
+	void addSeq(int *bid, int n, myFlt cnt);  //call with n=L from outside (Phase 7: also used directly by the multi-track classify driver)
 private:
 	void addSeq(int *bid, int n, int cnt);  //call with n=L from outside
-	void addSeq(int *bid, int n, myFlt cnt);  //call with n=L from outside
 
 };
 

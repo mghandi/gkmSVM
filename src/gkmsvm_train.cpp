@@ -17,5 +17,6 @@ void gkm_train_cpp(SEXP params){
   opt.shrinking = Rcpp::as<bool>(rparam["shrinking"]);
   opt.nfold = Rcpp::as<int>(rparam["nfold"]);
   opt.quiet = Rcpp::as<bool>(rparam["quiet"]);
+  if (rparam.containsElementNamed("alphabetFN")) { std::string a = Rcpp::as<std::string>(rparam["alphabetFN"]); if (a != "NULL") opt.alphabetFN = a; }
   if (gkmTrainRun(opt) != 0) Rcpp::stop("gkmsvm_train failed (see the messages above)");
 }

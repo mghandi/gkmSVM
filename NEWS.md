@@ -19,6 +19,15 @@ See `dev/REFACTORING_PLAN.md` for the plan and its execution log.
   covering it; reverse complements complement track 1 and reverse the others. Filter types 3/4 and
   pseudocounts are single-alphabet only. This version supports two tracks; DNA results are
   unchanged (golden corpus byte-identical).
+* **`gkmsvm_train(..., alphabets = c("dna", "01"))` and `gkmsvm_classify(..., alphabets = ...)`**
+  (CLI: `gkmsvm_train -A dna,=01`, `gkmsvm_classify -A dna,=01`) complete the multi-track workflow:
+  the support vectors are written as multi-track records, the `.gkmmodel` file records its
+  alphabets (`#alphabets dna,=01`) so that `gkmsvm_classify` needs no `alphabets` with it (a
+  conflicting value is an error), and `gkmsvm_train` takes the alphabets from a `.gkmk` kernel
+  header when they are not given. Scores are checked against the exact reference; a record without
+  any valid window scores `-rho`. New helpers `read_mfa()` / `write_mfa()`. Note: multi-track files
+  cannot be recognised without their alphabets — given to a single-alphabet run they are read as
+  single-track FASTA (the extra track lines contain no alphabet symbols and are dropped).
 
 ### Phase 1 — latent-bug fixes
 
