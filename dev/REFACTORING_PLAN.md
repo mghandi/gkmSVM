@@ -797,3 +797,25 @@ and text-vs-binary kernel size and R load time.
   six new golden cases run with `-y` (`c_{t0,t1,t2,t4}_a2_legacy`, `c_noRC_a2_legacy`,
   `c_pseudo_legacy`) are **byte-identical to the Phase 0 freeze of the unmodified code**; the
   default path is untouched (151/151). `R CMD check --as-cran` OK; testthat 28/0.
+* **Phase 7 plan (PR #23, `phase7/plan`).** `dev/PHASE7_PLAN.md`: design decisions D1–D14 and the
+  sub-phases 7a–7e for gkm-SVM over heterogeneous alphabets (multi-track input, per-track alphabet
+  specs, class-index mismatch profile, general-B coefficient tables, prefix-split passes), with the
+  validation matrix (exact `Fraction` oracles from gkmsvm3, the golden corpus, gkmsvm3's experiments).
+* **Phase 7a — foundation, done (PR `phase7/a-foundation`, stacked on the plan).** `src/GeneralB.{h,cpp}`:
+  `AlphabetVector` (blocks by alphabet size, strides, per-position `step`, reachable classes) and
+  `GeneralBTables` (`H` by elementary symmetric polynomials in 128-bit integer arithmetic, the
+  dominance-rule truncation `g`, `cTr` by Kronecker mode products, `h`, automatic `-d`). The DFS
+  carries a class index instead of a mismatch count: `DFSTiDL/DFSTnIDL` take a per-depth `step`
+  (permuted into pass order in `task1`), `CLTreef::DFST/DFSTn` take `step` plus a separate total
+  count for the `maxmm` bound (`ScoreScratch::totlist`); `KernelContext/ScoreContext::nclasses`,
+  profile rows allocated per reachable class (NULL otherwise), `calcinnerprod`/`svmScoreunorm` sum
+  over the rows present. For one alphabet `step ≡ 1` and the rows are `0..maxmm`, so DNA runs the
+  same arithmetic: **golden 151/151 byte-identical, ASAN+UBSAN 151/151 clean, oracle OK** (new
+  section: 903 general-B table values for 8 alphabet vectors × 3 kinds vs the exact tables, plus the
+  dominance-rule `g` and the automatic bounds). New `gkmsvm_selftest` binary (`make test` runs it):
+  `GeneralB == CCalcWmML` for b ∈ {2,4,5,20} × 9 (L,K) (36 comparisons, 1e-10 of the table scale),
+  block indexing of (4,2,3,2,4), `Σ_ab E_{L,x}(m;a,b) = x^L`. Finding: `CCalcWmML` truncates at
+  `kernel[i] < 1e-50`, so an exactly-zero `H(m)` (e.g. b=2, L=7, K=3; b=5, L=6, K=4) survives as
+  rounding noise (~1e-17) and its automatic `-d` is 2 too large — harmless (the extra coefficients are
+  ~1e-34) and left as is for T = 1. Benchmark (best of 5, two interleaved rounds): master 6.309 /
+  6.311 s, new 6.353 / 6.359 s (**+0.7 %**, within the 2 % gate; no templating needed).

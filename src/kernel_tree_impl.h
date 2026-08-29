@@ -25,9 +25,10 @@ namespace GKM_NS {
 double calcinnerprod(int i, int j, double *c, const KernelContext &kc)
 {
 	double res = 0; 
-	for(int m=0;m<=kc.maxmm;m++)
+	for(int m=0;m<kc.nclasses;m++) // Phase 7: rows are mismatch classes; unreachable ones are NULL (for one alphabet: m = 0..maxmm, all present)
 	{
-		res+=kc.mmProfile[i][m][j]*c[m]; 
+		const aint *row = kc.mmProfile[i][m];
+		if (row) res+=row[j]*c[m]; 
 	}
 	return(res); 
 }
@@ -36,9 +37,10 @@ double calcinnerprod(int i, int j, double *c, const KernelContext &kc)
 double calcinnerprod(int i, int j, double *c, double n0, double C, int nA, int nB, double btL, const KernelContext &kc) // gives inner prodict of the pseudo-counts . nA is the number of L-mers in A and is equal to length(A)-L+1, btL is b^L
 {
 	double res = 0; 
-	for(int m=0;m<=kc.maxmm;m++)
+	for(int m=0;m<kc.nclasses;m++) // Phase 7: rows are mismatch classes; unreachable ones are NULL (for one alphabet: m = 0..maxmm, all present)
 	{
-		res+=kc.mmProfile[i][m][j]*c[m]; 
+		const aint *row = kc.mmProfile[i][m];
+		if (row) res+=row[j]*c[m]; 
 	}
 
 	res = res+(nA+nB)*n0*C+btL*n0*n0; 
@@ -57,6 +59,9 @@ void task1(int L, CiDLPasses *iDL, CLTreeS *seqsTS, int M, std::atomic<int> *nex
     //for(int j=0;j<iDL->M;j++){
     CLTreeS *seqsTSj= new CLTreeS();
     seqsTS->cloneReorder(seqsTSj, iDL->passOrder[j], L,L,b, tmpArray1, tmpArray2);
+    // Phase 7: class-index increment per depth of the reordered trie = that of the original position placed there
+    std::vector<int> step(L);
+    for(int d=0; d<L; d++) step[d] = kc->stepPos[iDL->passOrder[j][d]];
     //seqsTS->DFSTiDL(gDFSlistT[0],1, gDFSMMlist[0], iDL.passTrees+j, 0, b);
     //gDFSlistT[0][0] = seqsTSj; // with nonEmptyDaughterCnt
     //gDFSMMlist[0][0] = 0;
@@ -64,7 +69,7 @@ void task1(int L, CiDLPasses *iDL, CLTreeS *seqsTS, int M, std::atomic<int> *nex
     //    seqsTSj->DFSTiDL(gDFSlistT[0],1, gDFSMMlist[0], iDL->passTrees+j, 0, b);
     int zero=0;
     if(!((iDL->passTrees[j]->child0==NULL)&&(iDL->passTrees[j]->child1==NULL))) // i.e. if not empty tree
-      seqsTSj->DFSTiDL(&seqsTSj,1, &zero, iDL->passTrees+j, 0, b, kc);
+      seqsTSj->DFSTiDL(&seqsTSj,1, &zero, iDL->passTrees+j, 0, b, kc, step.data());
     seqsTSj->deleteTree(L, b, 1);
     delete seqsTSj;
     
@@ -332,6 +337,13 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv)  //maingKern
   // global vars init: 
   kc.LM1=L-1;
   kc.maxmm=maxnmm; //MaxMismatch
+  // Phase 7: one alphabet -> the class index is the mismatch count: rows 0..maxmm, step 1 everywhere
+  std::vector<int> stepPos(L, 1);
+  kc.stepPos = stepPos.data();
+  kc.nclasses = maxnmm+1;
+  std::vector<int> reach(kc.nclasses);
+  for(int m=0;m<kc.nclasses;m++) reach[m]=m;
+  const size_t nrowsUsed = reach.size();
   // Phase 6: the mismatch profile is only ever read for j <= i (calcinnerprod is called for i >= j and
   // the leaf code only records pairs with j <= i), so row i holds i+1 entries: half the memory.
   // Rows are allocated per tile below (Phase 6: peak memory bounded by tileRows / tileMemoryMB).
@@ -488,7 +500,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv)  //maingKern
   // Counts are integers, so the result is identical to the untiled computation.
   int tileRows = opt.tileRows;
   if (tileRows <= 0) {
-    double bytesPerRow = (double)(kc.maxmm + 1) * sizeof(aint) * nseqs; // upper bound (the last row is the longest)
+    double bytesPerRow = (double)nrowsUsed * sizeof(aint) * nseqs; // upper bound (the last row is the longest)
     double budget = (double)opt.tileMemoryMB * 1048576.0;
     tileRows = (int)(budget / (bytesPerRow > 0 ? bytesPerRow : 1));
     if (tileRows < 1) tileRows = 1;
@@ -502,7 +514,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv)  //maingKern
   size_t maxTileCounters = 0;
   for (int tile = 0; tile < ntiles; tile++) {
     int lo = tile * tileRows, hi = lo + tileRows - 1; if (hi > nseqs - 1) hi = nseqs - 1;
-    size_t c = 0; for(int i=lo;i<=hi;i++) c += (size_t)(kc.maxmm+1) * (i+1);
+    size_t c = 0; for(int i=lo;i<=hi;i++) c += nrowsUsed * (i+1);
     if (c > maxTileCounters) maxTileCounters = c;
   }
   aint *tileBlock = new aint[maxTileCounters > 0 ? maxTileCounters : 1];
@@ -511,14 +523,15 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv)  //maingKern
     int lo = tile * tileRows, hi = lo + tileRows - 1; if (hi > nseqs - 1) hi = nseqs - 1;
     kc.rowLo = lo; kc.rowHi = hi;
     size_t tileCounters = 0;
-    for(int i=lo;i<=hi;i++) tileCounters += (size_t)(kc.maxmm+1) * (i+1);
+    for(int i=lo;i<=hi;i++) tileCounters += nrowsUsed * (i+1);
     for(size_t k=0;k<tileCounters;k++) tileBlock[k]=0;
     {
       size_t off = 0;
       for(int i=lo;i<=hi;i++)
       {
-        kc.mmProfile[i] = new aint*[kc.maxmm+1];
-        for (int j=0;j<=kc.maxmm;j++) { kc.mmProfile[i][j] = tileBlock + off; off += (size_t)(i+1); }
+        kc.mmProfile[i] = new aint*[kc.nclasses];
+        for (int j=0;j<kc.nclasses;j++) kc.mmProfile[i][j] = NULL;
+        for (size_t q=0;q<nrowsUsed;q++) { kc.mmProfile[i][reach[q]] = tileBlock + off; off += (size_t)(i+1); }
       }
     }
     int nThreads=std::thread::hardware_concurrency();

@@ -66,11 +66,11 @@ public:
   //	void DFST( CLTreeSptr **matchingLmers, int listlen, int *curMismatchCnt, int pos, int alphabetSize);// without nonEmptyDaughterCnt
   //	void DFSTn(CLTreeSptr **matchingLmers, int listlen, int *curMismatchCnt, int alphabetSize);// without nonEmptyDaughterCnt
   
-  void DFSTiDL( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt,CbinMMtree **curMMtree, int pos, int alphabetSize, const KernelContext *ctx); // this version has iDL (or more generally MMtree bound)
+  void DFSTiDL( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt,CbinMMtree **curMMtree, int pos, int alphabetSize, const KernelContext *ctx, const int *step); // step[depth]: class-index increment at a mismatch (Phase 7; all 1 for one alphabet) // this version has iDL (or more generally MMtree bound)
   
   
   
-  void DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, CbinMMtree **curMMtree, int alphabetSize, const KernelContext *ctx); // this version has iDL (or more generally MMtree bound)
+  void DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, CbinMMtree **curMMtree, int alphabetSize, const KernelContext *ctx, int lastStep); // this version has iDL (or more generally MMtree bound)
   
   //void DFSTf( CLTreeSptr **matchingLmers, int listlen, int *curMismatchCnt, int pos);  // this is for fast version -- yet to be implemented
   //void DFSTnf(CLTreeSptr **matchingLmers, int listlen, int *curMismatchCnt);

@@ -11,6 +11,8 @@ no code with src/. Two levels:
      complement, both algorithms, t in {0, 1, 2}, compared entry by entry to the normalised exact
      kernel; the same for b in {2, 5, 20} without reverse complement (Phase 5 gate: b=5 and protein
      complete and match the exact implementation);
+  2b. (Phase 7) the general-B coefficient tables for several alphabet vectors B, every mismatch
+     class and the three kinds, printed by `gkmsvm_selftest coeffs`, against the exact tables;
   3. gkmsvm_classify scores for the fixed SV model (sv_svseq.fa / sv_svalpha.out) against the exact
      score  sum_j alpha_j <x_i,x_j>_d / (|x_i|_d |x_j|_d), where <.,.>_d keeps mismatch levels
      m <= d only (the -d option; norm and score truncated alike, Phase 1 decision 4), for d in {3, L}.
@@ -70,6 +72,49 @@ def check_tables(bindir, tmp, failures):
             for m, v in table.items():
                 if v != 0 and m not in coef:
                     failures.append(f"table b={b} L={L} K={K} t={t}: exact c[{m}]={v} but C++ did not use m={m}")
+    return n
+
+
+def check_generalb_tables(bindir, tmp, failures):
+    """Phase 7: the general-B coefficient tables (src/GeneralB.cpp, printed by `gkmsvm_selftest coeffs B k`)
+    against the exact tables for every mismatch class, several alphabet vectors and all three kinds."""
+    n = 0
+    grid = [((4,) * 6 + (2,) * 6, 4), ((4,) * 4 + (2,) * 4 + (3,) * 4, 5), ((20,) * 4 + (3,) * 4, 3),
+            ((2,) * 8, 5), ((4,) * 10, 6), ((4, 2, 3, 2, 4), 3), ((4,) * 3 + (2,) * 3 + (4,) * 3, 4),
+            ((5,) * 5 + (2,) * 5, 3)]
+    exe = os.path.join(bindir, "gkmsvm_selftest")
+    for B, k in grid:
+        p = subprocess.run([exe, "coeffs", ",".join(map(str, B)), str(k)], capture_output=True, text=True)
+        if p.returncode != 0:
+            failures.append(f"gkmsvm_selftest coeffs {B} {k} failed: {p.stderr}")
+            continue
+        rows = {}
+        autod = {}
+        for line in p.stdout.splitlines():
+            if line.startswith("m="):
+                f = dict(x.split("=", 1) for x in line.split("\t"))
+                rows[tuple(int(v) for v in f["m"].split(","))] = f
+            elif line.startswith("autod"):
+                autod = dict((x.split("=")[0], int(x.split("=")[1])) for x in line.split()[1:])
+        for kind in ("filter", "truncated", "gkm"):
+            table = gb.kernel_coefficients(B, k, kind)
+            scale = max(abs(float(v)) for v in table.values())
+            for m, v in table.items():
+                n += 1
+                got = float(rows[m][kind])
+                if abs(got - float(v)) > 1e-9 * scale:
+                    failures.append(f"generalB table B={B} k={k} {kind}: c{m} C++ {got!r} vs exact {v} ({float(v)!r})")
+        # dominance-rule truncated impulse response and the automatic -d bounds
+        g = gb.truncate_table(gb.H_table(B, k))
+        scale = max(abs(float(v)) for v in g.values())
+        for m, v in g.items():
+            if abs(float(rows[m]["g"]) - float(v)) > 1e-9 * scale:
+                failures.append(f"generalB g B={B} k={k}: g{m} C++ {rows[m]['g']} vs exact {v}")
+        ctr = gb.kernel_coefficients(B, k, "truncated")
+        exp_tr = max((sum(m) for m, v in ctr.items() if v != 0), default=0)
+        l = len(B)
+        if autod != {"filter": l, "truncated": exp_tr, "gkm": l - k}:
+            failures.append(f"generalB auto -d B={B} k={k}: C++ {autod} vs expected filter={l} truncated={exp_tr} gkm={l - k}")
     return n
 
 
@@ -183,6 +228,8 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         nt = check_tables(bindir, tmp, failures)
         print(f"coefficient tables: {nt} values compared")
+        ng = check_generalb_tables(bindir, tmp, failures)
+        print(f"general-B tables:   {ng} values compared")
         nk = check_kernels(bindir, tmp, failures)
         print(f"kernel entries:     {nk} values compared")
         nc = check_classify(bindir, tmp, failures)

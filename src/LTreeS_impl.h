@@ -256,7 +256,7 @@ void addmmprof(aint *mmprofile_i,int *nodej_seqIDs_p,int nn, int curnodeid)
   }
 }
 
-void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, CbinMMtree **curMMtree, int alphabetSize, const KernelContext *ctx)
+void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, CbinMMtree **curMMtree, int alphabetSize, const KernelContext *ctx, int lastStep)
 {
   
   // note: similar to DFST, we should first check if mismatch not allowed, don't iterate over mismatch places and go directly to match
@@ -318,7 +318,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
               LTreeSnodeData *nodej=imatchingLmer->daughter[fbid].node;
               if (nodej->n==1)
               {
-                { int jj = nodej->seqIDs.i; int in = (jj <= curnodeid); mmprofile[1+curMismatchCnt[i]][in ? jj : curnodeid] += in; }
+                { int jj = nodej->seqIDs.i; int in = (jj <= curnodeid); mmprofile[lastStep+curMismatchCnt[i]][in ? jj : curnodeid] += in; }
                 
               }
               else
@@ -327,9 +327,9 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                 for(int j=0;j<nodej->n;j++)
                 {
                 if (nodej->seqIDs.p[j]>curnodeid) break;
-                mmprofile[1+curMismatchCnt[i]][nodej->seqIDs.p[j]]++;
+                mmprofile[lastStep+curMismatchCnt[i]][nodej->seqIDs.p[j]]++;
                 }*/
-                addmmprof(mmprofile[1+curMismatchCnt[i]],nodej->seqIDs.p,nodej->n, curnodeid);
+                addmmprof(mmprofile[lastStep+curMismatchCnt[i]],nodej->seqIDs.p,nodej->n, curnodeid);
                 
               }
               
@@ -373,7 +373,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                   if (curnodeid < ctx->rowLo || curnodeid > ctx->rowHi) continue; // outside the tile
                   aint **mmprofile=ctx->mmProfile[curnodeid];
                   
-                  //int *mmprofile_curMismatchCntP1_i=mmprofile[1+curMismatchCnt[i]];
+                  //int *mmprofile_curMismatchCntP1_i=mmprofile[lastStep+curMismatchCnt[i]];
                   aint *mmprofile_curMismatchCnt_i=mmprofile[curMismatchCnt[i]];
                   
                   { int jj = nodej->seqIDs.i; int in = (jj <= curnodeid); mmprofile_curMismatchCnt_i[in ? jj : curnodeid] += in; }
@@ -398,7 +398,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                   if (curnodeid < ctx->rowLo || curnodeid > ctx->rowHi) continue; // outside the tile
                   aint **mmprofile=ctx->mmProfile[curnodeid];
                   
-                  //int *mmprofile_curMismatchCntP1_i=mmprofile[1+curMismatchCnt[i]];
+                  //int *mmprofile_curMismatchCntP1_i=mmprofile[lastStep+curMismatchCnt[i]];
                   aint *mmprofile_curMismatchCnt_i=mmprofile[curMismatchCnt[i]];
                   
                   addmmprof(mmprofile_curMismatchCnt_i,nodej->seqIDs.p,nodej->n, curnodeid);
@@ -422,7 +422,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                   if (curnodeid < ctx->rowLo || curnodeid > ctx->rowHi) continue; // outside the tile
                   aint **mmprofile=ctx->mmProfile[curnodeid];
                   
-                  aint *mmprofile_curMismatchCntP1_i=mmprofile[1+curMismatchCnt[i]];
+                  aint *mmprofile_curMismatchCntP1_i=mmprofile[lastStep+curMismatchCnt[i]];
                   
                   { int jj = nodej->seqIDs.i; int in = (jj <= curnodeid); mmprofile_curMismatchCntP1_i[in ? jj : curnodeid] += in; }
                   
@@ -436,9 +436,9 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                   if (curnodeid < ctx->rowLo || curnodeid > ctx->rowHi) continue; // outside the tile
                   //int **mmprofile=ctx->mmProfile[curnodeid];
                   
-                  //int *mmprofile_curMismatchCntP1_i=mmprofile[1+curMismatchCnt[i]];
+                  //int *mmprofile_curMismatchCntP1_i=mmprofile[lastStep+curMismatchCnt[i]];
                   //int *mmprofile_curMismatchCnt_i=mmprofile[curMismatchCnt[i]];
-                  addmmprof(ctx->mmProfile[curnodeid][1+curMismatchCnt[i]],nodej->seqIDs.p,nodej_n, curnodeid);
+                  addmmprof(ctx->mmProfile[curnodeid][lastStep+curMismatchCnt[i]],nodej->seqIDs.p,nodej_n, curnodeid);
                 }
               }
               
@@ -475,11 +475,11 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
 }
   }
 
-void CLTreeS::DFSTiDL( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt,CbinMMtree **curMMtree, int pos, int alphabetSize, const KernelContext *ctx)
+void CLTreeS::DFSTiDL( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt,CbinMMtree **curMMtree, int pos, int alphabetSize, const KernelContext *ctx, const int *step)
 {
   if(pos==ctx->LM1) //LM1 is L-1
   {
-    DFSTnIDL(matchingLmers, listlen, curMismatchCnt, curMMtree, alphabetSize, ctx); // process the node.
+    DFSTnIDL(matchingLmers, listlen, curMismatchCnt, curMMtree, alphabetSize, ctx, step[pos]); // process the node.
   }
   else
   {
@@ -553,7 +553,7 @@ void CLTreeS::DFSTiDL( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
               
               *newlistnewlistlen=newnode;
               newlistnewlistlen++;
-              *newMismatchCntnewlistlen=curMismatchCnt[i]+1;
+              *newMismatchCntnewlistlen=curMismatchCnt[i]+step[pos]; // Phase 7: class-index increment (1 for a single alphabet)
               newMismatchCntnewlistlen++;
               *newMMtreenewlistlen=icurMMtreeMisMatch;
               newMMtreenewlistlen++;
@@ -584,7 +584,7 @@ void CLTreeS::DFSTiDL( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
       
       if (newlistlen!=0)
       {
-        daughter[bid].t->DFSTiDL(newlist,newlistlen,newMismatchCnt,newMMtree, pos+1,alphabetSize, ctx);
+        daughter[bid].t->DFSTiDL(newlist,newlistlen,newMismatchCnt,newMMtree, pos+1,alphabetSize, ctx, step);
       }
     }
     //delete []newlist;
