@@ -179,3 +179,4 @@ k_mt4t_t1	kernel	multitrack general	mt4_pos.mfa	mt4_neg.mfa				4	5	-1	1	2	1	0			
 k_mt4t_t2_d4	kernel	multitrack general	mt4_pos.mfa	mt4_neg.mfa				4	5	4	2	2	0	0			dna,=01,=NUM,=wxyz														
 c_mt4t_model_t0	classify	multitrack general classify			test_mt4.mfa	sv_mt4.gkmmodel	sv_mt4.gkmmodel	4	5	-1	0	2	1	0																	
 k_KgtL_general	kernel	multitrack general	oracle_pos.fa	oracle_neg.fa				4	5	-1	0	2	1	0																	
+k_small_d0	kernel	passes	dna_small_pos.fa	dna_small_neg.fa				6	4	0	0	2	1	0																	

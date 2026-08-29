@@ -193,6 +193,6 @@ const double *GeneralBTables::table(int useTgkm) const
 int GeneralBTables::autoMaxmm(int useTgkm) const
 {
 	if (useTgkm == 1) return maxTotalTruncated;
-	if (useTgkm == 2) return av.l - k;
+	if (useTgkm == 2) return (av.l - k > 0) ? av.l - k : 0; // K > L: every gkm coefficient is 0
 	return av.l;
 }

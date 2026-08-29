@@ -906,3 +906,9 @@ and text-vs-binary kernel size and R load time.
   with `K > L` (`-t 0/1/2`) now runs through the general-B driver (single-line FASTA records); the
   two former `expect-error` golden cases (`k_KgtL`, `c_KgtL`) are frozen as regular cases, a new
   oracle case checks the kernel against the exact reference (b = 4, L = 4, K = 5). Golden 180/180.
+  **CI finding (Linux only):** `-d 0` (exact word matching; the automatic bound of the truncated
+  filter when K > L) made the greedy pass design divide by `Dmax` in `initPassOrderIDL` — undefined
+  behaviour that happened to pass on macOS and raised SIGFPE on Linux (a pre-existing bug, reachable
+  before only with an explicit `-d 0`). `maxmm == 0` now uses the prefix-split design; the gkm
+  bound is clamped at 0 for K > L. Verified: the `-d 0` DNA kernel equals the exact-match kernel of
+  the reference (276 entries), new golden case `k_small_d0`.

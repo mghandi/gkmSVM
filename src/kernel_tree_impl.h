@@ -142,7 +142,9 @@ static int gkmKernelPassesAndOutput(OptsGkmKernel &opt, KernelContext &kc, CLTre
     
     // Phase 7: the greedy iDL design materialises every mismatch pattern with <= maxmm ones; for long
     // words (multi-track, large -d) the prefix-split design enumerates them implicitly instead
-    bool prefixSplit = (opt.passDesign == 2) || (opt.passDesign == 0 && CiDLPasses::patternCount(L, kc.maxmm) > GKM_MAX_PATTERN_TABLE);
+    // maxmm == 0 (exact word matching, e.g. K > L with the truncated filter): the greedy design divides by
+    // Dmax in its pass orders (UB; SIGFPE on Linux), the prefix-split DAG handles it
+    bool prefixSplit = (opt.passDesign == 2) || (opt.passDesign == 0 && (kc.maxmm == 0 || CiDLPasses::patternCount(L, kc.maxmm) > GKM_MAX_PATTERN_TABLE));
     if (prefixSplit) {
       int q = 6; if (q > L) q = L;
       iDL.newPrefixSplitPasses(L, kc.maxmm, q);
