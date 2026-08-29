@@ -399,8 +399,10 @@ CSequence *CSequence::getReverseComplement()
 	else
 	{
 		this->reverseComplement->length = length; 
-		sprintf(this->seqName,"%s", seqName);
-		sprintf(this->seqLabel,"%s",seqLabel); 
+		// copy the name/label to the reverse-complement object (the original code copied seqName onto
+		// itself: undefined for overlapping buffers, and reported by ASAN's sprintf interceptor on Linux)
+		sprintf(reverseComplement->seqName,"%s", seqName);
+		sprintf(reverseComplement->seqLabel,"%s",seqLabel); 
 	}
 	int i;
 

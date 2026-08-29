@@ -121,7 +121,11 @@ int mainGkmKernel(int argc, char** argv) //mainGkmKernel
 
 	OptsGkmKernel opt;
     
-    ::optind=1; // reset getopt()
+#ifdef __GLIBC__
+    ::optind = 0; // glibc re-initialises getopt only when optind is 0; optind = 1 leaves its internal state from the previous call
+#else
+    ::optind = 1; ::optreset = 1; // BSD / macOS
+#endif
 
     int c;
 
