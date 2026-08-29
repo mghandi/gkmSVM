@@ -732,3 +732,37 @@ and text-vs-binary kernel size and R load time.
   `CSequence` a converter parameter) and `globtmpstr` (the message buffer; a `Reporter` with its own
   buffer per call would replace it). Both are safe for sequential calls; neither is touched by worker
   threads except `globtmpstr` in the (now removed) per-pass print.
+* **Phase 6b — tiling, done (PR: `phase6b/tiled-profile`, stacked on Phase 2b).** `KernelContext`
+  gained `rowLo/rowHi`; `DFSTiDL` skips current subtrees whose id range is outside the band and the
+  leaf code skips ids outside it; the driver loops over tiles (allocate rows `lo..hi` in **one block
+  reused by every tile** — freeing and reallocating per tile did *not* lower the resident set on macOS,
+  measured with an instrumented build: the allocator keeps freed large blocks and each tile's block is
+  bigger than the last —, run all passes, write those rows, next tile). `-r rows` /
+  `tileRows`, `tileMemoryMB` (auto: largest tile whose profile fits 1 GB, so nothing changes below
+  n ≈ 16 000 at d=3). Also: `minSeqID` was initialised to 0 and never rose, so the existing
+  `minSeqID > maxSeqID` prune in `DFSTiDL` never fired; fixed (exact: it prunes only `j > i` pairs).
+  Measured (T=8): n=6 000×100 bp 550 → 429 MB, 8.4 → 16.2 s with 6 tiles; n=12 000×60 bp
+  **1 006 → 682 MB**, 20.4 → 35.6 s with 12 tiles; every tiled output byte-identical (13 manual
+  configurations + 5 golden cases + testthat). Remaining Phase 6 items: the per-pass tree clone
+  (the ~250–500 MB "other" term above, ×threads) and 4b-2.
+* **Linux CI reconciliation (all branches from Phase 2a up; commit "Portability fixes for Linux builds").**
+  The first look at GitHub Actions showed every branch red. Findings, in order of discovery:
+  (1) `global.h`'s `min`/`max` macros break `<vector>` in libstdc++ 14 when included after it — every
+  branch from 2a failed to compile on Linux; no live code used the macros, deleted. (2) With that fixed,
+  all kernel *values* matched on Linux but every sequence name was empty: `getReverseComplement`
+  copied `seqName` onto itself (`snprintf(this->seqName, …, seqName)`, undefined for overlapping
+  buffers; glibc empties it, macOS does not); it now copies into the reverse-complement object as
+  intended. (3) The two remaining cases (`k_b2_t4_M2`, `c_b2_t4`) had been frozen as `nan`: the
+  mismatch-kernel weights for b=2 contain `pow(0, r<0) = inf` times a zero binomial. Fixed by skipping
+  `r < 0` terms (finite × 0 for b ≥ 3, so DNA is unchanged); both cases re-frozen with finite values.
+  (4) Exact zeros are printed as canonical `+0` (nine frozen files contain zeros; gcc and clang differ
+  on the sign). Phases 0 and 1 (#7, #8) are left red on Linux on purpose: their failures are the
+  original code's undefined behaviour (uninitialised `h[]` in the `t=2` cases, the empty-record
+  case not crashing under glibc), which #8 fixes; the Phase 0 corpus is a macOS snapshot of `222cc50`.
+  Tip after the fixes: ubuntu gcc/clang, ASAN+UBSAN, macOS and the R job all green.
+* **Tried and rejected (not committed): a per-thread node arena for the per-pass clones.** Internal
+  clone nodes from a reusable pool instead of `new`/`delete` per node per pass. Measured on the tip
+  (best of 3): T=1 6.26 s (unchanged), T=20 0.83 s (unchanged), and peak RSS at n=12 000 (T=8)
+  **1 006 → 1 172 MB, i.e. worse** — pools held for the whole run coexist with the profile tile,
+  while per-pass frees let the allocator reuse that memory. The clone term is bounded by the trie
+  size × threads; the honest lever left is fewer threads (`-T`) or a smaller `L`, not allocation.

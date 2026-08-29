@@ -16,7 +16,9 @@ gkmsvm_kernel <- function( posfile,
                            alphabetFN="NULL",
                            nmaxThreads=1000,
                            mergeByName=FALSE,
-                           format=c("text", "binary")){
+                           format=c("text", "binary"),
+                           tileRows=0,
+                           tileMemoryMB=1024){
   format <- match.arg(format)
   
   params = list(L=L, 
@@ -36,7 +38,9 @@ gkmsvm_kernel <- function( posfile,
                 wildcardMismatchM=wildcardMismatchM,
                 alphabetFN=alphabetFN, 
                 nmaxThreads=nmaxThreads,
-                mergeByName=mergeByName
+                mergeByName=mergeByName,
+                tileRows=as.integer(tileRows),
+                tileMemoryMB=as.integer(tileMemoryMB)
                 ); 
  # print(params)
   

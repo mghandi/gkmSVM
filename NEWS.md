@@ -133,6 +133,18 @@ Crashes and memory errors fixed (all reproduced before the fix, all now ASAN/UBS
   per-depth reusable buffers).
 * The mismatch profile is stored as a lower triangle: half the memory for the dominant `n²·(d+1)`
   term (e.g. 7.5 GB → 3.7 GB at 20 000 sequences).
+* **Bounded memory**: the kernel can be computed in tiles of rows (`gkmsvm_kernel(tileRows=)`,
+  CLI `-r`; default: automatic, the largest tile that keeps the profile under `tileMemoryMB`,
+  1 GB). Results are identical whatever the tiling (integer counts); each tile re-runs the trie
+  passes restricted to its rows, so more tiles cost more time (about 2x for 6–12 tiles). Peak
+  memory measured at 12 000 sequences: 1006 MB → 682 MB with 1 000-row tiles (the profile term
+  itself goes from 1.15 GB to 184 MB; the rest is the per-thread tree copies).
+* The subtree pruning by sequence-id range in the kernel recursion was dead (`minSeqID` was never
+  set); it is now active. It skips only pairs that were never recorded, so results are unchanged.
+* Portability fixes found by running the golden corpus on Linux: sequence names were emptied by a
+  self-copying `snprintf` on glibc; exact zeros are printed as `+0`; the mismatch kernel
+  (`useTgkm=4`) with a 2-letter alphabet produced NaN weights (`0^negative`) on every platform and
+  now produces finite ones. DNA results are unchanged.
 
 ### Phase 0b — CRAN 0.83.0 reconciliation
 

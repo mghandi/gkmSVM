@@ -334,19 +334,9 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   kc.maxmm=maxnmm; //MaxMismatch
   // Phase 6: the mismatch profile is only ever read for j <= i (calcinnerprod is called for i >= j and
   // the leaf code only records pairs with j <= i), so row i holds i+1 entries: half the memory.
+  // Rows are allocated per tile below (Phase 6: peak memory bounded by tileRows / tileMemoryMB).
   kc.mmProfile=new aint **[nseqs];
-  for(int i=0;i<nseqs;i++)
-  {
-    kc.mmProfile[i] = new aint*[kc.maxmm+1];
-    for (int j=0;j<=kc.maxmm;j++)
-    {
-      kc.mmProfile[i][j]=new aint[i+1];
-      for(int k=0;k<=i;k++)
-      {
-        kc.mmProfile[i][j][k]=0;
-      }
-    }
-  }
+  for(int i=0;i<nseqs;i++) kc.mmProfile[i] = NULL;
   
   int *nodesAtDepthCnt = new int[L];
   for(int i=0;i<L; i++){
@@ -355,7 +345,6 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   
   int uniqueLmerCnt = seqsTS->leavesCount(0,L, globalConverter.b, nodesAtDepthCnt);
   snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n npos %d \n nneg %d \n  ntotal %d \n nunique %d\n",npos,nneg,ntotal,uniqueLmerCnt);Printf(globtmpstr);
-  {
     // if no IDL bound
     /*
     seqsTS->DFST(gDFSlistT[0],1, gDFSMMlist[0], 0, globalConverter.b);
@@ -424,38 +413,6 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
     //myThreads[0].join();
     //myThreads[1].join();
     
-    int nThreads=std::thread::hardware_concurrency();
-    if(nThreads==0){nThreads = iDL.M;}
-    if(nThreads>iDL.M){nThreads =iDL.M;}
-    if(opt.maxnThread<nThreads){nThreads=opt.maxnThread;}
-    if(nThreads<1){nThreads=1;}
-    std::atomic<int> nextPass(0);
-    
-    snprintf(globtmpstr, GKM_TMPSTR_LEN,"Running %d passes on %d thread%s.\n", iDL.M, nThreads, (nThreads==1)?"":"s"); Printf(globtmpstr);
-    if (nThreads<=1){
-      task1( L, &iDL, seqsTS, iDL.M, &nextPass, &kc);
-    }else{
-      
-#ifndef MULTI_THREAD_SAFE
-      Printf("Warning -- MULTI_THREAD_SAFE is not enabled (see src/global.h). Some values may be approximated.\n");
-#endif
-      
-      
-      std::thread *myThreads = new std::thread[nThreads];
-      int j;
-      
-      for(j=0;j<nThreads;j++){
-        myThreads[j] = std::thread(task1, L, &iDL, seqsTS, iDL.M, &nextPass, &kc);
-        // myThreads[j].join();
-      }
-      for(j=0;j<nThreads;j++){
-        myThreads[j].join();
-      }
-      delete []myThreads;
-    }
-    
-  }
-  
   delete []nodesAtDepthCnt;
   
   /*
@@ -525,8 +482,76 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   }
   else 
   */
+
+  // ---- Phase 6: tiles of rows. The mismatch profile of rows [lo, hi] is built by a full set of
+  // passes with the DFS pruned to that band (node id ranges), the rows are written, the tile is freed.
+  // Counts are integers, so the result is identical to the untiled computation.
+  int tileRows = opt.tileRows;
+  if (tileRows <= 0) {
+    double bytesPerRow = (double)(kc.maxmm + 1) * sizeof(aint) * nseqs; // upper bound (the last row is the longest)
+    double budget = (double)opt.tileMemoryMB * 1048576.0;
+    tileRows = (int)(budget / (bytesPerRow > 0 ? bytesPerRow : 1));
+    if (tileRows < 1) tileRows = 1;
+  }
+  if (tileRows > nseqs) tileRows = nseqs;
+  int ntiles = (nseqs + tileRows - 1) / tileRows;
+  if (ntiles > 1) { snprintf(globtmpstr, GKM_TMPSTR_LEN, "Computing the kernel in %d tiles of %d rows.\n", ntiles, tileRows); Printf(globtmpstr); }
+  // One contiguous block, sized for the largest (last) tile and reused by every tile: freeing and
+  // reallocating a block per tile does not lower the resident set (the allocator keeps freed large
+  // blocks, and each tile's block is bigger than the previous one), a single reused block does.
+  size_t maxTileCounters = 0;
+  for (int tile = 0; tile < ntiles; tile++) {
+    int lo = tile * tileRows, hi = lo + tileRows - 1; if (hi > nseqs - 1) hi = nseqs - 1;
+    size_t c = 0; for(int i=lo;i<=hi;i++) c += (size_t)(kc.maxmm+1) * (i+1);
+    if (c > maxTileCounters) maxTileCounters = c;
+  }
+  aint *tileBlock = new aint[maxTileCounters > 0 ? maxTileCounters : 1];
+  for (int tile = 0; tile < ntiles; tile++)
   {
-    for(i=0;i<nseqs;i++)
+    int lo = tile * tileRows, hi = lo + tileRows - 1; if (hi > nseqs - 1) hi = nseqs - 1;
+    kc.rowLo = lo; kc.rowHi = hi;
+    size_t tileCounters = 0;
+    for(int i=lo;i<=hi;i++) tileCounters += (size_t)(kc.maxmm+1) * (i+1);
+    for(size_t k=0;k<tileCounters;k++) tileBlock[k]=0;
+    {
+      size_t off = 0;
+      for(int i=lo;i<=hi;i++)
+      {
+        kc.mmProfile[i] = new aint*[kc.maxmm+1];
+        for (int j=0;j<=kc.maxmm;j++) { kc.mmProfile[i][j] = tileBlock + off; off += (size_t)(i+1); }
+      }
+    }
+    int nThreads=std::thread::hardware_concurrency();
+    if(nThreads==0){nThreads = iDL.M;}
+    if(nThreads>iDL.M){nThreads =iDL.M;}
+    if(opt.maxnThread<nThreads){nThreads=opt.maxnThread;}
+    if(nThreads<1){nThreads=1;}
+    std::atomic<int> nextPass(0);
+    
+    snprintf(globtmpstr, GKM_TMPSTR_LEN,"Running %d passes on %d thread%s.\n", iDL.M, nThreads, (nThreads==1)?"":"s"); Printf(globtmpstr);
+    if (nThreads<=1){
+      task1( L, &iDL, seqsTS, iDL.M, &nextPass, &kc);
+    }else{
+      
+#ifndef MULTI_THREAD_SAFE
+      Printf("Warning -- MULTI_THREAD_SAFE is not enabled (see src/global.h). Some values may be approximated.\n");
+#endif
+      
+      
+      std::thread *myThreads = new std::thread[nThreads];
+      int j;
+      
+      for(j=0;j<nThreads;j++){
+        myThreads[j] = std::thread(task1, L, &iDL, seqsTS, iDL.M, &nextPass, &kc);
+        // myThreads[j].join();
+      }
+      for(j=0;j<nThreads;j++){
+        myThreads[j].join();
+      }
+      delete []myThreads;
+    }
+    
+    for(i=lo;i<=hi;i++)
     {
       if (usePseudocnt)
       {
@@ -538,7 +563,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
       }
     }
     
-    for(i=0;i<nseqs;i++)
+    for(i=lo;i<=hi;i++)
     {
       
       //if (outputClassLabel)
@@ -556,13 +581,19 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
         if (i==j) v = 1.0;
         else if (usePseudocnt) v = (norm[i]*norm[j]<1E-50)?0.0:calcinnerprod(i,j,c, n0,C,LmersCnt[i], LmersCnt[j], btL, kc)/(norm[i]*norm[j]);
         else v = (norm[i]*norm[j]<1E-50)?0.0:calcinnerprod(i,j,c,kc)/(norm[i]*norm[j]);
+        if (v == 0.0) v = 0.0; // canonical +0 (an exact zero can be -0.0 on one compiler and +0.0 on another)
         if (fo) { if (i==j) fprintf(fo, "1.0\t"); else fprintf(fo, "%e\t", v); }
         else bin.add(gkmCanon(v));
       }
       if (fo) fprintf(fo, "\n"); 
     }
+    for(int i=lo;i<=hi;i++)
+    {
+      delete []kc.mmProfile[i];
+      kc.mmProfile[i] = NULL;
+    }
   }
-  
+  delete []tileBlock;
   if (fo) fclose(fo); 
   else if (bin.write(opt.outfile, records) != 0) return gkmCannotOpen(outFN);
   if (writeIndexSidecar(opt.outfile, records) != 0) { snprintf(globtmpstr, GKM_TMPSTR_LEN,"\n WARNING: could not write %s.index\n", outFN); Printf(globtmpstr); }
@@ -577,11 +608,6 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   {//printf("\n4 %d\n",i);
     delete []seqsB[i]; 
     if (seqsBrc[i]!=NULL) delete []seqsBrc[i]; 
-    for (int j=0;j<=kc.maxmm;j++)
-    {
-      delete []kc.mmProfile[i][j];
-    }
-    delete []kc.mmProfile[i];
   }
   delete []kc.mmProfile;
   
