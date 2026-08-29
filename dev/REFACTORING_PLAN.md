@@ -324,17 +324,34 @@ R/kernlab path produces** (name TAB alpha, negative-class alphas negated, SVs th
 `|alpha| > 1e-10`). So this is a **solver swap inside an existing, format-compatible tool**, not a
 new pipeline. It is dead today only because nothing can call it (no `main()`; fixed in Phase 0).
 
-**Library: LIBSVM, vendored into `src/libsvm/`.** Verified against the 3.33 release tarball:
+**Library: LIBSVM, vendored into `src/libsvm/`.** Vendor the **current release 3.37**
+(2025-12-29); the spike below used 3.33, whose API and file sizes are identical.
 
 | requirement | libsvm 3.33 |
 |---|---|
-| license | **BSD-3-Clause** — permissive, compatible with this package's GPL (≥2) |
+| license | **BSD-3-Clause** — compatible with **both** GPL-2 and GPL-3, so `GPL (>= 2)` is preserved. Obligations: retain `COPYRIGHT`, state that LIBSVM is used |
 | footprint | `svm.cpp` 3 312 lines + `svm.h` 105 lines + `COPYRIGHT`; **no dependencies**, no build system needed |
 | precomputed kernel | `kernel_type = PRECOMPUTED` — exactly our case, since gkmSVM computes its own kernel |
 | output capture | `svm_set_print_string_function()` — routes solver output to `Rprintf`, fixing one of the current R CMD check violations |
 | cross-validation | `svm_cross_validation()` — gives `gkmsvm_trainCV` a C++ equivalent for free |
 | class weights | `nr_weight`/`weight_label`/`weight` — useful for imbalanced positive/negative sets |
 | validation | `svm_check_parameter()` — real error messages instead of silent misbehaviour |
+| SV recovery | `svm_get_sv_indices()` returns 1-based indices into the training set — how we map SVs back to sequences |
+
+**Four libsvm gotchas to design around** (none is a blocker, all bite if ignored):
+
+* **`svm_save_model` is useless under `PRECOMPUTED`** — it writes only `0:<index>` per support
+  vector, so the model degenerates to (alpha, training index) with no way to score a new sequence.
+  gkmSVM must therefore keep writing its own model (the `.gkmmodel` of Phase 4, carrying the SV
+  *sequences*), and use `svm_get_sv_indices()` to map back. This is expected, not a surprise.
+* **`sizeof(svm_node) == 16`**, so materialising a dense n×n problem for `-t 4` costs ~16·n² bytes —
+  **~1.6 GB at n = 10 000, ~6.4 GB at n = 20 000**, i.e. *twice* the raw `double` matrix. The
+  precomputed route is therefore the more memory-hungry of the two, which strengthens the case for
+  4b-2 below.
+* **`rand()`** is used in `svm_cross_validation`'s shuffling and in the probability estimates —
+  must be replaced with R's RNG (`unif_rand` under `GetRNGstate`/`PutRNGstate`) for CRAN.
+* **`svm_set_print_string_function` is not thread-safe** — one process-wide static pointer. Fine for
+  us (training is single-threaded) but it must not be reset per call from concurrent threads.
 
 *Spike (verified, not hypothetical):* a ~60-line driver reading the lower-triangle kernel file that
 `gkmsvm_kernel` writes today, feeding it to libsvm as a `PRECOMPUTED` kernel, trains C-SVC on the
@@ -343,22 +360,50 @@ on the same input gives **5-fold accuracy 0.725 at C = 0.1 and 0.775 at C = 1 an
 the regularisation parameter demonstrably matters on this data, and it is exactly the knob the
 current solver cannot express. The integration is a small, well-understood piece of work.
 
-Alternatives considered and rejected: **ThunderSVM** (Apache-2.0 — incompatible with GPL-2, would
-force GPL-3-only; plus a CUDA/OpenMP build), **LIBLINEAR** (linear only, no precomputed kernels),
-**dlib / Shark / mlpack** (large dependency trees — Boost, Armadillo — hostile to a CRAN package),
-**SVMlight** (non-free licence). Vendoring a single BSD file pair is also the established CRAN
-pattern for SVMs.
+Alternatives considered and rejected:
+
+* **ThunderSVM** — its `PRECOMPUTED` enum is a **stub that silently computes RBF instead**
+  (`case SvmParam::PRECOMPUTED://precomputed uses rbf as default`), so it cannot do our job at all;
+  dormant since 2019; CMake+Eigen+CUDA. Separately, Apache-2.0 is compatible with GPL-3 but **not
+  GPL-2**, and `GPL (>= 2)` does *not* rescue that — it offers a disjunction, so a licensee may
+  elect GPL-2.0-only, which we could not grant for Apache-derived code. Taking it would force a
+  move to `GPL (>= 3)`, a licence change CRAN requires be flagged.
+* **LIBLINEAR** (BSD-3) — no kernels at all; `parameter` has no `kernel_type`. By design.
+* **mlpack** (BSD-3) — has **no kernel SVM**, only `linear_svm`.
+* **dlib** (BSL-1.0) — viable (precomputed via a custom kernel functor, header-only) but far heavier
+  than 3.4k lines for no gain here.
+* **Shark** — LGPL-3+, unmaintained, needs compiled Boost.
+* **SVMlight** — disqualified outright: "free for scientific use … must not be further distributed
+  without prior permission" is both a field-of-use and a no-redistribution restriction, GPL-
+  incompatible and incompatible with CRAN's perpetual-distribution requirement.
+
+**CRAN precedent.** `e1071` vendors libsvm (3.23) but does **not** expose the precomputed kernel.
+The packages that vendor *and* expose `-t 4` are **WeightSVM** (CRAN, GPL-2 | GPL-3, libsvm 3.23)
+and **kebabs** (Bioconductor, libsvm 3.20) — the latter is a *sequence-kernel* package doing
+essentially our use case. `kernlab` vendors a 2002 libsvm/BSVM fork and exposes precomputed via
+`as.kernelMatrix`. gkmSVM 0.83.0 itself vendors no SVM code; it `Imports: kernlab`.
 
 **Integration in two stages.**
 
 * **4b-1 — precomputed matrix (drop-in).** Read the kernel (text or the Phase-4 binary format),
   hand it to libsvm as `PRECOMPUTED`, write both the legacy two-file output and the new single-file
-  model. Memory stays O(n²) exactly as today: *(computed)* the `double**` matrix is 0.2 GB at
-  n = 5 000, **3.0 GB at n = 20 000**, 18.6 GB at n = 50 000.
+  model. Memory stays O(n²) as today, and libsvm's `svm_node` representation *doubles* it:
+  *(computed)* the `double**` matrix alone is 0.2 GB at n = 5 000 and **3.0 GB at n = 20 000**,
+  while the `svm_node` problem handed to `-t 4` adds ~16·n² bytes on top (1.6 GB at n = 10 000,
+  6.4 GB at n = 20 000). Feeding libsvm row-by-row from a memory-mapped binary kernel avoids
+  holding both at once; beyond ~20 000 sequences only 4b-2 is viable.
 * **4b-2 — kernel on the fly (later, with Phase 6).** Give libsvm a kernel callback backed by the
   L-mer trie plus its LRU cache, so the n² matrix never has to exist. This is the same move as
   dropping the mismatch profile from the hot path in Phase 6, and together they remove the memory
   wall that currently caps the method at a few thousand sequences.
+  **Prior art to follow: LS-GKM** (Dongwon Lee), the successor to gkmsvm-2.0, does exactly this — it
+  embeds a modified libsvm 3.18, *removes* `PRECOMPUTED` entirely, replaces `svm_node` with a
+  sequence type, and computes kernel rows on demand through a new `kernel_function_batch` driven by
+  a k-mer tree over the training set, called from `SVC_Q::get_Q` while keeping libsvm's `Cache`.
+  It also already ships a `gkmmatrix` tool that dumps the Gram matrix. Read it before designing
+  4b-2. **Licence note:** LS-GKM is GPL-3.0-or-later, so its *code* cannot be copied into a
+  `GPL (>= 2)` package without moving to `GPL (>= 3)` — borrow the design, not the source, unless we
+  accept that change.
 
 **Compatibility decisions.**
 
