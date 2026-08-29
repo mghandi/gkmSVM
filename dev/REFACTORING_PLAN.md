@@ -616,3 +616,14 @@ and text-vs-binary kernel size and R load time.
   (advisory until Phase 1), the R scratch install + testthat, and a benchmark gate (`dev/bench.sh`,
   best-of-5 single-thread, PR vs. base on the same runner, 2 %). A full `R CMD check` job is deferred to
   Phase 0b when the Bioconductor deps become `Suggests`. Baseline on this machine: 6.33 s.
+* **Phase 1 — done (PR: `phase1/latent-bug-fixes`, stacked on Phase 0).** Every row of the Phase 1 table
+  is fixed (see `NEWS.md` for the user-facing list and the before/after numbers of the two
+  result-changing fixes). Golden: all kernel outputs byte-identical; exactly the seven classify cases
+  with `alg=2, d=3` changed (the approved norm truncation), verified independently by a new classify
+  section of the oracle (exact scores for d ∈ {3, L}, t ∈ {0,1,2}, ±RC, DNA and b=2). `k_emptyrec` runs
+  and is frozen; the b=5 alphabet and the new `-m`/`-n`/missing-alphabet cases are `expect-error`
+  golden cases (clean exit 1 + ERROR message, no output file, and an R `stop()`). Whole corpus
+  ASAN+UBSAN-clean (`detect_leaks=0`; the sanitizer CI job is now required). C++17 + `src/Makevars`
+  (`-DRPACKAGE`: `Rprintf`, `R_unif_index`). Worker threads no longer print (Rprintf is main-thread
+  only). The R golden tests run in-process again, plus new regression tests (60 calls in one session,
+  alphabet does not leak between calls, alg=1 classify output complete).

@@ -50,6 +50,7 @@ CSequence::CSequence(int maxLength,  CSequence *sCopyFrom )
 	//this->occupancyData = NULL;
 	weight = 0; 
 	NameLink = NULL; 
+	readError = 0; 
 
 	if (sCopyFrom!=NULL)
 	{
@@ -180,6 +181,7 @@ baseId *CSequence::getSeqBaseId()
 int CSequence::readFsa(FILE *f, int SkipAlphabetCheck)  // reads one sequence from already opened file f;
 {
 	length = 0; 
+	readError = 0; 
 	static char nextName[MAX_LINE_WIDTH];
 	static int hasNextName = 0;
 	
@@ -189,6 +191,7 @@ int CSequence::readFsa(FILE *f, int SkipAlphabetCheck)  // reads one sequence fr
 	{
 		return 0; 
 	}
+	int overflow = 0; 
 
 	fgets(sline, MAX_LINE_WIDTH, f); 
 	if (sline[0]=='>') //first line
@@ -219,8 +222,9 @@ int CSequence::readFsa(FILE *f, int SkipAlphabetCheck)  // reads one sequence fr
 					(ucase(sline[i])=='T'))
 					*/
 
-				if ((globalConverter.isInAlphabet[sline[i]])||SkipAlphabetCheck)
+				if ((globalConverter.isInAlphabet[(unsigned char)sline[i]])||SkipAlphabetCheck)
 				{
+					if (length >= maxLength-1) { overflow = 1; break; } // leave room for the terminator
 					this->seq[this->length] = sline[i]; 
 					length++;
 				}
@@ -237,15 +241,26 @@ int CSequence::readFsa(FILE *f, int SkipAlphabetCheck)  // reads one sequence fr
 	
 	seq[length] = 0; 
 
+	if (overflow)
+	{
+		sprintf(globtmpstr,"\n ERROR: sequence '%s' is longer than the maximum sequence length %d (set -m / maxseqlen to at least its length).\n", seqName, maxLength-3); Printf(globtmpstr);
+		readError = 1; 
+		length = 0; 
+		return -1; 
+	}
+	if (length==0) // empty record, or EOF: nothing to convert (seqBaseId[-1] used to be written here)
+	{
+		return 0; 
+	}
+
 	int i; 
 	int *cidx = globalConverter.cidx;
 	for(i=0;i<length-1;i++)
 	{
-//		printf("\n%c %d %d",seq[i], cidx[seq[i]], this->maxLength);
-		this->seqBaseId[i] = cidx[seq[i]];
+		this->seqBaseId[i] = cidx[(unsigned char)seq[i]];
 		this->dinucl[i] = globalConverter.dnidx(seq+i);  // for i==length-1 it is meaningless
 	}
-	this->seqBaseId[length-1] = cidx[seq[length-1]];
+	this->seqBaseId[length-1] = cidx[(unsigned char)seq[length-1]];
 
 	if (TALK)
 	{
@@ -304,10 +319,10 @@ int CSequence::readBasic(FILE *f)  // reads one sequence from already opened fil
 	int *cidx = globalConverter.cidx;
 	for(i=0;i<length-1;i++)
 	{
-		this->seqBaseId[i] = cidx[seq[i]]; 
+		this->seqBaseId[i] = cidx[(unsigned char)seq[i]]; 
 		this->dinucl[i] = globalConverter.dnidx(seq+i);  // for i==length-1 it is meaningless
 	}
-	this->seqBaseId[length-1] = cidx[seq[length-1]];
+	this->seqBaseId[length-1] = cidx[(unsigned char)seq[length-1]];
 
 	if (TALK)
 	{
@@ -335,10 +350,10 @@ int CSequence::readString(char *s)  // reads sequence from a string (coverts cha
 	int *cidx = globalConverter.cidx;
 	for(i=0;i<length-1;i++)
 	{
-		this->seqBaseId[i] = cidx[seq[i]]; 
+		this->seqBaseId[i] = cidx[(unsigned char)seq[i]]; 
 		this->dinucl[i] = globalConverter.dnidx(seq+i);  // for i==length-1 it is meaningless
 	}
-	this->seqBaseId[length-1] = cidx[seq[length-1]];
+	this->seqBaseId[length-1] = cidx[(unsigned char)seq[length-1]];
 
 	return length; 
 }
@@ -384,8 +399,10 @@ CSequence *CSequence::getReverseComplement()
 	else
 	{
 		this->reverseComplement->length = length; 
-		sprintf(this->seqName,"%s", seqName);
-		sprintf(this->seqLabel,"%s",seqLabel); 
+		// copy the name/label to the reverse-complement object (the original code copied seqName onto
+		// itself: undefined for overlapping buffers, and reported by ASAN's sprintf interceptor on Linux)
+		sprintf(reverseComplement->seqName,"%s", seqName);
+		sprintf(reverseComplement->seqLabel,"%s",seqLabel); 
 	}
 	int i;
 
@@ -396,7 +413,7 @@ CSequence *CSequence::getReverseComplement()
 	baseId *rseqBaseId = reverseComplement->getSeqBaseId();  	
 	for(i=0;i<length;i++)
 	{
-		rseq[i] = globalConverter.bcompl[seq[length-1-i]];
+		rseq[i] = globalConverter.bcompl[(unsigned char)seq[length-1-i]];
 	}
 
 	rseq[length] =0; 
@@ -407,10 +424,10 @@ CSequence *CSequence::getReverseComplement()
 
 	for(i=0;i<length-1;i++)
 	{
-		rseqBaseId[i] = globalConverter.cidx[rseq[i]]; 
+		rseqBaseId[i] = globalConverter.cidx[(unsigned char)rseq[i]]; 
 		rdinucl[i] = globalConverter.dnidx(rseq+i);  // for i==length-1 it is meaningless
 	}
-	rseqBaseId[length-1] = globalConverter.cidx[rseq[length-1]];
+	rseqBaseId[length-1] = globalConverter.cidx[(unsigned char)rseq[length-1]];
 
 	
 	return reverseComplement; 

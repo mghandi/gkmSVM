@@ -121,7 +121,11 @@ int mainGkmKernel(int argc, char** argv) //mainGkmKernel
 
 	OptsGkmKernel opt;
     
-    ::optind=1; // reset getopt()
+#ifdef __GLIBC__
+    ::optind = 0; // glibc re-initialises getopt only when optind is 0; optind = 1 leaves its internal state from the previous call
+#else
+    ::optind = 1; ::optreset = 1; // BSD / macOS
+#endif
 
     int c;
 
@@ -216,10 +220,10 @@ int mainGkmKernel(int argc, char** argv) //mainGkmKernel
         print_usage_and_exit_gkmKernel(argv[0]); return 0;
 	}
 
+	// the alphabet lives in a global that outlives this call: start every call from DNA
+	globalConverter.resetToDNA();
 	if (opt.alphabetFN!=NULL){
-//		printf("\nj%da%dc%dg%dt%d ",globalConverter.isInAlphabet['j'],globalConverter.isInAlphabet['a'],globalConverter.isInAlphabet['c'],globalConverter.isInAlphabet['g'],globalConverter.isInAlphabet['t']);
-		globalConverter.readAlphabetFile(opt.alphabetFN, MAX_ALPHABET_SIZE);
-//		printf("\nj%da%dc%dg%dt%d ",globalConverter.isInAlphabet['j'],globalConverter.isInAlphabet['a'],globalConverter.isInAlphabet['c'],globalConverter.isInAlphabet['g'],globalConverter.isInAlphabet['t']);
+		if (globalConverter.readAlphabetFile(opt.alphabetFN, MAX_ALPHABET_SIZE)!=0) return 1;
 		if (opt.addRC&&(globalConverter.b!=4)&&(::globalConverter.b!=16)){
 			opt.addRC=false;
 			Printf("\nAdd Reverse Complement option is turned off.\n");
@@ -235,24 +239,31 @@ int mainGkmKernel(int argc, char** argv) //mainGkmKernel
 		case 0:
 			if ((opt.L-opt.K <= 4) || (opt.maxnmm >= 0 && opt.maxnmm <= 4))
 			{
-				gkmKernelSuffixTree(opt);
+				return gkmKernelSuffixTree(opt);
 			}
 			else
 			{
-				gkmKernelSimple(opt);
+				return gkmKernelSimple(opt);
 			}
-			break;
 		case 1:
-			gkmKernelSimple(opt);
-			break;
+			return gkmKernelSimple(opt);
 		case 2:
-			gkmKernelSuffixTree(opt);
-			break;
+			return gkmKernelSuffixTree(opt);
 		default:
             print_usage_and_exit_gkmKernel(argv[0]); return 0;
 	}
+}
 
-	return 0;
+static int cannotOpen(const char *fn)
+{
+	sprintf(globtmpstr,"\n ERROR: cannot open file %s\n", fn); Printf(globtmpstr);
+	return 1;
+}
+
+static int tooManySequences(int limit)
+{
+	sprintf(globtmpstr,"\n ERROR: more than %d sequences (set -n / maxnumseq to at least the number of sequences).\n", limit); Printf(globtmpstr);
+	return 1;
 }
 
 
@@ -374,17 +385,13 @@ int gkmKernelSimple(OptsGkmKernel &opt)  //Use XOR precomputed hash table
 
 	//read positive sequence file
 	FILE *sfi = fopen(posSeqsFN, "r"); 
-	if (sfi == NULL)
-	{
-		perror ("error occurred while opening a file");
-		return 0;
-	}
+	if (sfi == NULL) return cannotOpen(posSeqsFN);
 	while (!feof(sfi))
 	{
-		sgi->readFsa(sfi); 
+		if (sgi->readFsa(sfi) < 0) return 1; 
 		if(sgi->getLength()>0)
 		{
-
+			if (nseqs>=nMAXSEQUENCES) return tooManySequences(nMAXSEQUENCES);
 			seqsL[nseqs] = new CLList(L, 2*maxseqlen+5, hdist);  
 			CLTree *psetT = new CLTree();// keeps all the sequences of length L
 			psetT->addSequence(sgi->getSeqBaseId(), sgi->getLength(),L); 
@@ -404,12 +411,13 @@ int gkmKernelSimple(OptsGkmKernel &opt)  //Use XOR precomputed hash table
 
 	//read negative sequence file
 	sfi = fopen(negSeqsFN, "r"); 
+	if (sfi == NULL) return cannotOpen(negSeqsFN);
 	while (!feof(sfi))
 	{
-		sgi->readFsa(sfi); 
+		if (sgi->readFsa(sfi) < 0) return 1; 
 		if(sgi->getLength()>0)
 		{
-
+			if (nseqs>=nMAXSEQUENCES) return tooManySequences(nMAXSEQUENCES);
 			seqsL[nseqs] = new CLList(L, 2*maxseqlen+5, hdist);  
 			CLTree *psetT = new CLTree();// keeps all the sequences of length L
 			psetT->addSequence(sgi->getSeqBaseId(), sgi->getLength(),L); 
@@ -433,6 +441,7 @@ int gkmKernelSimple(OptsGkmKernel &opt)  //Use XOR precomputed hash table
 	}
 
 	FILE *fo = fopen(outFN, "w"); 
+	if (fo == NULL) return cannotOpen(outFN);
 
 	for(i=0;i<nseqs;i++)
 	{
@@ -459,6 +468,7 @@ int gkmKernelSimple(OptsGkmKernel &opt)  //Use XOR precomputed hash table
 	}
 	delete []seqsL; 
 	delete []norm; 
+	delete sgi; 
 
 	return 0; 
 }
@@ -490,8 +500,6 @@ double calcinnerprod(int i, int j, double *c, double n0, double C, int nA, int n
 void task1(int L, int j0, CiDLPasses *iDL, CLTreeS *seqsTS, int M, int nThreads){
   //    sprintf(globtmpstr,"started pass %d out of %d.\n",j+1,iDL->M);Printf(globtmpstr);
   for(int j=0;j<M;j++) if((j%nThreads)==j0){
-    
-    printf("Thread %d, started pass %d out of %d.\n",j0+1, (j-j0)/nThreads+1,1+(M-j0-1)/nThreads);
     
     int *tmpArray1 = new int[L];
     int *tmpArray2 = new int[L];
@@ -657,11 +665,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   
   //read positive sequence file
   FILE *sfi = fopen(posSeqsFN, "r"); 
-  if (sfi == NULL)
-  {
-    perror ("error occurred while opening a file");
-    return 0;
-  }
+  if (sfi == NULL) return cannotOpen(posSeqsFN);
   
   char *tmpSeq=new char[maxseqlen+3];
   int  *tmpSeqB=new int[maxseqlen+3];
@@ -672,7 +676,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   while (!feof(sfi))
   {
     
-    sgi->readFsa(sfi); 
+    if (sgi->readFsa(sfi) < 0) return 1; 
     
     if(sgi->getLength()>0)
     {
@@ -691,8 +695,8 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
           LmersCnt[dupl_seq_idx] += seqsTS->addSequence(tmpSeqB, sgi->getLength(),L, dupl_seq_idx);
         }
       }else{
-        
-        seqname2[nseqs] = new char[100];
+        if (nseqs>=nMAXSEQUENCES) return tooManySequences(nMAXSEQUENCES);
+        seqname2[nseqs] = new char[strlen(sgi->getName())+1]; // was a fixed 100 bytes: names >= 100 chars overflowed it
         sprintf(seqname2[nseqs],"%s", sgi->getName());
         seqname[nseqs]=seqname2[nseqs]; 
         
@@ -721,9 +725,10 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   
   //read negative sequence file
   sfi = fopen(negSeqsFN, "r"); 
+  if (sfi == NULL) return cannotOpen(negSeqsFN);
   while (!feof(sfi))
   {
-    sgi->readFsa(sfi); 
+    if (sgi->readFsa(sfi) < 0) return 1; 
     
     if(sgi->getLength()>0)
     {
@@ -744,7 +749,8 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
           LmersCnt[dupl_seq_idx] += seqsTS->addSequence(tmpSeqB, sgi->getLength(),L, dupl_seq_idx);
         }
       }else{
-        seqname2[nseqs] = new char[100];
+        if (nseqs>=nMAXSEQUENCES) return tooManySequences(nMAXSEQUENCES);
+        seqname2[nseqs] = new char[strlen(sgi->getName())+1];
         sprintf(seqname2[nseqs],"%s", sgi->getName());
         seqname[nseqs]=seqname2[nseqs];
         
@@ -892,12 +898,13 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
     nThreads = iDL.M/(int)(iDL.M/nThreads);
     if(opt.maxnThread<nThreads){nThreads=opt.maxnThread;}
     
+    sprintf(globtmpstr,"Running %d passes on %d thread%s.\n", iDL.M, nThreads, (nThreads==1)?"":"s"); Printf(globtmpstr);
     if (nThreads<=1){
       task1( L, 0, &iDL, seqsTS, iDL.M, 1);
     }else{
       
 #ifndef MULTI_THREAD_SAFE
-      printf("Warning -- MULTI_THREAD_SAFE is not enabled (see src/global.h). Some values may be approximated.\n");
+      Printf("Warning -- MULTI_THREAD_SAFE is not enabled (see src/global.h). Some values may be approximated.\n");
 #endif
       
       
@@ -1008,11 +1015,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   double *norm = new double [nseqs]; 
   
   FILE *fo = fopen(outFN, "w"); 
-  if (fo == NULL)
-  {
-    perror ("error occurred while opening a file");
-    return 0;
-  }
+  if (fo == NULL) return cannotOpen(outFN);
   /*
   if (OutputMismatchProfileOnly)
   {
@@ -1104,6 +1107,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt)  //maingKernel
   delete []norm;
   delete []LmersCnt;
   seqsTS->deleteTree(L, globalConverter.b, 0);
+  delete seqsTS;
   //delete []curmmcnt; 
   
   for(int i=0;i<nseqs;i++)

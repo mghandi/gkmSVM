@@ -9,4 +9,4 @@ Description: Imports the 'gkmSVM' v2.0 functionalities into R (www.beerlab.org/g
 License: GPL (>= 2)
 Imports: Rcpp, kernlab, seqinr, utils, ROCR, BSgenome, GenomicRanges, rtracklayer, BSgenome.Hsapiens.UCSC.hg19.masked, GenomeInfoDb, IRanges, BiocGenerics, Biostrings, GenomeInfoDb, S4Vectors
 LinkingTo: Rcpp
-SystemRequirements: C++11
+SystemRequirements: C++17

@@ -12,7 +12,7 @@
 
 CXX      ?= c++
 PYTHON   ?= python3
-CXXSTD   ?= -std=c++11
+CXXSTD   ?= -std=c++17
 OPT      ?= -O2
 WARN     ?= -Wall -Wno-deprecated-declarations -Wno-char-subscripts -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unknown-warning-option -Wno-format-overflow -Wno-format-truncation
 BUILD    ?= build

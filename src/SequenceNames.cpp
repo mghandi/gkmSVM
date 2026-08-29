@@ -17,6 +17,7 @@
  */
 
 #include "SequenceNames.h"
+#include <string.h>
 
 
 CSequenceNames::CSequenceNames(void)
@@ -38,7 +39,7 @@ CSequenceNames::~CSequenceNames(void)
 	{
 		for(i=0;i<Nseqs;i++)
 		{
-			delete seqNames[i]; 
+			delete []seqNames[i]; 
 		}
 		Nseqs = 0; 		
 	}
@@ -60,7 +61,7 @@ int CSequenceNames::readSeqNames(char *seqNamesFN)
 	{
 		for(i=0;i<Nseqs;i++)
 		{
-			delete seqNames[i]; 
+			delete []seqNames[i]; 
 		}
 		Nseqs = 0; 		
 	}
@@ -73,8 +74,9 @@ int CSequenceNames::readSeqNames(char *seqNamesFN)
 		if (fgets(stmp, 10000-5, f))
 		{
 			if (stmp[0]!=0) {
-				seqNames[Nseqs] = new char[MAXSeqnameLENGTH];  
-				sscanf(stmp, "%s", seqNames[Nseqs]); 
+				if (Nseqs>=MAXNSeqs) { Printf("\n ERROR: too many sequence names (limit MAXNSeqs).\n"); break; }
+				seqNames[Nseqs] = new char[strlen(stmp)+1];  // a %s token can never be longer than the line
+				if (sscanf(stmp, "%s", seqNames[Nseqs])!=1) { delete []seqNames[Nseqs]; continue; }
 				Nseqs++; 
 			}
 		}
@@ -91,7 +93,7 @@ int CSequenceNames::readSeqNamesandWeights(char *seqNamesFN)
 	{
 		for(i=0;i<Nseqs;i++)
 		{
-			delete seqNames[i]; 
+			delete []seqNames[i]; 
 		}
 		Nseqs = 0; 		
 	}
@@ -104,10 +106,9 @@ int CSequenceNames::readSeqNamesandWeights(char *seqNamesFN)
 		if (fgets(stmp, 10000-5, f)) 
 		{
 			if (stmp[0]!=0) {
-
-				seqNames[Nseqs] = new char[MAXSeqnameLENGTH];  
-				sscanf(stmp, "%s%lf", seqNames[Nseqs], weight+Nseqs); 
-				//printf("%s\n%e\n",seqNames[Nseqs],weight[Nseqs]);
+				if (Nseqs>=MAXNSeqs) { Printf("\n ERROR: too many support vectors (limit MAXNSeqs).\n"); break; }
+				seqNames[Nseqs] = new char[strlen(stmp)+1];  // a %s token can never be longer than the line (was a fixed 100 bytes)
+				if (sscanf(stmp, "%s%lf", seqNames[Nseqs], weight+Nseqs)!=2) { delete []seqNames[Nseqs]; continue; } // blank/malformed line
 				Nseqs++; 
 			}
 		}
@@ -120,6 +121,7 @@ int CSequenceNames::readSeqNamesandWeights(char *seqNamesFN)
 void CSequenceNames::openSeqFile( char *seqFN,  int maxSeqLength)
 {
 	this->seqf = fopen(seqFN, "r"); 
+	if (this->seqf == NULL) { sprintf(globtmpstr,"\n ERROR: cannot open %s\n", seqFN); Printf(globtmpstr); }
 
 	if (this->curSeq!=NULL) delete curSeq; 
 
@@ -128,16 +130,16 @@ void CSequenceNames::openSeqFile( char *seqFN,  int maxSeqLength)
 
 CSequence *CSequenceNames::nextSeq()
 {
-	while (!feof(seqf))
+	while (seqf!=NULL && !feof(seqf))
 	{
 		if (this->nextSeqtoRead ==0)
 		{
-			curSeq->readFsa(this->seqf);  // read a new sequence
+			if (curSeq->readFsa(this->seqf) < 0) { fclose(seqf); seqf = NULL; return NULL; }  // read a new sequence; -1 = too long
 		}
 
 		while (nextSeqtoRead<this->Nseqs)
 		{
-			if (stringcompare(this->seqNames[nextSeqtoRead], curSeq->getName(), MAXSeqnameLENGTH)) 			//if (strcmp(this->seqNames[nextSeqtoRead], curSeq->getName())==0) 
+			if (stringcompare(this->seqNames[nextSeqtoRead], curSeq->getName(), MAX_LINE_WIDTH)) // full-length comparison (was truncated at 100 chars)			//if (strcmp(this->seqNames[nextSeqtoRead], curSeq->getName())==0) 
 			{
 				curSeq->setWeight(weight[nextSeqtoRead]); 
 				curSeq->setNameLink(seqNames[nextSeqtoRead]); 
@@ -158,7 +160,7 @@ CSequence *CSequenceNames::nextSeq()
 		nextSeqtoRead = 0; 
 	}
 
-	fclose(seqf); 
+	if (seqf!=NULL) fclose(seqf); 
 	seqf = NULL; 
 	return NULL; 
 }

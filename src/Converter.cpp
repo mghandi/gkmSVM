@@ -127,7 +127,7 @@ tt	15
 
 dinuclId CConverter::dnidx(char *dn)
 {
-  return cidx[dn[0]]+b*cidx[dn[1]];
+  return cidx[(unsigned char)dn[0]]+b*cidx[(unsigned char)dn[1]];
 }
 
 
@@ -142,28 +142,48 @@ void CConverter::convertBasetoDinucl(baseId x[], dinuclId y[], int N) // x[0..N]
 void CConverter::convertBasetoDinucl(char x[], dinuclId y[], int N) // x[0..N], y[0..N-1]
 {
   for(int i=0;i<N;i++)
-    y[i] = cidx[x[i]]+b*cidx[x[i+1]];
+    y[i] = cidx[(unsigned char)x[i]]+b*cidx[(unsigned char)x[i+1]];
 }
 
 
-void CConverter::readAlphabetFile(char *FN, int MAX_ALPHABET_SIZE_copy){
-  FILE *f= fopen(FN,"r");
-  static char sline[1000+3];
-  
-  b=0;
-  fgets(sline, 1000, f);
-  while(!feof(f)){
-    alphabet[b++]=sline[0];
-    fgets(sline, 1000, f);
-  }
-  sprintf(globtmpstr,"Alphabet Size = %d\n",b);Printf(globtmpstr);
-  if(b>MAX_ALPHABET_SIZE_copy){
-    Printf("\n\n ERROR: alphabet size greater than #MAX_ALPHABET_SIZE. Increase MAX_ALPHABET_SIZE in src/global.h and recompile. \n \n");
-    return;//exit(-1);
-  }
-  
+void CConverter::resetToDNA(){
+  b=4;
+  alphabet[0]='A';
+  alphabet[1]='C';
+  alphabet[2]='G';
+  alphabet[3]='T';
   delete []icidx;
   delete []icidxL;
   init();
+}
+
+int CConverter::readAlphabetFile(char *FN, int MAX_ALPHABET_SIZE_copy){
+  FILE *f= fopen(FN,"r");
+  if (f==NULL){
+    sprintf(globtmpstr,"\n ERROR: cannot open alphabet file %s\n", FN);Printf(globtmpstr);
+    return 1;
+  }
+  char sline[1000+3];
+  int nb=0;
+  while(fgets(sline, 1000, f)!=NULL){
+    if (sline[0]=='\n' || sline[0]=='\r' || sline[0]==0) continue;
+    if (nb>=MAX_ALPHABET_SIZE_copy) { nb++; break; }
+    alphabet[nb++]=sline[0];
+  }
+  fclose(f);
+  sprintf(globtmpstr,"Alphabet Size = %d\n",nb);Printf(globtmpstr);
+  if(nb>MAX_ALPHABET_SIZE_copy){
+    sprintf(globtmpstr,"\n ERROR: alphabet size (>%d) is greater than MAX_ALPHABET_SIZE=%d. Increase MAX_ALPHABET_SIZE in src/global.h and recompile.\n", MAX_ALPHABET_SIZE_copy, MAX_ALPHABET_SIZE_copy);Printf(globtmpstr);
+    return 1;
+  }
+  if(nb<2){
+    Printf("\n ERROR: alphabet file must contain at least two symbols, one per line.\n");
+    return 1;
+  }
+  b=nb;
+  delete []icidx;
+  delete []icidxL;
+  init();
+  return 0;
 }
 

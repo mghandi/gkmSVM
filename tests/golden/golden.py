@@ -11,6 +11,10 @@ tests/testthat/helper-golden.R for the R mapping). Expected outputs are frozen f
 approved that exact behaviour change; in that case re-freeze only the affected cases with --filter
 and explain the diff in the PR.
 
+Tags: `xfail-<phase>` marks a case that crashes today (passes while it crashes, fails as XPASS once it
+does not); `expect-error` marks invalid input that must be rejected with a clean non-zero exit and an
+ERROR message (no crash, no output file).
+
 Comparison is exact on the bytes of the output file. --tol X additionally reports, for a failing
 case, the largest relative numeric difference so a formatting-only change can be told apart from a
 numeric one (it never turns a failure into a pass).
@@ -34,8 +38,8 @@ def build_argv(c, bindir, outfile):
     exe = os.path.join(bindir, "gkmsvm_kernel" if c["tool"] == "kernel" else "gkmsvm_classify")
     argv = [exe]
     for col, flag in (("L", "-l"), ("K", "-k"), ("d", "-d"), ("t", "-t"), ("alg", "-a"),
-                      ("M", "-M"), ("lam", "-L"), ("T", "-T"), ("batch", "-b")):
-        if c[col] != "":
+                      ("M", "-M"), ("lam", "-L"), ("T", "-T"), ("batch", "-b"), ("m", "-m"), ("n", "-n")):
+        if c.get(col, "") != "":
             argv += [flag, c[col]]
     if c["A"]:
         argv += ["-A", os.path.join(FIX, c["A"])]
@@ -109,6 +113,14 @@ def main():
         exp = os.path.join(EXP, r["name"] + ".out")
         xfail = [t for t in tags[r["name"]] if t.startswith("xfail")]
         crashed = r["rc"] != 0 or not os.path.exists(r["out"])
+        if "expect-error" in tags[r["name"]]:
+            # must fail cleanly: a non-zero exit status (not a signal), an ERROR message, no output file
+            msgs = open(os.path.join(r["dir"], "stdout.txt"), "rb").read() + open(os.path.join(r["dir"], "stderr.txt"), "rb").read()
+            if 0 < r["rc"] < 128 and b"ERROR" in msgs and not os.path.exists(r["out"]):
+                print(f"xerror {r['name']:32s} exit {r['rc']}: {msgs.decode(errors='replace').strip().splitlines()[-1][:80]}")
+            else:
+                failed.append((r, f"expected a clean error exit, got exit {r['rc']}, output file {'present' if os.path.exists(r['out']) else 'absent'}"))
+            continue
         if xfail:
             # a known crash (see the tag for the phase that fixes it): passes while it still crashes,
             # and fails loudly once it stops crashing so the case gets frozen and the tag removed

@@ -34,17 +34,18 @@ jobs:
   sanitizers:
     name: ASAN + UBSAN
     runs-on: ubuntu-latest
-    # Until Phase 1 lands, every run trips the known CalcWmML::calcKernel overread (see
-    # dev/REFACTORING_PLAN.md), so this job is advisory. Phase 1 removes continue-on-error.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - run: make -j4 ASAN=1 CXX=clang++
-      - name: Golden tests under the sanitizers
+      - name: Golden tests under the sanitizers (whole corpus; leak checking is a later phase)
         env:
           ASAN_OPTIONS: detect_leaks=0
           UBSAN_OPTIONS: print_stacktrace=1
-        run: python3 tests/golden/golden.py check --bin build-asan --tag small
+        run: python3 tests/golden/golden.py check --bin build-asan
+      - name: Oracle under the sanitizers
+        env:
+          ASAN_OPTIONS: detect_leaks=0
+        run: python3 tests/oracle/oracle_check.py --bin build-asan
 
   r-package:
     name: R package (scratch install, testthat)

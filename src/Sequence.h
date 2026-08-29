@@ -77,7 +77,8 @@ public:
 //	class COccupancyData *occupancyData; 
 
 
-	int readFsa(FILE *f,int SkipAlphabetCheck=false);  // reads one sequence from already opened file f;
+	int readFsa(FILE *f,int SkipAlphabetCheck=false);  // reads one sequence from already opened file f; returns its length, or -1 if it does not fit in maxLength (an error was printed)
+	int readError; // set to 1 by readFsa when the last record was longer than maxLength-1
 	void writeFsa(FILE *f); 	 
 	int readBasic(FILE *f);  // reads one sequence from already opened file f; 
 	void writeBasic(FILE *f); 	 

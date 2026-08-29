@@ -97,10 +97,7 @@ double *CCalcWmML::calcwm()
 	// h[m] 
 	for (i=0; i<=L; i++)
 	  {
-	    if ((L-i) >= K)
-	      {
-		h[i] = dCombinations(L-i,K); 
-	      }
+	    h[i] = ((L-i) >= K) ? dCombinations(L-i,K) : 0.0; // h[L-K+1..L] were never initialised
 	  }
 
 	/*
@@ -145,7 +142,7 @@ double *CCalcWmML::calcKernel(void)
 	for(int m=0;m<=L;m++)
 	{
 		kernel[m]=0;
-		for(int i=0;i<=m;i++)
+		for(int i=0;i<=m && i<=K;i++) // wm has K+1 entries; dCombinations(L-m,K-i)==0 for i>K anyway
 		{
 			kernel[m]+=wm[i]*dCombinations(L-m,K-i)*dCombinations(m,i);
 		}
@@ -236,6 +233,7 @@ double CCalcWmML::calcMismatchKernelWeightsm(int L, int M, int b, int m)
         for(int m2=0; m2<=M; m2++){
 			for(int t=0; t<=M; t++){
 				int r = m2+m1-m-2*t; 
+				if (r < 0 || r > m) continue; // the binomial is 0 here; for b=2, pow(0, r<0) was inf and made every weight NaN
 				w = w+ dCombinations(L-m,t)*pow(b-1, 1.0*t)*dCombinations(m,r)*pow(b-2,1.0*r)* dCombinations(m-r, m1-t-r);
 			}
 		}

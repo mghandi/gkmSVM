@@ -40,6 +40,7 @@ public:
     int isCoprime(int a, int b); // checks if a and b are co-prime
     
     ~CiDLPasses(void);
+    void deletePassTrees();
 };
 
 

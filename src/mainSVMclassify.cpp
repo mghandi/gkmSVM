@@ -115,7 +115,11 @@ void print_usage_and_exit(char *prog)
 int mainSVMclassify(int argc, char** argv) // mainSVMclassify
 {
 	OptsSVMClassify opt;
-    ::optind=1; // reset getopt()
+#ifdef __GLIBC__
+    ::optind = 0; // glibc re-initialises getopt only when optind is 0; optind = 1 leaves its internal state from the previous call
+#else
+    ::optind = 1; ::optreset = 1; // BSD / macOS
+#endif
 	int c;
 
 	opt.L = DEF_L; 
@@ -192,8 +196,9 @@ int mainSVMclassify(int argc, char** argv) // mainSVMclassify
 	opt.alphafile = argv[index++];
 	opt.outfile = argv[index++];
 
+	::globalConverter.resetToDNA(); // the alphabet is a global that outlives this call
 	if (opt.alphabetFN!=NULL){
-		::globalConverter.readAlphabetFile(opt.alphabetFN, MAX_ALPHABET_SIZE);
+		if (::globalConverter.readAlphabetFile(opt.alphabetFN, MAX_ALPHABET_SIZE)!=0) return 1;
 		if (opt.addRC&&(::globalConverter.b!=4)&&(::globalConverter.b!=16)){
 			opt.addRC=false;
 			Printf("\nAdd Reverse Complement option is turned off.\n");
@@ -209,31 +214,38 @@ int mainSVMclassify(int argc, char** argv) // mainSVMclassify
 		case 0:
 			if (opt.L<=10)
 			{
-				svmClassifySuffixTree(opt);
+				return svmClassifySuffixTree(opt);
 			}
 			else
 			{
 				if ((opt.L-opt.K <= 2) || (opt.maxnmm >= 0 && opt.maxnmm <= 2))
 				{
-					svmClassifySuffixTree(opt);
+					return svmClassifySuffixTree(opt);
 				}
 				else
 				{
-					svmClassifySimple(opt);
+					return svmClassifySimple(opt);
 				}
 			}
-			break;
 		case 1:
-			svmClassifySimple(opt);
-			break;
+			return svmClassifySimple(opt);
 		case 2:
-			svmClassifySuffixTree(opt);
-			break;
+			return svmClassifySuffixTree(opt);
 		default:
 			print_usage_and_exit(argv[0]);return 1;
 	}
+}
 
-	return 0;
+static int cannotOpen(const char *fn)
+{
+	sprintf(globtmpstr,"\n ERROR: cannot open file %s\n", fn); Printf(globtmpstr);
+	return 1;
+}
+
+static int tooManySequences(int limit)
+{
+	sprintf(globtmpstr,"\n ERROR: more than %d sequences (set -n / maxnumseq to at least the number of sequences).\n", limit); Printf(globtmpstr);
+	return 1;
 }
 
 int svmClassifySimple(OptsSVMClassify &opt)
@@ -257,7 +269,7 @@ int svmClassifySimple(OptsSVMClassify &opt)
 	double *norm = new double [nMAXSEQUENCES];
 	char **seqname = new char *[nMAXSEQUENCES];
 
-	CSequence *sgi= new CSequence(maxseqlen+3);
+	CSequence *sgi = NULL; // the SV reader owns its own CSequence; the test-sequence one is allocated below
 
 	CCalcWmML wmc(L, K, ::globalConverter.b);
 	if (maxnmm==-1)
@@ -350,6 +362,7 @@ int svmClassifySimple(OptsSVMClassify &opt)
 
 		if(sgi->getLength()>0)
 		{
+			if (nsvseqs>=nMAXSEQUENCES) return tooManySequences(nMAXSEQUENCES);
 			seqsL[nsvseqs] = new CLList(L, 2*maxseqlen+5, hdist);  
 			CLTree *psetT = new CLTree();// keeps all the sequences of length L
 			psetT->addSequence(sgi->getSeqBaseId(), sgi->getLength(), L); 
@@ -370,11 +383,7 @@ int svmClassifySimple(OptsSVMClassify &opt)
 	sprintf(globtmpstr,"  %d SV seqs read \n",nsvseqs);Printf(globtmpstr);
 
 	FILE *sfi = fopen(SeqsFN, "r"); 
-	if (sfi == NULL)
-	{
-		perror ("error occurred while opening a file");
-		return 0;
-	}
+	if (sfi == NULL) return cannotOpen(SeqsFN);
 
 	int nseqs = nsvseqs; //add test sequences at the end of the svseqs
 
@@ -382,9 +391,10 @@ int svmClassifySimple(OptsSVMClassify &opt)
 
 	while (!feof(sfi))
 	{
-		sgi->readFsa(sfi); 
+		if (sgi->readFsa(sfi) < 0) return 1; 
 		if(sgi->getLength()>0)
 		{
+			if (nseqs>=nMAXSEQUENCES) return tooManySequences(nMAXSEQUENCES);
 			seqsL[nseqs] = new CLList(L, 2*maxseqlen+5, hdist);  
 			CLTree *psetT = new CLTree();// keeps all the sequences of length L
 			psetT->addSequence(sgi->getSeqBaseId(), sgi->getLength(), L); 
@@ -406,12 +416,9 @@ int svmClassifySimple(OptsSVMClassify &opt)
 		}
 	}
 
+	fclose(sfi);
 	FILE *fo = fopen(outFN, "w"); 
-	if (fo == NULL)
-	{
-		perror ("error occurred while opening a file");
-		return 0;
-	}
+	if (fo == NULL) return cannotOpen(outFN);
 
 	//test sequences
 	for(i=nsvseqs;i<nseqs;i++)
@@ -426,7 +433,16 @@ int svmClassifySimple(OptsSVMClassify &opt)
 
 		fprintf(fo, "%s\t%f\n",seqname[i], svmscore);
 	}
+	fclose(fo); // was never closed: in a long-lived R session the scores stayed in the stdio buffer
 
+	for(i=0;i<nseqs;i++) delete seqsL[i];
+	for(i=nsvseqs;i<nseqs;i++) delete []seqname[i];
+	delete []seqsL;
+	delete []norm;
+	delete []seqname;
+	delete []mmcnt;
+	delete svsn;
+	delete sgi;
 	return 0;
 }
 
@@ -500,13 +516,13 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 	}
     if (useTgkm==3)  //wildcard kernel
     {
-        c = wmc.calcWildcardKernelWeights(L,  opt.wildcardMismatchM, 4, opt.wildcardLambda, c);
+        c = wmc.calcWildcardKernelWeights(L,  opt.wildcardMismatchM, ::globalConverter.b, opt.wildcardLambda, c); // was a literal 4: wrong for b != 4
     	n0 = c[maxnmm]/2;
 
     }
     if (useTgkm==4)  //mismatch kernel
     {
-        c = wmc.calcMismatchKernelWeights(L,  opt.wildcardMismatchM, 4, c);
+        c = wmc.calcMismatchKernelWeights(L,  opt.wildcardMismatchM, ::globalConverter.b, c); // was a literal 4: wrong for b != 4
     	n0 = c[maxnmm]/2;
 
     }
@@ -578,18 +594,10 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 //	seqsn->readSeqNamesandWeights(SeqIDsFN); 
 //	seqsn->openSeqFile(SeqsFN, maxseqlen);
 	FILE *sfi = fopen(SeqsFN, "r"); 
-	if (sfi == NULL)
-	{
-		perror ("error occurred while opening a file");
-		return 0;
-	}
+	if (sfi == NULL) return cannotOpen(SeqsFN);
 
 	FILE *fo = fopen(outFN, "w"); 
-	if (fo == NULL)
-	{
-		perror ("error occurred while opening a file");
-		return 0;
-	}
+	if (fo == NULL) return cannotOpen(outFN);
 
 	int ntotal = 0; //number of lmers
 	int nseqs = 0; 
@@ -598,7 +606,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 
 	while (!feof(sfi))
 	{
-		sgi->readFsa(sfi); 
+		if (sgi->readFsa(sfi) < 0) { fclose(fo); remove(outFN); return 1; } // the output was already opened: do not leave a partial file
 
 //	for(int ii=0;ii<seqsn->Nseqs;ii++)
 //	{
@@ -612,6 +620,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 
 		if(sgi->getLength()>0)
 		{
+			if (nseqs>=nMAXSEQUENCES) { fclose(fo); remove(outFN); return tooManySequences(nMAXSEQUENCES); }
 			seqsB[nseqs] = new int [sgi->getLength()]; 
 			sgi->getSubseqBaseId(0, sgi->getLength()-1, seqsB[nseqs]); 
 			LmersCnt[nseqs] = seqsTS->addSequence(seqsB[nseqs], sgi->getLength(),L, nseqs); 
@@ -635,7 +644,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 			nseqs++; 
 		}
 	
-		if(((nseqs%batchSize)==0)||(feof(sfi)))
+		if((nseqs>0) && (((nseqs%batchSize)==0)||(feof(sfi)))) // an empty batch (EOF right after a full one) used to write gDFSlistT[0][0] into a zero-length array
 		{
 
 			// global vars init: 
@@ -686,9 +695,10 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 			seqsTS->initTree();
 
 			for(int i=0;i<nseqs;i++)
-			{//printf("\n4 %d\n",i);
+			{
 				delete []seqsB[i]; 
 				if (seqsBrc[i]!=NULL) delete []seqsBrc[i]; 
+				delete []seqname[i]; 
 			}
 
 			for (int j=0;j<=gMAXMM;j++)
@@ -703,15 +713,19 @@ int svmClassifySuffixTree(OptsSVMClassify &opt)
 	}
 
 	fclose(fo); 
+	fclose(sfi); 
 
 	delete []norm;
 	delete []LmersCnt;
+	delete []seqsB;
+	delete []seqsBrc;
 
 	delete []seqname; 
-	//delete seqsn; 
 	delete []mmcnt; 
 	delete []tmps;
-//	delete sgi; 
+	delete sgi; 
+	seqsTS->deleteTree(L, ::globalConverter.b, 0);
+	delete seqsTS;
 	tSVs->deleteTree(L,::globalConverter.b);
 	delete tSVs; 
 	return 0; 
@@ -741,7 +755,14 @@ double calcnorm(CSequence *sgi, int addRC, CLList *tmplist, double *c, int *mmcn
 			tmplist->addFromLTree(psetT); 
 			psetT->deleteTree(L); 
 			delete psetT; 
-			return sqrt(tmplist->calcInnerProd(tmplist,c, mmcnt)); 
+			// The score only sums mismatch levels m <= maxnmm (svmScoreunorm), and so does the b!=4
+			// branch below; this branch used to sum all m <= L, i.e. norm and score were inconsistent
+			// whenever -d was smaller than the support of c[]. Truncate c[] the same way.
+			double *cTrunc = new double[L+1];
+			for(int i=0;i<=L;i++){ cTrunc[i] = (i<=maxnmm) ? c[i] : 0.0; }
+			double s = tmplist->calcInnerProd(tmplist,cTrunc, mmcnt); 
+			delete []cTrunc;
+			return sqrt(s); 
 		}
 		// using Tree based method to calc mismatch profile and calc norm
 		CLTreef *psetT = new CLTreef();// keeps all the sequences of length L
