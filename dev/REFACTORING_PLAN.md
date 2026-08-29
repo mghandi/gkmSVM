@@ -1,6 +1,6 @@
 # gkmSVM refactoring plan
 
-**Status: proposal for discussion. No functional code is changed by this PR.**
+**Status: approved (§5). Execution log at the bottom (§7).**
 Author: drafted 2026-08-29 against `master` @ `222cc50` (package version 0.80).
 Everything marked *(measured)* was produced by `dev/baseline.sh` on this machine
 (Apple M3 Ultra, clang 17, R 4.5.3); the script is included so the numbers can be re-checked.
@@ -195,6 +195,8 @@ Confirmed defects to fix, each with a regression test. None of these change corr
 | `RPACKAGE` commented out → package `printf`s to stdout and calls `rand()` | `gkmCommonLib.cpp:208` | the `Reporter` sink + `R_unif_index` |
 | Signed-`char` indexing of 256-entry tables | `Sequence.cpp:222,245` | `unsigned char` |
 | Alphabet from `-A` persists into the next call in the same R session | `global.cpp:21` | context object (Phase 2); interim: reset per call |
+| **Repeated calls abort the R session**: ~38 consecutive `gkmsvm_kernel()` calls in one R process die with SIGABRT (heap corruption from the rows above; each call alone succeeds) *(measured in Phase 0, macOS/R 4.5.3)* | consequence of the reader bugs above | fixed by the rows above; regression test = `tests/testthat` "many calls in one session" (skipped until then) |
+| 120-character names **abort R** (exit 134) although the CLI survives the same input by luck *(measured in Phase 0)* | `mainGkmKernel.cpp:695` | same as the ≥100-char row |
 
 *Gate:* golden tests unchanged except the two rows marked **changes results**, which get their own
 before/after documentation.
@@ -596,3 +598,21 @@ dev/baseline.sh            # builds a standalone driver from src/, runs the meas
 It builds `src/*.cpp` with a small `main()` shim, then reports: DNA kernel timing vs thread count,
 atomic vs non-atomic, duplicate-name merging, the `b>4` crash, name-length overflow (under ASAN),
 and text-vs-binary kernel size and R load time.
+
+## 7. Execution log
+
+* **Phase 0 — done (PR: `phase0/baseline-safety-net`).** `Makefile` + `src/cli/main_{kernel,classify,train}.cpp`
+  build the three binaries from this tree (`make`, `make ASAN=1`). Golden corpus: `tests/golden/`
+  (22 deterministic fixtures from `make_fixtures.py`, 89 cases in `cases.tsv`, 86 outputs frozen from
+  `222cc50` byte-for-byte, 3 known crashes tracked as `xfail-phase1`/`xfail-phase5` tags that fail the
+  suite the moment they stop crashing). Oracle: `tests/oracle/oracle_check.py` against a vendored copy of
+  `gkmsvm3/generalb/generalb_gkm.py` in `dev/oracle/` (the upstream repo is private, so CI cannot clone
+  it) — 206 coefficient values and 4 068 kernel entries agree to the printed precision, for b ∈ {2,4},
+  t ∈ {0,1,2}, ±RC, both algorithms. R layer: `tests/testthat/` replays the corpus through
+  `gkmsvm_kernel`/`gkmsvm_classify` (one `Rscript` per case until Phase 1, see the two new rows in the
+  Phase 1 table), plus format tests for `gkmsvm_train`/`gkmsvm_delta`; `dev/scratch_install.sh`
+  installs the package with the Bioconductor `Imports` trimmed so this runs without BSgenome.
+  CI: `.github/workflows/ci.yml` — CLI+golden+oracle on ubuntu gcc/clang and macOS clang, ASAN+UBSAN
+  (advisory until Phase 1), the R scratch install + testthat, and a benchmark gate (`dev/bench.sh`,
+  best-of-5 single-thread, PR vs. base on the same runner, 2 %). A full `R CMD check` job is deferred to
+  Phase 0b when the Bioconductor deps become `Suggests`. Baseline on this machine: 6.33 s.

@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  cli:
+    name: CLI + golden (${{ matrix.os }}, ${{ matrix.cxx }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, cxx: g++ }
+          - { os: ubuntu-latest, cxx: clang++ }
+          - { os: macos-latest,  cxx: clang++ }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the three binaries
+        run: make -j4 CXX=${{ matrix.cxx }}
+      - name: Fixtures are reproducible
+        run: python3 tests/golden/make_fixtures.py --check
+      - name: Golden tests (byte-for-byte against tests/golden/expected)
+        run: python3 tests/golden/golden.py check --bin build --tol 0
+      - name: Smoke test gkmsvm_train
+        run: |
+          build/gkmsvm_train tests/golden/expected/k_small_t1_a2.out tests/golden/fixtures/dna_small_pos.fa tests/golden/fixtures/dna_small_neg.fa /tmp/model
+          test -s /tmp/model_svalpha.out && test -s /tmp/model_svseq.fa
+      - name: Numerical oracle (exact-arithmetic Python reference)
+        run: python3 tests/oracle/oracle_check.py --bin build
+
+  sanitizers:
+    name: ASAN + UBSAN
+    runs-on: ubuntu-latest
+    # Until Phase 1 lands, every run trips the known CalcWmML::calcKernel overread (see
+    # dev/REFACTORING_PLAN.md), so this job is advisory. Phase 1 removes continue-on-error.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - run: make -j4 ASAN=1 CXX=clang++
+      - name: Golden tests under the sanitizers
+        env:
+          ASAN_OPTIONS: detect_leaks=0
+          UBSAN_OPTIONS: print_stacktrace=1
+        run: python3 tests/golden/golden.py check --bin build-asan --tag small
+
+  r-package:
+    name: R package (scratch install, testthat)
+    runs-on: ubuntu-latest
+    env:
+      R_LIBS_USER: ${{ github.workspace }}/.rlib
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+        with: { use-public-rspm: true }
+      - name: Install CRAN dependencies
+        run: |
+          mkdir -p "$R_LIBS_USER"
+          Rscript -e 'install.packages(c("Rcpp","kernlab","seqinr","ROCR","testthat"))'
+      - name: Scratch install (Bioconductor Imports trimmed; genNullSeqs untested here)
+        run: dev/scratch_install.sh "$R_LIBS_USER"
+      - name: testthat
+        run: Rscript -e 'testthat::test_dir("tests/testthat", package = "gkmSVM", load_package = "installed", stop_on_failure = TRUE)'
+      # A full `R CMD check` is deferred to Phase 0b, when the Bioconductor dependencies move
+      # from Imports to Suggests (CRAN 0.83.0 layout) and the check no longer needs BSgenome.*.
+
+  bench:
+    name: Benchmark gate (vs. master, same runner)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Build PR
+        run: make -j4 BUILD=build-pr
+      - name: Build base (${{ github.base_ref }})
+        run: |
+          git worktree add /tmp/base origin/${{ github.base_ref }}
+          # the base may predate the Makefile: build it the same way from its src/
+          if [ -f /tmp/base/Makefile ]; then make -C /tmp/base -j4 BUILD=build-base; else
+            mkdir -p /tmp/base/build-base && cp -R src/cli /tmp/base/src/ && cp Makefile /tmp/base/ && make -C /tmp/base -j4 BUILD=build-base; fi
+      - name: Time both (best of 5, single thread)
+        run: |
+          B=$(dev/bench.sh /tmp/base/build-base | awk '{print $2}')
+          N=$(dev/bench.sh build-pr | awk '{print $2}')
+          echo "base=$B new=$N"
+          dev/bench.sh --compare "$B" "$N" ${BENCH_GATE_PCT:-2}

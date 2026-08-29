@@ -1,3 +1,10 @@
 ^dev$
 ^gkmSVM\.Rproj$
 ^\.github$
+^Makefile$
+^build(-asan)?$
+^src/cli$
+^tests/golden$
+^tests/oracle$
+^CLAUDE\.md$
+^\.claude$

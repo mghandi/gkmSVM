@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""Generate the golden-test fixture FASTAs deterministically (seeded PRNG, no downloads).
+
+The generated files are committed; re-running this script must reproduce them byte-for-byte
+(`python3 tests/golden/make_fixtures.py --check`). Fixtures are deliberately small so that the frozen
+expected outputs stay small, and each file exercises one edge of the FASTA reader or the algorithm:
+
+  dna_small_{pos,neg}.fa   12+12 x 100 bp DNA, a 7-mer motif planted in every positive   (main grid)
+  dna_medium_{pos,neg}.fa  40+40 x 300 bp DNA                                             (threading, alg=1)
+  oracle_{pos,neg}.fa      6+6 x 60 bp DNA                                                (exact-arithmetic oracle)
+  dupnames_pos.fa          12 records, records 0 and 1 share the name "posX"              (silent merge, issue 1)
+  longnames_pos.fa         12 records whose names are 120 characters long                 (name buffer overflow)
+  emptyrec_pos.fa          12 records; #3 has an empty sequence, #7 is all 'N'            (records skipped)
+  lowercase_pos.fa         dna_small_pos.fa in lower case                                 (case folding)
+  withN_pos.fa             dna_small_pos.fa with 'N' runs spliced in                      (non-alphabet chars dropped)
+  crlf_pos.fa              dna_small_pos.fa with CRLF line endings
+  multiline_pos.fa         dna_small_pos.fa wrapped at 40 columns
+  b2_{pos,neg}.fa          10+10 x 80 over the 2-letter alphabet "AB" (alphabet_b2.txt)
+  b5_{pos,neg}.fa          6+6 x 60 over "ACGTN" as a 5-letter alphabet (alphabet_b5.txt)  (crashes today; Phase 5)
+  test_seqs.fa             10 x 100 bp DNA test sequences for gkmsvm_classify
+  sv_svseq.fa / sv_svalpha.out  a hand-made support-vector model: 5 pos + 5 neg from dna_small with fixed alphas
+"""
+import argparse, os, random, sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+FIX = os.path.join(HERE, "fixtures")
+MOTIF = "TGACTCA"
+
+
+def seqs(rng, n, length, alpha="ACGT", motif=None):
+    out = []
+    for _ in range(n):
+        s = [rng.choice(alpha) for _ in range(length)]
+        if motif:
+            p = rng.randrange(0, length - len(motif))
+            s[p:p + len(motif)] = list(motif)
+        out.append("".join(s))
+    return out
+
+
+def fasta(records, eol="\n", width=None):
+    parts = []
+    for name, s in records:
+        parts.append(">" + name + eol)
+        if width:
+            for i in range(0, len(s), width):
+                parts.append(s[i:i + width] + eol)
+        else:
+            parts.append(s + eol)
+    return "".join(parts)
+
+
+def build():
+    rng = random.Random(20260829)
+    files = {}
+    pos = seqs(rng, 12, 100, motif=MOTIF)
+    neg = seqs(rng, 12, 100)
+    small_pos = [(f"pos{i}", s) for i, s in enumerate(pos)]
+    small_neg = [(f"neg{i}", s) for i, s in enumerate(neg)]
+    files["dna_small_pos.fa"] = fasta(small_pos)
+    files["dna_small_neg.fa"] = fasta(small_neg)
+    files["dna_medium_pos.fa"] = fasta([(f"mp{i}", s) for i, s in enumerate(seqs(rng, 40, 300, motif=MOTIF))])
+    files["dna_medium_neg.fa"] = fasta([(f"mn{i}", s) for i, s in enumerate(seqs(rng, 40, 300))])
+    files["oracle_pos.fa"] = fasta([(f"op{i}", s) for i, s in enumerate(seqs(rng, 6, 60, motif=MOTIF))])
+    files["oracle_neg.fa"] = fasta([(f"on{i}", s) for i, s in enumerate(seqs(rng, 6, 60))])
+    files["dupnames_pos.fa"] = fasta([("posX" if i < 2 else n, s) for i, (n, s) in enumerate(small_pos)])
+    files["longnames_pos.fa"] = fasta([("L" * 116 + f"_{i:03d}", s) for i, (n, s) in enumerate(small_pos)])
+    emp = list(small_pos)
+    emp[3] = ("pos3_empty", "")
+    emp[7] = ("pos7_allN", "N" * 100)
+    files["emptyrec_pos.fa"] = fasta(emp)
+    files["lowercase_pos.fa"] = fasta([(n, s.lower()) for n, s in small_pos])
+    withn = []
+    for i, (n, s) in enumerate(small_pos):
+        p = 10 + 5 * i
+        withn.append((n, s[:p] + "NNN" + s[p:p + 30] + "N" + s[p + 30:]))
+    files["withN_pos.fa"] = fasta(withn)
+    files["crlf_pos.fa"] = fasta(small_pos, eol="\r\n")
+    files["multiline_pos.fa"] = fasta(small_pos, width=40)
+    files["b2_pos.fa"] = fasta([(f"b2p{i}", s) for i, s in enumerate(seqs(rng, 10, 80, alpha="AB", motif="ABBABAA"))])
+    files["b2_neg.fa"] = fasta([(f"b2n{i}", s) for i, s in enumerate(seqs(rng, 10, 80, alpha="AB"))])
+    files["alphabet_b2.txt"] = "A\nB\n"
+    files["b5_pos.fa"] = fasta([(f"b5p{i}", s) for i, s in enumerate(seqs(rng, 6, 60, alpha="ACGTN", motif=MOTIF))])
+    files["b5_neg.fa"] = fasta([(f"b5n{i}", s) for i, s in enumerate(seqs(rng, 6, 60, alpha="ACGTN"))])
+    files["alphabet_b5.txt"] = "A\nC\nG\nT\nN\n"
+    files["test_seqs.fa"] = fasta([(f"t{i}", s) for i, s in enumerate(seqs(rng, 10, 100, motif=MOTIF if rng.random() < 0.5 else None))])
+    # a fixed (not trained) support-vector model in the {prefix}_svalpha.out / {prefix}_svseq.fa format
+    sv = [small_pos[i] for i in (0, 2, 5, 7, 11)] + [small_neg[i] for i in (1, 3, 4, 8, 10)]
+    alphas = [0.9, 0.35, 1.0, 0.12, 0.6, -0.8, -0.25, -1.0, -0.4, -0.72]
+    files["sv_svseq.fa"] = fasta(sv)
+    files["sv_svalpha.out"] = "".join(f"{n}\t{a:11.6e}\n" for (n, _), a in zip(sv, alphas))
+    return files
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--check", action="store_true", help="verify the committed fixtures match; do not write")
+    a = ap.parse_args()
+    files = build()
+    os.makedirs(FIX, exist_ok=True)
+    bad = 0
+    for name, content in sorted(files.items()):
+        path = os.path.join(FIX, name)
+        if a.check:
+            cur = open(path, "rb").read() if os.path.exists(path) else None
+            if cur != content.encode():
+                print(f"MISMATCH {path}")
+                bad += 1
+        else:
+            with open(path, "wb") as f:
+                f.write(content.encode())
+    if a.check:
+        print("fixtures OK" if not bad else f"{bad} fixture(s) differ")
+        sys.exit(1 if bad else 0)
+    print(f"wrote {len(files)} fixtures to {FIX}")
+
+
+if __name__ == "__main__":
+    main()
