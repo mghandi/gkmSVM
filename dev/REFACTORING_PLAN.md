@@ -912,3 +912,32 @@ and text-vs-binary kernel size and R load time.
   before only with an explicit `-d 0`). `maxmm == 0` now uses the prefix-split design; the gkm
   bound is clamped at 0 for K > L. Verified: the `-d 0` DNA kernel equals the exact-match kernel of
   the reference (276 entries), new golden case `k_small_d0`.
+* **Phase 7e — experiments at scale and documentation (PR `phase7/e-experiments-docs`, stacked on 7d).**
+  gkmsvm3 branch `cpp-backend` (commits `7e3b27b`…): `experiments/common/cpp_backend.py`
+  (`GKMSVM_BIN` → kernels from `gkmsvm_kernel`; unsafe symbols remapped, > 32-symbol alphabets fall
+  back to Python with a note; `GKMSVM_SVM=libsvm` → the harness SVM through `gkmsvm_train`, same
+  `train(K,y) → predict` interface, decision values within 5e-5 of the SMO on the two-block example),
+  `EXP_RESULTS_DIR`, `compare_results.py`. Reruns with the C++ kernels and the harness's own SMO
+  (`results_cpp/` next to the Python `results/`; all numbers from the harness):
+  * 01 (36 analyses): headline `joint_generalB@B_n60` 0.9564 ± 0.0065 identical; largest |ΔAUC| 0.013
+    at n = 16; 44.4 s → 4.5 s.
+  * 02 study B (9): largest |ΔAUC| 0.0011; 8.6 s → 4.4 s.
+  * 06 CTCF + methylation, 300 + 300 (27): `joint_generalB@GM` 0.6399 vs 0.6398, `product_alphabet@GM`
+    0.6348 = 0.6348, `seq_only@K` 0.5339 = 0.5339, `joint_generalB@K_meth3` 0.5895 = 0.5895; largest
+    |ΔAUC| 0.029 on `track1_only@K` (a nearly flat single-track kernel, SMO noise as gkmsvm3's notes
+    predict); **4 705 s → 210 s (22×)**, of which the kernels are 64 s and the Python SMO 139 s.
+  * 07 promoter multi-track, r = 3 (18): largest |ΔAUC| 0.0020 (`ac_only`); **3 814 s → 164 s (23×)**.
+  * 03 UEA sensor series, per-channel SAX (66 analyses shared; the 64-symbol coarsened product
+    alphabet exceeds the trie's 32 symbols and falls back to Python, 13 analyses): largest |ΔAUC|
+    0.0025; `joint_generalB@RacketSports_L4k2` 0.947 = 0.947; 509 s → 125 s.
+  * **06 at 1 000 + 1 000 sites** (`N_PER=1000 prepare.py`, `run.py --n 1000`, C++ kernels +
+    LIBSVM): 21 analyses in **899 s** (kernels 857 s, SVM 39 s). GM12878: `joint_generalB` 0.721
+    (meth2s) / 0.721 (meth3) vs `product_alphabet` 0.679, `sum_kernels` 0.704, `seq_only` 0.667;
+    K562: 0.621 / 0.631 vs 0.571 / 0.567 / 0.574; transfer still ≈ 0.52. The margin of the joint
+    model over the product alphabet widens with n (+0.005 at 300, +0.042 at 1 000). Recorded in
+    gkmsvm3's `experiments/README.md` (commit on `cpp-backend`).
+  Documentation: `README.md` (multi-track pointer), `tutorials/gkmsvm-multitrack-tutorial.md`
+  (7d), `CLAUDE.md` §2 on the `docs/post-merge-status` branch (PR #22). Left open after Phase 7:
+  per-position match probability in the greedy pass cost; kernel-on-the-fly (4b-2) for large class
+  counts (the profile tiles re-run the passes); `gkmsvm_delta` for multi-track input; the 3-track
+  ℓ = 30 timing table (not measured on an idle machine).
