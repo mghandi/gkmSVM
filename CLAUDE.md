@@ -26,20 +26,21 @@ numerical oracle for this refactor, and its theory is the target of Phase 7.
   `dev/bench.sh` and `R CMD INSTALL .` all work directly (the Bioconductor packages are `Suggests`).
 * **Not done** (see the plan's §7 for the measurements behind each): Phase 6's per-pass tree clone
   (a node arena was measured and rejected), 4b-2 (kernel on the fly), micro-optimisations.
+  Golden/oracle counts below include Phase 7's cases.
   Dropping the mismatch profile from the hot path is incompatible with the bit-identical gate.
-* **Phase 7 (heterogeneous alphabets / multi-track input) is implemented and open as a stack of
-  PRs on top of `master`:** `phase7/plan` (#23, `dev/PHASE7_PLAN.md`: decisions D1–D14) ←
-  `phase7/a-foundation` (#24: `src/GeneralB.{h,cpp}` tables, class-index DFS, `gkmsvm_selftest`) ←
-  `phase7/b-twoblock-kernel` (#25: `.mfa` input, `-A dna,=01`, `alphabets=`) ←
-  `phase7/c-twoblock-classify` (#26: classify/train, `#alphabets` in `.gkmmodel`, `read_mfa`) ←
-  `phase7/d-general-b` (#27: any number of tracks, prefix-split passes, tutorial) ← 7e (experiment
-  reruns, docs). Gates on the tip: golden 179/179 (151 DNA cases byte-identical), oracle 33 096
-  multi-track kernel entries + 276 scores vs the exact `Fraction` references (`dev/oracle/`), ASAN
-  clean, testthat 33/0. Merge in order, retarget the child before deleting each branch. The gkmsvm3
-  harness has a C++ backend on its `cpp-backend` branch (`GKMSVM_BIN=<dir>`); experiments 01/02
-  reproduce the Python results (Δ ≤ 0.013 AUC, 10× faster), 03/06/07 reruns are recorded in the plan's
-  §7 (Phase 7e). Still open after 7e: per-position match probability in the greedy pass cost;
-  kernel-on-the-fly (4b-2) for large class counts; `gkmsvm_delta` for multi-track input.
+* **Phase 7 (heterogeneous alphabets / multi-track input) is merged** (PRs #23–#28, in order):
+  `dev/PHASE7_PLAN.md` (decisions D1–D14), `src/GeneralB.{h,cpp}` (general-B tables), the
+  class-index DFS, `src/MultiTrack.{h,cpp}` (`.mfa` input, `-A dna,=01`, R `alphabets=`),
+  multi-track classify/train (`#alphabets` in `.gkmmodel`, `read_mfa`/`write_mfa`), any number of
+  tracks, prefix-split passes for long words (`-P`/`passDesign`), `tutorials/gkmsvm-multitrack-tutorial.md`.
+  Gates on `master`: golden 181/181 (the 151 pre-Phase-7 DNA cases byte-identical), oracle OK
+  (33 096 multi-track kernel entries with both pass designs vs the exact references in
+  `dev/oracle/`), ASAN+UBSAN clean, testthat 33/0, `R CMD check --as-cran` 2 environmental NOTEs,
+  `gkmsvm_selftest` (run by `make test`). The gkmsvm3 harness has a C++ backend on its
+  `cpp-backend` branch (`GKMSVM_BIN=<dir>`, `GKMSVM_SVM=libsvm`); experiments 01/02/03/06/07
+  reproduce the Python results 4–23× faster and 06 runs at 1 000 + 1 000 sites (plan §7, Phase 7e).
+  Still open: per-position match probability in the greedy pass cost; kernel-on-the-fly (4b-2) for
+  large class counts; `gkmsvm_delta` for multi-track input; a 3-track timing table on an idle machine.
 * Working rules that still apply: one branch + PR per change, branched from `master`; never push to
   `master`; golden tests are the gate; when stacking PRs, fix things low in the stack and
   forward-merge (`git merge -X ours <parent>` from each child); when merging a stack, retarget the
