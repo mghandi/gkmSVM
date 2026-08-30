@@ -7,7 +7,7 @@
 \usage{gkmsvm_kernel(posfile, negfile, outfile, L=10, K=6, maxnmm=3, maxseqlen=10000, 
 maxnumseq=1000000, useTgkm=1, alg=2, addRC=TRUE, usePseudocnt=FALSE, wildcardLambda=1.0,
 wildcardMismatchM=2, alphabetFN="NULL", nmaxThreads=1000, mergeByName=FALSE,
-format=c("text", "binary"), tileRows=0, tileMemoryMB=1024, alphabets=NULL)}
+format=c("text", "binary"), tileRows=0, tileMemoryMB=1024, alphabets=NULL, passDesign=0)}
 
 \arguments{
 \item{posfile}{positive sequences file name (FASTA format)}
@@ -29,6 +29,7 @@ format=c("text", "binary"), tileRows=0, tileMemoryMB=1024, alphabets=NULL)}
 \item{format}{"text" (default) writes the historical tab-separated lower-triangle text file; "binary" writes the compact \code{.gkmk} format (float32, about 3x smaller and much faster to load; see \code{\link{read_gkm_kernel}}). \code{gkmsvm_train} and \code{gkmsvm_trainCV} read both.}
 \item{tileRows}{number of kernel rows computed at once. The mismatch profile of a tile needs about \code{tileRows * (maxnmm+1) * 4 * n} bytes; the default 0 chooses the largest tile that fits \code{tileMemoryMB}. Results do not depend on the tiling (integer counts); more tiles cost more time.}
 \item{tileMemoryMB}{memory budget (MB) for the mismatch profile when \code{tileRows = 0}, default 1024}
+\item{passDesign}{how the mismatch patterns are split into passes (advanced; the result is the same): 0 = automatic (default), 1 = the greedy iDL design of the 2016 paper (needs a table of every pattern with at most \code{maxnmm} mismatches), 2 = prefix-split passes, which need no table and are used automatically for long multi-track words.}
 \item{alphabets}{one alphabet per \emph{track}, for multi-track input (gkm-SVM over heterogeneous alphabets): a character vector whose entries are a keyword ("dna", "rna", "protein"), the path of an alphabet file (as for \code{alphabetFN}), or a string of symbols (e.g. "01" for a binary annotation, "NUM" for a 3-state one; a string that is also the name of an existing file is read as a file). With two or more entries the input files are multi-track FASTA: each record is a header line followed by one line per track, all of the same length, e.g. a DNA line and a 0/1 methylation line. A window of length \code{L} over the T tracks is a word of T*L positions whose mismatches are counted per alphabet size ("block"); \code{maxnmm} bounds the total number of mismatches (-1 = all). A symbol outside its track's alphabet (e.g. "N") skips every window that covers it. Only \code{useTgkm} 0, 1, 2 are available for multi-track input; reverse complements complement track 1 and reverse the others. Two tracks are supported in this version. Cannot be combined with \code{alphabetFN}.}
 \item{mergeByName}{if TRUE, records that share a name within one FASTA file are merged into a single kernel row (the behaviour of versions before 0.90). Default FALSE: one record = one row. Row identity (id, name, label, length) is written to \code{<outfile>.index}.}
 

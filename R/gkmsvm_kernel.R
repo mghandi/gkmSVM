@@ -19,7 +19,8 @@ gkmsvm_kernel <- function( posfile,
                            format=c("text", "binary"),
                            tileRows=0,
                            tileMemoryMB=1024,
-                           alphabets=NULL){
+                           alphabets=NULL,
+                           passDesign=0){
   format <- match.arg(format)
   alphabetFN <- .gkm_alphabet_spec(alphabets, alphabetFN)
   
@@ -42,7 +43,8 @@ gkmsvm_kernel <- function( posfile,
                 nmaxThreads=nmaxThreads,
                 mergeByName=mergeByName,
                 tileRows=as.integer(tileRows),
-                tileMemoryMB=as.integer(tileMemoryMB)
+                tileMemoryMB=as.integer(tileMemoryMB),
+                passDesign=as.integer(passDesign)
                 ); 
  # print(params)
   

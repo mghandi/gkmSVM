@@ -96,6 +96,7 @@ void print_usage_and_exit_gkmKernel(const char *prog)
     gkmMsg("%s", "  -N             merge records that share a name within a file into one row (default: one record = one row)\n");
     gkmMsg("%s", "  -b             write the kernel in the binary .gkmk format (float32) instead of text\n");
     gkmMsg("%s", "  -r rows        compute the kernel in tiles of this many rows (bounded memory; 0 = automatic, 1 GB budget)\n");
+    gkmMsg("%s", "  -P design      pass design: 0 automatic (default), 1 greedy iDL table, 2 prefix-split (long words; same result)\n");
     
     Printf(" \n");
 }
@@ -107,7 +108,7 @@ static int gkmKernelParseArgs(int argc, char** argv, OptsGkmKernel &opt)
     int c;
     if (argc == 1) { print_usage_and_exit_gkmKernel(argv[0]); return 1;}
 
-	while ((c = getopt (argc, argv, "l:k:d:m:n:t:a:L:M:A:T:r:RpbN")) != -1)
+	while ((c = getopt (argc, argv, "l:k:d:m:n:t:a:L:M:A:T:r:P:RpbN")) != -1)
 	{
 		switch (c) 
 		{
@@ -127,6 +128,7 @@ static int gkmKernelParseArgs(int argc, char** argv, OptsGkmKernel &opt)
 			case 'T': opt.maxnThread = atoi(optarg); break;
 			case 'N': opt.mergeByName = true; break;
 			case 'r': opt.tileRows = atoi(optarg); break;
+			case 'P': opt.passDesign = atoi(optarg); break;
 			default: print_usage_and_exit_gkmKernel(argv[0]); return 1;
 		}
 	}
@@ -155,10 +157,6 @@ int gkmKernelRun(OptsGkmKernel &opt)
 	{
 		Printf("\n ERROR: L and K must be positive.\n"); return 1;
 	}
-	if ((opt.K > opt.L) &&(opt.useTgkm<3))
-	{
-		Printf("\n ERROR: K must be less than or equal to L!\n"); return 1;
-	}
 
 	if (opt.useTgkm < 0 || opt.useTgkm > 4)
 	{
@@ -175,14 +173,23 @@ int gkmKernelRun(OptsGkmKernel &opt)
 
 	TrackAlphabets ta; // the alphabet(s) of this call (DNA unless -A); Phase 7: one per track
 	if (ta.parse(opt.alphabetFN, GKM_MAX_ALPHABET) != 0) return 1;
+	// K counts informative positions of the whole word: L for one track, T*L for multi-track input (Phase 7)
+	if (ta.T() > 1 && (opt.K > ta.T() * opt.L) && (opt.useTgkm < 3))
+	{
+		Printf("\n ERROR: K must be less than or equal to the number of tracks times L!\n"); return 1;
+	}
 	if ((opt.maxnmm > 0) && (ta.T() * opt.L < opt.maxnmm))
 	{
 		if (ta.T() == 1) Printf("\n ERROR: maxMismatch must be less than or equal to L!\n");
 		else Printf("\n ERROR: maxMismatch must be less than or equal to the number of tracks times L!\n");
 		return 1;
 	}
-	if (ta.T() > 1) {
-		if (ta.T() > 2) { Printf("\n ERROR: this version supports two tracks (e.g. -A dna,=01); more tracks come with Phase 7d.\n"); return 1; }
+	// K > L with one track: the classical tables are undefined, the general-B ones are not (the filter
+	// becomes exact word matching, the gkm counts vanish); use the multi-track driver, as the Python
+	// reference does. Records must then be single-line FASTA.
+	bool generalSingle = (ta.T() == 1 && opt.K > opt.L && opt.useTgkm < 3);
+	if (generalSingle) gkmMsg("K = %d > L = %d: using the general-B tables (single-line FASTA records).\n", opt.K, opt.L);
+	if (ta.T() > 1 || generalSingle) {
 		if (opt.useTgkm > 2) { Printf("\n ERROR: filter types 3 and 4 (wildcard, mismatch kernels) are only available for a single alphabet.\n"); return 1; }
 		if (opt.usePseudocnt) { Printf("\n ERROR: pseudocounts (-p) are only available for a single alphabet.\n"); return 1; }
 		if (opt.alg == 1) Printf("\nAlgorithm is set to 2 (Tree) for multi-track input.\n");

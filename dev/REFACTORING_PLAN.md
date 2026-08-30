@@ -865,3 +865,50 @@ and text-vs-binary kernel size and R load time.
   pair and the model differ by rho to 3e-8). Dropped case: a multi-track pair classified *without*
   `-A` cannot be detected (the annotation lines are dropped by the single-track reader) — documented
   in NEWS instead.
+* **Phase 7d — general B (PR `phase7/d-general-b`, stacked on 7c).** The T ≤ 2 limit is lifted in
+  `gkmKernelRun`/`svmClassifyRun` (and `K ≤ T·L` replaces `K ≤ L` for multi-track input: the
+  gkmsvm3 examples use L = 3, k = 4). **Prefix-split passes** (`CiDLPasses::newPrefixSplitPasses`,
+  D10): one pass per match/mismatch pattern of the first q = 6 positions with ≤ d mismatches, the
+  remaining depths bounded by an implicit (depth, mismatches-used) DAG of `CbinMMtree` nodes owned
+  by an arena and shared by all passes; identity order, so `task1` traverses the shared trie itself
+  (no per-pass clone). Used automatically above `GKM_MAX_PATTERN_TABLE` = 2^20 mismatch patterns,
+  selectable with `-P` / `passDesign` (0 auto, 1 greedy, 2 prefix-split). **Identical results:**
+  three golden cases run with `-P 2` are byte-identical to their greedy twins (DNA L=10 d=3, two-block
+  t=0 all classes, two-block t=2 d=5), and the oracle runs every multi-track kernel with both designs
+  (**33 096 entries**, four fixtures: two-block, DNA + 3-state, `three_tracks.mfa` (r = 3),
+  `mt4_*.mfa` (T = 4 with two 4-symbol tracks → r = 3), ±RC, t = 0/1/2, bounded and unbounded `-d`),
+  plus 276 classify scores incl. a four-track model. Golden 179/179 (7 new cases), ASAN+UBSAN
+  179/179 clean, testthat 33/0, `R CMD check --as-cran --no-manual` 2 NOTEs. Two harness pitfalls
+  fixed on the way: options after the positionals are ignored by BSD `getopt` (macOS), so a failed
+  run left a stale output that a later comparison read — the oracle now puts options first and
+  deletes the output on failure. Not done (measured budget): per-position `p_i` in the greedy cost.
+  `gkmsvm_trainCV(alphabets=)`, the multi-track tutorial (`tutorials/gkmsvm-multitrack-tutorial.md`
+  + `run_multitrack_tutorial.R`: joint AUROC 1.000, DNA only 0.530, methylation only 0.680 on the
+  synthetic set) are included here.
+  **Measured crossover** (250+250 × 100 bp, two tracks, ℓ = 20, `-t 0`, T = 8 threads; wall clock,
+  outputs byte-identical between the designs in every row):
+
+  | `-d` | patterns | greedy iDL | prefix-split |
+  |---|---|---|---|
+  | 6 | 60 460 | 2.6 s | 8.0 s |
+  | 8 | 263 950 | 13.2 s | 30.0 s |
+  | 10 | 616 666 | 42.1 s | 59.5 s |
+  | 12 | 910 596 | 116.1 s | 81.0 s |
+  | 20 (all) | 1 048 576 | killed after 315 s (> 40 CPU-min) | 92.8 s (RSS 198 MB) |
+
+  With a real mismatch bound the greedy iDL order prunes and the pattern table is cheap; the
+  prefix-split DAG only bounds the total count, so it is ~2–3× slower there but is the only
+  feasible design once the table nears 2^20. `GKM_MAX_PATTERN_TABLE` = 750 000 (between the two
+  crossover rows); `-P` overrides. Per-position `p_i` in the greedy cost stays undone.
+  **Follow-up (same PR): single-track `K > L`.** gkmsvm3's experiment 03 runs its single-channel
+  baselines with the k of the joint word (e.g. L = 2, k = 3), which the Python reference accepts
+  (H becomes exact word matching, the gkm counts vanish) and the classical tables refuse. One track
+  with `K > L` (`-t 0/1/2`) now runs through the general-B driver (single-line FASTA records); the
+  two former `expect-error` golden cases (`k_KgtL`, `c_KgtL`) are frozen as regular cases, a new
+  oracle case checks the kernel against the exact reference (b = 4, L = 4, K = 5). Golden 180/180.
+  **CI finding (Linux only):** `-d 0` (exact word matching; the automatic bound of the truncated
+  filter when K > L) made the greedy pass design divide by `Dmax` in `initPassOrderIDL` — undefined
+  behaviour that happened to pass on macOS and raised SIGFPE on Linux (a pre-existing bug, reachable
+  before only with an explicit `-d 0`). `maxmm == 0` now uses the prefix-split design; the gkm
+  bound is clamped at 0 for K > L. Verified: the `-d 0` DNA kernel equals the exact-match kernel of
+  the reference (276 entries), new golden case `k_small_d0`.

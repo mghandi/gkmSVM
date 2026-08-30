@@ -28,6 +28,17 @@ See `dev/REFACTORING_PLAN.md` for the plan and its execution log.
   any valid window scores `-rho`. New helpers `read_mfa()` / `write_mfa()`. Note: multi-track files
   cannot be recognised without their alphabets — given to a single-alphabet run they are read as
   single-track FASTA (the extra track lines contain no alphabet symbols and are dropped).
+* **Any number of tracks and alphabet sizes** (general B): `alphabets = c("dna", "01", "NUM")`,
+  `c("dna", "01", "NUM", "wxyz")`, … Positions with the same alphabet size form one block whatever
+  their track (two 4-letter tracks are one block of 2L positions), so the number of mismatch
+  classes is `Π(block length + 1)`; `K` may be as large as the number of tracks times `L`. For long
+  words the mismatch patterns are no longer tabulated: above 750 000 patterns (e.g. two tracks of
+  L = 10 with all 20 mismatch levels, or three tracks) the kernel uses *prefix-split passes*, which
+  enumerate the same patterns implicitly through a small (depth, mismatches) DAG and traverse the
+  trie without cloning it; the result is identical (the golden corpus and the oracle run both
+  designs). `passDesign` (CLI `-P`) selects a design explicitly. With a single track, `K > L`
+  (an error before) now also runs through the general-B tables, where it is well defined (the
+  filter becomes exact word matching); the records must then be single-line FASTA.
 
 ### Phase 1 — latent-bug fixes
 

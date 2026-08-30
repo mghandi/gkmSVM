@@ -7,7 +7,7 @@ It uses repeated CV to find optimum SVM parameter C. Also generates ROC and PRC 
 
 \usage{gkmsvm_trainCV(kernelfn, posfn, negfn, svmfnprfx=NA, 
   nCV=5, nrepeat=1, cv=NA, Type="C-svc", C=1, shrinking=FALSE, 
-  showPlots=TRUE, outputPDFfn=NA,  outputCVpredfn=NA, outputROCfn=NA, ...)}
+  showPlots=TRUE, outputPDFfn=NA,  outputCVpredfn=NA, outputROCfn=NA, alphabets=NULL, ...)}
   
 \arguments{
   \item{kernelfn}{kernel matrix file name}
@@ -23,6 +23,7 @@ It uses repeated CV to find optimum SVM parameter C. Also generates ROC and PRC 
   \item{showPlots}{generate plots (default==TRUE)}
   \item{outputPDFfn}{filename for output PDF, default=NA (no PDF output)}
   \item{outputCVpredfn}{filename for output cvpred (predicted CV values), default=NA (no output)}
+  \item{alphabets}{one alphabet per track when the kernel was computed from multi-track input (see \code{\link{gkmsvm_kernel}}); passed on to \code{\link{gkmsvm_train}} for the final model.}
   \item{outputROCfn}{filename for output auROC (Area Under an ROC Curve) and auPRC (Area Under the Precision Recall Curve) values, default=NA (no output)}
   \item{...}{optional: additional SVM parameters, see 'kernlab' documentation for more details.}
 }

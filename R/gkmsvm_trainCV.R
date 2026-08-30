@@ -11,7 +11,8 @@
 # outputROCfn: filename for output auROC (Area Under an ROC Curve) and auPRC (Area Under the Precision Recall Curve) values, default=NA (no output)
 
 
-gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=1, cv=NA, Type="C-svc", C=1, shrinking=FALSE, showPlots=TRUE, outputPDFfn=NA,  outputCVpredfn=NA, outputROCfn=NA,  ...){
+gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=1, cv=NA, Type="C-svc", C=1, shrinking=FALSE, showPlots=TRUE, outputPDFfn=NA,  outputCVpredfn=NA, outputROCfn=NA, alphabets=NULL, ...){
+  multitrack <- !is.null(alphabets) && length(alphabets) > 1   # Phase 7: multi-track FASTA inputs
   
   #uses some codes by Dongwon Lee 
   auPRC <- function (perf) {
@@ -109,8 +110,12 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
         #  posfn= '/Users/mghandi/gkmsvm/test/testpos9.fa'
         #  kernelfn= '/Users/mghandi/gkmsvm/test/test9kernel.txt'
         
-        pos = seqinr::read.fasta(posfn)
-        neg = seqinr::read.fasta(negfn)
+        if (multitrack) {
+          pos = read_mfa(posfn, length(alphabets)); neg = read_mfa(negfn, length(alphabets))
+        } else {
+          pos = seqinr::read.fasta(posfn)
+          neg = seqinr::read.fasta(negfn)
+        }
         mat = read_gkm_kernel(kernelfn)   # text or binary (.gkmk), auto-detected
         idx = attr(mat, "index")
         if (!is.null(idx)) {
@@ -234,7 +239,7 @@ gkmsvm_trainCV = function (kernelfn, posfn, negfn, svmfnprfx=NA, nCV=5, nrepeat=
           }
         }
         if (!is.na(svmfnprfx)){
-          gkmsvm_train(kernelfn, posfn, negfn, svmfnprfx, Type=Type, C=Copt);
+          gkmsvm_train(kernelfn, posfn, negfn, svmfnprfx, Type=Type, C=Copt, alphabets=alphabets);
         }
       }
     cat('\n')

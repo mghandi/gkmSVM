@@ -151,7 +151,6 @@ int mainSVMclassify(int argc, char** argv) // mainSVMclassify
 int svmClassifyRun(OptsSVMClassify &opt)
 {
 	if (opt.L < 1 || opt.K < 1) { Printf("\n ERROR: L and K must be positive.\n"); return 1; }
-	if ((opt.K > opt.L) && (opt.useTgkm < 3)) { Printf("\n ERROR: K must be less than or equal to L!\n"); return 1; }
 	if (opt.useTgkm < 0 || opt.useTgkm > 4) { Printf("\n ERROR: filter type (-t) must be between 0 and 4.\n"); return 1; }
 	if (opt.alg < 0 || opt.alg > 2) { Printf("\n ERROR: algorithm (-a) must be 0, 1 or 2.\n"); return 1; }
 	if (opt.batchSize < 1) { Printf("\n ERROR: batch size must be at least 1.\n"); return 1; }
@@ -167,13 +166,17 @@ int svmClassifyRun(OptsSVMClassify &opt)
 	}
 	TrackAlphabets ta; // the alphabet(s) of this call (DNA unless -A); Phase 7: one per track
 	if (ta.parse(opt.alphabetFN, GKM_MAX_ALPHABET) != 0) return 1;
+	if (ta.T() > 1 && (opt.K > ta.T() * opt.L) && (opt.useTgkm < 3)) {
+		Printf("\n ERROR: K must be less than or equal to the number of tracks times L!\n"); return 1;
+	}
 	if ((opt.maxnmm > 0) && (ta.T() * opt.L < opt.maxnmm)) {
 		if (ta.T() == 1) Printf("\n ERROR: maxMismatch must be less than or equal to L!\n");
 		else Printf("\n ERROR: maxMismatch must be less than or equal to the number of tracks times L!\n");
 		return 1;
 	}
-	if (ta.T() > 1) {
-		if (ta.T() > 2) { Printf("\n ERROR: this version supports two tracks (e.g. -A dna,=01); more tracks come with Phase 7d.\n"); return 1; }
+	bool generalSingle = (ta.T() == 1 && opt.K > opt.L && opt.useTgkm < 3); // see gkmKernelRun
+	if (generalSingle) gkmMsg("K = %d > L = %d: using the general-B tables (single-line FASTA records).\n", opt.K, opt.L);
+	if (ta.T() > 1 || generalSingle) {
 		if (opt.useTgkm > 2) { Printf("\n ERROR: filter types 3 and 4 (wildcard, mismatch kernels) are only available for a single alphabet.\n"); return 1; }
 		if (opt.usePseudocnt) { Printf("\n ERROR: pseudocounts (-p) are only available for a single alphabet.\n"); return 1; }
 		if (opt.legacyNorm) { Printf("\n ERROR: the legacy normalisation (-y) is only available for a single alphabet.\n"); return 1; }

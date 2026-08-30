@@ -34,6 +34,7 @@
 #define GKM_NS gkm_b4
 #endif
 #define GKM_MAX_ALPHABET 32   /* largest alphabet the wide instantiation supports */
+#define GKM_MAX_PATTERN_TABLE 750000.0 /* Phase 7: above this many mismatch patterns the kernel uses prefix-split passes instead of the greedy iDL table (measured crossover at l=20: greedy faster up to 617k patterns, prefix-split from 911k) */
 #define LTREE_ALPHABET 4      /* CLTree / CLList (the XOR algorithm, alg=1) are DNA-only by design */
 #define DEF_L 10
 #define DEF_K 6
