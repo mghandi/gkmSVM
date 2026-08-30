@@ -82,14 +82,29 @@ same batches as Metal compute (MPS matrix multiplication or a simd-group-matmul 
 memory means no copies). Side benefit: X_p **is** an explicit sparse feature map — it gives an
 LS-GKM-style linear-SVM training path and cheap deltaSVM-style scoring at any n.
 
-## 4. Plan C — an empirical `-d` study (half a day, possibly makes the corner cases moot)
+## 4. Plan C — the `-d` study: **done (2026-08-30), and it changes the priorities**
 
-The 2014/2016 tools defaulted to `-d 3`; only the gkmsvm3 harness insists on `-d -1` to match the
-exact Python reference. With `-d` bounded the pattern tree prunes hard and the existing tree path
-is fast. One systematic comparison (kernel Δ and AUC Δ at d = 4, 6, 8 vs −1 on 06 and 05 data)
-would tell whether the applications paper can simply run d-capped kernels; if AUC is unchanged at
-d ≈ 6, most large-n pain disappears with zero new code. Report it either way — it is an
-approximation knob, not a bug fix, and the exact paths (A/B) are still worth having.
+Run first at the owner's request (gkmsvm3 `experiments/*/dstudy.py`, `results_dstudy/`; harness knob
+`GKMSVM_D`). Facts established:
+
+* A capped kernel **equals** the exact `-d -1` kernel with the coefficients of the classes |m| > d
+  zeroed — verified against the exact Python path with zeroed coefficients (max diff 1.8e-8), so the
+  already-measured exact AUCs served as baselines with no recomputation.
+* The exact AUC is reproduced at **d = 3–4** for ℓ = 12 joint models (experiment 05: 30–130× kernel
+  speedup; the 12 000-sequence joint ctx5 kernel: 65 min → 31 s) and ℓ = 20 with `meth2s`
+  (experiment 06: 0.7498 vs 0.7484, 5 s vs 1 328 s ≈ 270×), and at **d = 6** for `meth3` and for the
+  ℓ = 24 3-block model (experiment 07: 0.8044 vs 0.8042, 235 s vs 7 620 s ≈ 32×). DNA-only and
+  product-alphabet kernels are d-insensitive. The needed d grows with the joint word length.
+* Caveats: capping changes the normalisation, so the normalised kernel does **not** converge
+  monotonically in d — always confirm d against d + 2; and one SVM instability was seen on a single
+  capped kernel (05 product alphabet at exactly d = 3), so check AUC too, not just kernel diffs.
+
+**Revised priorities.** With `GKMSVM_D` set per configuration every kernel in the current
+experiments runs in seconds-to-minutes, so the capped tree path is the workhorse for the
+applications paper. Plans A and B remain worth doing, in this order, for (i) the exact `-d -1`
+reference at scale, (ii) `meth3` / long-word configurations where the converged d (≈ 6) still costs
+minutes-to-hours at n ≥ 10⁴, and (iii) n ≥ 30 000 (full CLIP sets), where A1's untiled kernel-mode
+and B's GEMM shape are the difference between feasible and not.
 
 ## 5. What not to do
 
