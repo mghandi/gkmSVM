@@ -130,6 +130,30 @@ the M3 Ultra (idle machine), representative configurations:
   whenever the thread budget is ≳ 4, regardless of the pattern-table size). The gkmsvm3 harness now
   passes `-P 2` whenever `GKMSVM_D ≥ 0`.
 
+Thread-efficiency sweep over d (same 06 configuration, n = 13 398, ℓ = 20, 28 threads; "eff." =
+CPU-seconds / wall-seconds):
+
+| d | greedy (`-P 1`) wall / CPU (eff.) | prefix-split (`-P 2`) wall / CPU (eff.) |
+|---|---|---|
+| 2 | 8.6 s / 66 s (7.7) | 7.3 s / **26 s** (3.6) |
+| 3 | 14.4 s / 134 s (9.4) | 11.6 s / 140 s (12.0) |
+| 4 | 95 s / 500 s (5.3) | **34 s** / 618 s (18.2) |
+| −1 | 1 thread for most of the wall (section 1) | — |
+
+The imbalance exists at every d, mildest at d = 3–4 with `-P 2`; at d = 2 the greedy design's CPU
+is dominated by its fixed per-pass cost (the trie clone, independent of d — 440 clones here), which
+is why prefix-split wins on *total CPU* there despite worse balance. Tiling multiplies the tail:
+each of the 11 tiles re-runs the pass set behind a join barrier, so the straggler penalty is paid
+per tile.
+
+History note: the imbalance is *not* a refactoring regression. v0.80 (2018) assigned passes
+statically (`thread j0 takes passes j ≡ j0 mod nThreads`, no stealing) and even rounded nThreads
+toward a divisor of M (`nThreads = M/(int)(M/nThreads)`); Phase 6 (2026) replaced this with a
+dynamic atomic work queue — bit-identical output, strictly better schedule. What is new since
+v0.80 are the regimes that expose the remaining tail: multi-track words of ℓ = 20–32, `-d -1`,
+n ≥ 10⁴, and the prefix-split design itself. Divisibility of the thread count into M is irrelevant
+under dynamic pulling; the floor is the heaviest single pass, which only splitting it can lower.
+
 **Priorities for the capped-d workhorse path, in order:**
 
 1. *(shipped, zero code)* `-P 2` when d is capped and threads are available: 2.8–3.9×. Flip the
