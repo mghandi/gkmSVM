@@ -171,9 +171,27 @@ under dynamic pulling; the floor is the heaviest single pass, which only splitti
    `CiDLPasses.cpp`, no change to correctness (any assignment is exact), directly lowers the
    straggler floor. The same idea applies to the prefix-split design by splitting heavy prefixes one
    level deeper (A2 proper).
-4. **A2 pass splitting** then lifts the remaining tail (prefix-split already gets 18/28 cores; the
+4. **A2b — cost-model fix for general B (measured 2026-08-30, gkmsvm3 experiment 06 data,
+   830 676 joint 20-mers).** The pass-design cost `C_pi(delta)` uses a single mean match
+   probability (`p = mean(1/b_i)`) and depth weights `w_i` from the identity-order trie. Both are
+   fine for constant B: pooled sliding l-mers make the reordered-trie node counts
+   permutation-invariant to within 3 % (measured over rotations and scrambled orders), and the
+   empirical per-position match probabilities are 1/3.84 vs the 1/4 assumed. For **general B** both
+   break: the methylation track's *effective* alphabet is 1.02 (not 2), and true node counts differ
+   between orders by up to **1 700×** at mid depths (meth-first order: 182 nodes at depth 10 vs
+   312 499 for DNA-first) — the model is blind to which positions are cheap. Re-running the greedy
+   assignment (6 196 patterns, the real 40-order dictionary) with per-position empirical match
+   probabilities and per-order w lowers the predicted total DFS cost 6.8× and the predicted
+   heaviest-pass load 12× (34 % → 19 % of total; evaluated under the improved cost model, so treat
+   the exact factors as indicative). Implementation cost: per-position p_j = one pass over the
+   l-mers (free); per-order w by *subsampled exact counting* (hash ~50 k reordered prefixes per
+   order, ~ms each in C++) — the closed-form independence estimate `min(N, prod 1/p_j)` is up to
+   148× off on the correlated methylation track and should only be a fallback. Pairs naturally
+   with A2a: better per-order costs concentrate patterns onto genuinely cheap passes, which makes
+   the load-aware tie-breaking more, not less, important.
+5. **A2 pass splitting** then lifts the remaining tail (prefix-split already gets 18/28 cores; the
    last passes still straggle).
-5. Plan B (pattern-Gram GEMM) does **not** produce capped kernels (the capped coefficient is no
+6. Plan B (pattern-Gram GEMM) does **not** produce capped kernels (the capped coefficient is no
    longer a degree-k polynomial) — it stays the route to *exact* kernels at k ≤ 4–5, which, where it
    applies, supersedes capping altogether.
 
