@@ -4,6 +4,22 @@
 
 See `dev/REFACTORING_PLAN.md` for the plan and its execution log.
 
+### Phase 7 — gkm-SVM over heterogeneous alphabets (multi-track input)
+
+* **`gkmsvm_kernel(..., alphabets = c("dna", "01"))`** (CLI: `-A dna,=01`) computes the gapped
+  k-mer kernel of *multi-track* records: each record is a header line followed by one line per
+  track (e.g. a DNA line and a 0/1 methylation line), and a window of length L over the T tracks is a
+  word of T·L positions whose mismatches are counted per alphabet size, following Mohammad-Noori,
+  Ghareghani & Ghandi, *Generalized Gapped k-mer Filters for Robust Frequency Estimation*. The three
+  coefficient tables (full filter `H`, truncated filter, gapped k-mer counts) are the general-B
+  ones; for a single alphabet they reduce to the previous tables (checked by `gkmsvm_selftest`), and
+  every multi-track kernel is checked against two independent exact-arithmetic implementations
+  (`tests/oracle`). Alphabet entries: a keyword, an alphabet file, or a string of symbols. `maxnmm`
+  bounds the total number of mismatches; a symbol outside its alphabet (e.g. `N`) skips the windows
+  covering it; reverse complements complement track 1 and reverse the others. Filter types 3/4 and
+  pseudocounts are single-alphabet only. This version supports two tracks; DNA results are
+  unchanged (golden corpus byte-identical).
+
 ### Phase 1 — latent-bug fixes
 
 Two of the fixes change numerical results; everything else is behaviour-preserving (the golden

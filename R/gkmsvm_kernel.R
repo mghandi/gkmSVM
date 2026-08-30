@@ -18,8 +18,10 @@ gkmsvm_kernel <- function( posfile,
                            mergeByName=FALSE,
                            format=c("text", "binary"),
                            tileRows=0,
-                           tileMemoryMB=1024){
+                           tileMemoryMB=1024,
+                           alphabets=NULL){
   format <- match.arg(format)
+  alphabetFN <- .gkm_alphabet_spec(alphabets, alphabetFN)
   
   params = list(L=L, 
                 K=K, 
@@ -71,4 +73,24 @@ gkmsvm_kernel <- function( posfile,
   if (!file.exists(fn)) return(NULL)
   utils::read.delim(fn, header = TRUE, stringsAsFactors = FALSE, colClasses = c("integer", "character", "character", "integer", "numeric", "numeric"),
                     quote = "", comment.char = "", na.strings = character(0))
+}
+
+# Phase 7: per-track alphabets. `alphabets` is a character vector with one entry per track: a keyword
+# ("dna", "rna", "protein"), the path of an alphabet file, or a string of symbols (anything else, e.g.
+# "01"); it is turned into the C++ spec list ("dna,=01"). Two or more entries mean the input files are
+# multi-track FASTA (a header line followed by one line per track). Returns the string passed as
+# `alphabetFN` to the C++ code ("NULL" = built-in DNA).
+.gkm_alphabet_spec <- function(alphabets, alphabetFN = "NULL") {
+  if (is.null(alphabets)) return(alphabetFN)
+  if (!identical(alphabetFN, "NULL")) stop("give either 'alphabets' or 'alphabetFN', not both")
+  alphabets <- as.character(alphabets)
+  if (length(alphabets) < 1 || any(!nzchar(alphabets))) stop("'alphabets' must contain at least one non-empty entry")
+  spec <- vapply(alphabets, function(a) {
+    if (tolower(a) %in% c("dna", "rna", "protein")) return(tolower(a))
+    if (startsWith(a, "=")) return(a)
+    if (grepl(",", a, fixed = TRUE)) stop("an alphabet entry must not contain a comma: ", a)
+    if (file.exists(a) && !dir.exists(a)) return(normalizePath(a, mustWork = TRUE))
+    paste0("=", a)
+  }, character(1), USE.NAMES = FALSE)
+  paste(spec, collapse = ",")
 }

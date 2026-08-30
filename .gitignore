@@ -10,3 +10,4 @@ tests/golden/actual/
 *.dll
 *.Rcheck/
 /gkmSVM_*.tar.gz
+__pycache__/

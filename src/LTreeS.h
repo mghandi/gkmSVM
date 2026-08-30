@@ -100,8 +100,8 @@ public:
   CLTreeS(void);
   ~CLTreeS(void);
   
-private:
-  void addSeq(int *bid, int n, int *lmerbid, int seqID);  //call with n=L from outside
+public:
+  void addSeq(int *bid, int n, int *lmerbid, int seqID);  //call with n=L from outside (Phase 7: also used directly by the multi-track driver, one window at a time)
   //	void addSeq(int *bid, int n, int cnt);  //call with n=L from outside
   
 };
