@@ -106,16 +106,57 @@ reference at scale, (ii) `meth3` / long-word configurations where the converged 
 minutes-to-hours at n ≥ 10⁴, and (iii) n ≥ 30 000 (full CLIP sets), where A1's untiled kernel-mode
 and B's GEMM shape are the difference between feasible and not.
 
-## 5. What not to do
+## 5. The capped-d regime (d = 3–6) — measured profile and re-weighted priorities (2026-08-30)
+
+Since capped d reproduces the exact AUC at these sizes, **d = 3–6 is the regime users will actually
+run**, and the optimisation targets there differ from the `-d -1` picture of section 1. Measured on
+the M3 Ultra (idle machine), representative configurations:
+
+| config | `-T 1` | default (28 thr) | speedup | CPU used | **`-P 2` (prefix-split)** |
+|---|---|---|---|---|---|
+| 06 joint meth2s d = 4, n = 13 398 (ℓ = 20) | 458 s | 95 s | 4.8× | 500 s | **34 s** (18 eff. cores) |
+| 07 joint 3-block d = 6, n = 4 000 (ℓ = 24) | 800 s | 240 s | 3.3× | 1 571 s (!) | **61 s** (17.8 eff. cores) |
+
+* Mid-run profile of the 06 case (greedy design): leaf counting 31 %, **`cloneReorder` 31 %**,
+  traversal 27 %, idle 5 %. The greedy iDL design clones + reorders the whole trie *per pass per
+  tile* — 11 tiles × 40 passes = 440 clones of a 329 394-l-mer trie. Invisible at `-d -1`
+  (traversal dominates there), a third of the work at capped d.
+* The 07 case burns 2× the CPU multithreaded vs `-T 1` (1 571 s vs 798 s): `MULTI_THREAD_SAFE`
+  atomic profile counters under contention.
+* **Prefix-split (`-P 2`) at capped d: identical kernel (verified to 0.0 on both cases), 2.8–3.9×
+  faster wall.** No per-pass clone (it traverses the shared trie), 64 passes balance far better
+  (18 effective cores vs ~5). Its total CPU is ~20–35 % above greedy, so greedy remains the right
+  choice for 1–2 threads; the `-P 0` auto rule should become threads-aware (use prefix-split
+  whenever the thread budget is ≳ 4, regardless of the pattern-table size). The gkmsvm3 harness now
+  passes `-P 2` whenever `GKMSVM_D ≥ 0`.
+
+**Priorities for the capped-d workhorse path, in order:**
+
+1. *(shipped, zero code)* `-P 2` when d is capped and threads are available: 2.8–3.9×. Flip the
+   `-P 0` heuristic in `kernel_tree_impl.h` accordingly.
+2. **A1 kernel-mode accumulation** (section 2) pays off just as much here: even with `-P 2` the
+   6–11 tiles repeat the traversal per tile (the 618 s CPU of the 06 `-P 2` run still contains
+   ~11× duplicated traversal), and private per-thread accumulators remove the 2× atomic-contention
+   tax. Estimate: 06 case 34 s → ~8–12 s; grows with n (54 tiles at n = 30 000).
+3. **A2 pass splitting** then lifts the remaining tail (prefix-split already gets 18/28 cores; the
+   last passes still straggle).
+4. Plan B (pattern-Gram GEMM) does **not** produce capped kernels (the capped coefficient is no
+   longer a degree-k polynomial) — it stays the route to *exact* kernels at k ≤ 4–5, which, where it
+   applies, supersedes capping altogether.
+
+## 6. What not to do
 
 * Do **not** port the DFS/trie to the GPU — irregular pointer chasing, no coalescing; the GPU win
   comes only through the Plan-B GEMM shape.
 * Micro-optimising `addmmprof`/branchless leaf code buys ≤ 20 % (leaf work is the minor term).
 * More threads on the current pass design do nothing — the tail pass is one unit of work.
 
-## 6. Suggested order
+## 7. Suggested order
 
-1. A1 kernel-mode (no tiles, private accumulators) — verify vs oracle, measure.
-2. A2 pass splitting — measure parallel efficiency at n = 8 000–16 000.
-3. C's d-study on real data (uses the now-fast tree path).
-4. B on CPU/AMX for k ≤ 4, then the Metal batch; wire into `gkmsvm_kernel -a 3` and the harness.
+1. Done: C's d-study (section 4) and `-P 2` at capped d (section 5).
+2. Threads-aware `-P 0` auto rule (one heuristic in `kernel_tree_impl.h`).
+3. A1 kernel-mode (no tiles, private accumulators) — the biggest remaining lever in *both* regimes;
+   verify vs oracle, measure at capped d and `-d -1`.
+4. A2 pass splitting — measure parallel efficiency at n = 8 000–30 000.
+5. B on CPU/AMX for k ≤ 4, then the Metal batch; wire into `gkmsvm_kernel -a 3` and the harness
+   (exact kernels without capping where it applies).
