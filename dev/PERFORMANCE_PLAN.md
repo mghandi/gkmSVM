@@ -162,9 +162,18 @@ under dynamic pulling; the floor is the heaviest single pass, which only splitti
    6–11 tiles repeat the traversal per tile (the 618 s CPU of the 06 `-P 2` run still contains
    ~11× duplicated traversal), and private per-thread accumulators remove the 2× atomic-contention
    tax. Estimate: 06 case 34 s → ~8–12 s; grows with n (54 tiles at n = 30 000).
-3. **A2 pass splitting** then lifts the remaining tail (prefix-split already gets 18/28 cores; the
+3. **A2a — makespan-aware greedy assignment (cheapest structural fix).** `newGreedyIDLPasses`
+   assigns every mismatch pattern to the pass where *its own* estimated DFS cost (`calcCost`, node
+   pairs surviving per depth) is minimal — the objective is total work, with no term for the
+   *maximum* per-pass load, which is exactly why one pass ends up dominating. Keeping the same cost
+   model, assign each pattern to the least-loaded pass among those within (1 + ε) of its cheapest
+   (ε ≈ 0.2, patterns visited in decreasing min-cost order, LPT-style): ~10 lines in
+   `CiDLPasses.cpp`, no change to correctness (any assignment is exact), directly lowers the
+   straggler floor. The same idea applies to the prefix-split design by splitting heavy prefixes one
+   level deeper (A2 proper).
+4. **A2 pass splitting** then lifts the remaining tail (prefix-split already gets 18/28 cores; the
    last passes still straggle).
-4. Plan B (pattern-Gram GEMM) does **not** produce capped kernels (the capped coefficient is no
+5. Plan B (pattern-Gram GEMM) does **not** produce capped kernels (the capped coefficient is no
    longer a degree-k polynomial) — it stays the route to *exact* kernels at k ≤ 4–5, which, where it
    applies, supersedes capping altogether.
 
