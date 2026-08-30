@@ -5,7 +5,7 @@
 \description{Using the kernel matrix created by 'gkmsvm_kernel', this function trains the SVM classifier, either through the 'kernlab' package (default) or through the LIBSVM solver embedded in the package (\code{backend="libsvm"}).}
 \usage{gkmsvm_train(kernelfn, posfn, negfn, svmfnprfx,  Type="C-svc", C=1, shrinking=FALSE,
              backend=c("kernlab", "libsvm"), posWeight=1, eps=0.001, nfold=0,
-             quiet=TRUE, ...)}
+             quiet=TRUE, alphabets=NULL, ...)}
 \arguments{
   \item{kernelfn}{kernel matrix file name}
   \item{posfn}{positive sequences file name}
@@ -19,6 +19,7 @@
   \item{eps}{libsvm backend only: stopping tolerance, default 0.001}
   \item{nfold}{libsvm backend only: if > 1, the nfold cross-validation accuracy is printed before training}
   \item{quiet}{libsvm backend only: suppress the solver's progress output (default TRUE)}
+  \item{alphabets}{one alphabet per track when the kernel was computed from multi-track input (see \code{\link{gkmsvm_kernel}}): the sequence files are then multi-track FASTA, the support vectors are written as multi-track records and the \code{.gkmmodel} file records the alphabets for \code{\link{gkmsvm_classify}}.}
   \item{...}{optional: additional SVM parameters, see 'kernlab' documentation for more details.}
 }
 \details{Trains SVM classifier and generates three files: [svmfnprfx]_svalpha.out for SVM alphas, [svmfnprfx]_svseq.fa for the corresponding SV sequences, and the single-file model [svmfnprfx].gkmmodel (support vectors with their alphas and the bias rho), which \code{gkmsvm_classify} prefers when present. The kernel file may be in the text or the binary (\code{.gkmk}) format.}

@@ -117,7 +117,7 @@ int CSequenceNames::readSeqNamesandWeights(const char *seqNamesFN)
 		{
 			if (Nseqs==0 && !isModelFile && strncmp(stmp, "#gkmmodel", 9)==0) { isModelFile = 1; continue; }
 			if (isModelFile) {
-				if (stmp[0]=='#') { double v; if (sscanf(stmp, "#rho %lf", &v)==1) rho = v; continue; }
+				if (stmp[0]=='#') { double v; char abuf[4096]; if (sscanf(stmp, "#rho %lf", &v)==1) rho = v; else if (sscanf(stmp, "#alphabets %4095s", abuf)==1) alphabets = abuf; continue; }
 				if (stmp[0]!='>') continue; // sequence lines
 				memmove(stmp, stmp+1, strlen(stmp)); // drop the '>' and parse "id alpha" below
 			}
@@ -182,4 +182,26 @@ CSequence *CSequenceNames::nextSeq()
 		error = 1;
 	}
 	return NULL; 
+}
+
+int CSequenceNames::lookupWeight(const char *name, double &w)
+{
+	std::unordered_map<std::string, int>::iterator it = nameIndex.find(name);
+	if (it == nameIndex.end()) return -1;
+	int k = it->second;
+	if (used[k]) {
+		gkmMsg("\n ERROR: support vector '%s' appears more than once in the sequence file\n", name);
+		error = 1; return -2;
+	}
+	used[k] = 1; w = weight[k]; nSeqsRead++;
+	return 0;
+}
+
+int CSequenceNames::checkAllMatched()
+{
+	if (nSeqsRead >= Nseqs) return 0;
+	int firstMissing = 0; while (firstMissing < Nseqs && used[firstMissing]) firstMissing++;
+	gkmMsg("\n ERROR: the sequences for only %d out of %d support vectors were found in the sequence file (first missing: '%s')\n", nSeqsRead, Nseqs, seqNames[firstMissing]);
+	error = 1;
+	return 1;
 }

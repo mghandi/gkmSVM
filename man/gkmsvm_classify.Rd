@@ -7,7 +7,7 @@
 \usage{gkmsvm_classify(seqfile, svmfnprfx, outfile, L=10, K=6, maxnmm=3, 
 maxseqlen=10000, maxnumseq=1000000, useTgkm=1, alg=2, addRC=TRUE, usePseudocnt=FALSE, 
 batchSize=100000, wildcardLambda=1.0, wildcardMismatchM=2, alphabetFN="NULL", 
-svseqfile=NA, alphafile=NA, legacyNorm=FALSE)}
+svseqfile=NA, alphafile=NA, legacyNorm=FALSE, alphabets=NULL)}
 \arguments{
 \item{seqfile}{input sequences file name (FASTA format)}
 \item{svmfnprfx}{SVM model file name prefix}
@@ -28,6 +28,7 @@ svseqfile=NA, alphafile=NA, legacyNorm=FALSE)}
 \item{alphabetFN}{alphabet keyword ("dna", "rna", "protein") or file name; see \code{\link{gkmsvm_kernel}}}
 \item{svseqfile}{SVM support vectors sequence file name (not needed if svmfnprfx is provided)}
 \item{alphafile}{SVM support vectors weights file name (not needed if svmfnprfx is provided)}
+\item{alphabets}{one alphabet per track for multi-track input (see \code{\link{gkmsvm_kernel}}); the test sequences and the support vectors are then multi-track FASTA records. A multi-track \code{.gkmmodel} written by \code{\link{gkmsvm_train}} records its alphabets, so \code{alphabets} may be omitted with it (and must agree with it when given).}
 
 }
 \details{ classification using SVM:

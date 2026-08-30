@@ -53,6 +53,8 @@ def build_argv(c, bindir, outfile):
                 argv += [flag, c[col]]
         if c.get("S", "") == "1":
             argv.append("-S")
+        if c.get("A", ""):
+            argv += ["-A", c["A"]]   # Phase 7: per-track alphabet specs of a multi-track kernel
         argv += [os.path.join(EXP, c["kernel"]), os.path.join(FIX, c["pos"]), os.path.join(FIX, c["neg"]), outfile]
         return argv
     exe = os.path.join(bindir, "gkmsvm_kernel" if c["tool"] == "kernel" else "gkmsvm_classify")
