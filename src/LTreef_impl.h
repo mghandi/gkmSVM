@@ -812,7 +812,7 @@ void CLTreef::addToList(class CLList *list, int n, int Lm1, int single, int *tmp
 */
 
 
-void CLTreef::DFSTn(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, int alphabetSize, const ScoreContext *ctx) // with nonEmptyDaughterCnt
+void CLTreef::DFSTn(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, int *curTotal, int alphabetSize, const ScoreContext *ctx, int lastStep) // with nonEmptyDaughterCnt
 {
 	int bid;
 	for(int ibid=0;ibid<this->nonEmptyDaughterCnt;ibid++)
@@ -853,18 +853,18 @@ void CLTreef::DFSTn(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, i
 				}
 				else
 				{
-					if (curMismatchCnt[i]<ctx->maxmm){
+					if (curTotal[i]<ctx->maxmm){
 						LTreeSnodeData *nodej=imatchingLmer->daughter[fbid].node;
 						if (nodej->n==1)
 						{
-							mmprofile[1+curMismatchCnt[i]][nodej->seqIDs.i]+=nodeival;
+							mmprofile[lastStep+curMismatchCnt[i]][nodej->seqIDs.i]+=nodeival;
 						}
 						else
 						{
 							for(int j=0;j<nodej->n;j++)
 							{
 	//							if (nodej->seqIDs.p[j]>curnodeid) break;
-								mmprofile[1+curMismatchCnt[i]][nodej->seqIDs.p[j]]+=nodeival;
+								mmprofile[lastStep+curMismatchCnt[i]][nodej->seqIDs.p[j]]+=nodeival;
 							}
 						}
 
@@ -878,23 +878,25 @@ void CLTreef::DFSTn(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, i
 
 }
 
-void CLTreef::DFST( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, int pos, int alphabetSize, const ScoreContext *ctx, ScoreScratch *sc) // with nonEmptyDaughterCnt
+void CLTreef::DFST( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, int *curTotal, int pos, int alphabetSize, const ScoreContext *ctx, ScoreScratch *sc) // with nonEmptyDaughterCnt
 {
 	//LTreeSnodeData **matchingLmers = gDFSlist[pos]; 
 	//int *curMismatchCnt= gDFSMMlist[pos];
 		
 	if(pos==ctx->LM1) //LM1 is L-1
 	{
-		DFSTn(matchingLmers, listlen, curMismatchCnt, alphabetSize, ctx); // process the node.
+		DFSTn(matchingLmers, listlen, curMismatchCnt, curTotal, alphabetSize, ctx, ctx->step[pos]); // process the node.
 	}
 	else
 	{
 		CLTreeS **newlist = sc->listT[pos+1];
 		int *newMismatchCnt= sc->mmlist[pos+1];
-
+		int *newTotal = sc->totlist[pos+1];
+		const int step = ctx->step[pos];
 		int newlistlen = 0; 
 		CLTreeS **newlistnewlistlen = newlist;
 		int *newMismatchCntnewlistlen = newMismatchCnt;
+		int *newTotalnewlistlen = newTotal;
 //		for(int bid=0;bid<alphabetSize;bid++)
 //		{
 		int bid;
@@ -906,6 +908,7 @@ void CLTreef::DFST( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, i
 			newlistlen = 0;
 			newlistnewlistlen = newlist;
 			newMismatchCntnewlistlen = newMismatchCnt;
+			newTotalnewlistlen = newTotal;
 			//int daughter_maxSeqID = daughter[bid].t->maxSeqID; 
 
 			for(int i=0;i<listlen;i++)
@@ -925,18 +928,20 @@ void CLTreef::DFST( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, i
 						newlistnewlistlen++;
 						*newMismatchCntnewlistlen=curMismatchCnt[i];
 						newMismatchCntnewlistlen++;
+						*newTotalnewlistlen++=curTotal[i];
 						newlistlen++;
 
 					} else {
-						if (curMismatchCnt[i]<ctx->maxmm)
+						if (curTotal[i]<ctx->maxmm)
 						{
 							CLTreeS *newnode =imatchingLmer->daughter[fbid].t;
 							//if (newnode->minSeqID >daughter_maxSeqID) continue;
 
 							*newlistnewlistlen=newnode;
 							newlistnewlistlen++;
-							*newMismatchCntnewlistlen=curMismatchCnt[i]+1;
+							*newMismatchCntnewlistlen=curMismatchCnt[i]+step;
 							newMismatchCntnewlistlen++;
+							*newTotalnewlistlen++=curTotal[i]+1;
 							newlistlen++;
 						}
 
@@ -947,7 +952,7 @@ void CLTreef::DFST( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, i
 
 			if (newlistlen!=0)
 			{
-				daughter[bid].p->DFST(newlist,newlistlen,newMismatchCnt,pos+1,alphabetSize, ctx, sc);
+				daughter[bid].p->DFST(newlist,newlistlen,newMismatchCnt,newTotal,pos+1,alphabetSize, ctx, sc);
 			}
 
 		}

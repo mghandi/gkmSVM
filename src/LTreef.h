@@ -30,7 +30,8 @@ namespace GKM_NS {
 // per trie level. Replaces the process-wide gDFSlistT/gDFSMMlist arrays.
 struct ScoreScratch {
 	std::vector<CLTreeS **> listT;
-	std::vector<int *> mmlist;
+	std::vector<int *> mmlist;   // class index (Phase 7; == mismatch count for a single alphabet)
+	std::vector<int *> totlist;  // total number of mismatches (bounded by ScoreContext::maxmm)
 };
 
 class CLTreef;
@@ -74,8 +75,8 @@ public:
 
 //	void DFST( CLTreeSptr **matchingLmers, int listlen, int *curMismatchCnt, int pos, int alphabetSize); //calculate svmScoreunorm for all sequences in given tree // without nonEmptyDaughterCnt
 //	void DFSTn(CLTreeSptr **matchingLmers, int listlen, int *curMismatchCnt, int alphabetSize);// without nonEmptyDaughterCnt
-	void DFST( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, int pos, int alphabetSize, const ScoreContext *ctx, ScoreScratch *sc); //calculate svmScoreunorm for all sequences in given tree // with nonEmptyDaughterCnt
-	void DFSTn(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, int alphabetSize, const ScoreContext *ctx);// with nonEmptyDaughterCnt
+	void DFST( CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, int *curTotal, int pos, int alphabetSize, const ScoreContext *ctx, ScoreScratch *sc); //calculate svmScoreunorm for all sequences in given tree // with nonEmptyDaughterCnt. curMismatchCnt = class index, curTotal = total mismatches (Phase 7)
+	void DFSTn(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, int *curTotal, int alphabetSize, const ScoreContext *ctx, int lastStep);// with nonEmptyDaughterCnt
 
 	CLTreef(void);
 	~CLTreef(void);

@@ -20,12 +20,16 @@ struct KernelContext {
 	int maxmm;           // maximum number of mismatches recorded (was gMAXMM)
 	int LM1;             // L - 1 (was gLM1)
 	int rowLo, rowHi;    // the tile: only rows i in [rowLo, rowHi] are recorded (Phase 6: bounded memory)
-	KernelContext() : mmProfile(NULL), maxmm(0), LM1(0), rowLo(0), rowHi(0x7fffffff) {}
+	int nclasses;        // rows per sequence: mismatch classes (Phase 7). Single alphabet: maxmm+1, row m = m mismatches; general B: prod (l_j+1), row = class index sum m_j stride_j, unreachable rows NULL
+	const int *stepPos;  // stepPos[position] added to the class index at a mismatch (all 1 for a single alphabet); the DFS receives it permuted into pass order
+	KernelContext() : mmProfile(NULL), maxmm(0), LM1(0), rowLo(0), rowHi(0x7fffffff), nclasses(0), stepPos(NULL) {}
 };
 
 struct ScoreContext {
 	myFlt **mmProfile0;  // mmProfile0[m][i]: weighted count of support-vector L-mers at m mismatches from sequence i
-	int maxmm;
+	int maxmm;           // bound on the total number of mismatches
 	int LM1;
-	ScoreContext() : mmProfile0(NULL), maxmm(0), LM1(0) {}
+	int nclasses;        // rows of mmProfile0 (see KernelContext)
+	const int *step;     // per trie depth (identity order in classify): class-index increment at a mismatch
+	ScoreContext() : mmProfile0(NULL), maxmm(0), LM1(0), nclasses(0), step(NULL) {}
 };

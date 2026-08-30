@@ -1,6 +1,6 @@
 # Builds the standalone gkmSVM command-line binaries from the same sources as the R package.
 #
-#   make                 -> build/gkmsvm_kernel build/gkmsvm_classify build/gkmsvm_train
+#   make                 -> build/gkmsvm_kernel build/gkmsvm_classify build/gkmsvm_train (+ gkmsvm_selftest, not shipped)
 #   make ASAN=1          -> AddressSanitizer + UndefinedBehaviorSanitizer build (into build-asan/)
 #   make test            -> build, then run the golden tests (tests/golden/golden.py check)
 #   make oracle          -> cross-check coefficient tables and small kernels against dev/oracle
@@ -31,7 +31,7 @@ LDFLAGS  += $(SANFLAGS) -pthread
 LIB_SRCS := $(filter-out src/RcppExports.cpp $(wildcard src/gkmsvm_*.cpp),$(wildcard src/*.cpp))   # includes src/libsvm_svm.cpp (the vendored LIBSVM)
 LIB_OBJS := $(patsubst src/%.cpp,$(BUILD)/obj/%.o,$(LIB_SRCS))
 
-BINS := $(BUILD)/gkmsvm_kernel $(BUILD)/gkmsvm_classify $(BUILD)/gkmsvm_train
+BINS := $(BUILD)/gkmsvm_kernel $(BUILD)/gkmsvm_classify $(BUILD)/gkmsvm_train $(BUILD)/gkmsvm_selftest
 
 .PHONY: all test oracle bench clean
 all: $(BINS)
@@ -50,6 +50,7 @@ $(BUILD)/obj:
 	mkdir -p $@
 
 test: all
+	$(BUILD)/gkmsvm_selftest
 	$(PYTHON) tests/golden/golden.py check --bin $(BUILD)
 
 oracle: all

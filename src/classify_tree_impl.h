@@ -6,6 +6,7 @@
 #include <string.h>
 #include <math.h>
 #include <iostream>
+#include <vector>
 #include "global.h"
 #include "globalvar.h"
 #include "gkmOptions.h"
@@ -225,9 +226,13 @@ int svmClassifySuffixTree(OptsSVMClassify &opt, const CConverter &conv)
 			sctx.LM1=L-1;
 			sctx.maxmm=maxnmm; //MaxMismatch
 	
-			sctx.mmProfile0 = new myFlt*[sctx.maxmm+1];
+			// Phase 7: one alphabet -> class index = mismatch count, rows 0..maxmm, step 1 at every depth
+			std::vector<int> stepIdent(L, 1);
+			sctx.step = stepIdent.data();
+			sctx.nclasses = maxnmm+1;
+			sctx.mmProfile0 = new myFlt*[sctx.nclasses];
 
-			for (int j=0;j<=sctx.maxmm;j++)
+			for (int j=0;j<sctx.nclasses;j++)
 			{
 				sctx.mmProfile0[j]=new myFlt[nseqs];
 				for(int k=0;k<nseqs;k++)
@@ -240,21 +245,24 @@ int svmClassifySuffixTree(OptsSVMClassify &opt, const CConverter &conv)
 
 			int minL2 = L; if (minL2<2) minL2 = 2; 
 			ScoreScratch scratch; // per-batch DFS lists, one per trie level (was gDFSlistT/gDFSMMlist)
-			scratch.listT.resize(minL2+1); scratch.mmlist.resize(minL2+1);
+			scratch.listT.resize(minL2+1); scratch.mmlist.resize(minL2+1); scratch.totlist.resize(minL2+1);
 			for(i=0;i<=minL2;i++)
 			{
 				scratch.listT[i] = new CLTreeS *[uniqueLmerCnt]; // with nonEmptyDaughterCnt
 				scratch.mmlist[i] = new int[uniqueLmerCnt]; 
+				scratch.totlist[i] = new int[uniqueLmerCnt]; 
 			}
 		
 			scratch.listT[0][0] = seqsTS;// with nonEmptyDaughterCnt
 			scratch.mmlist[0][0] = 0; 
-			tSVs->DFST(scratch.listT[0],1, scratch.mmlist[0], 0, conv.b, &sctx, &scratch);
+			scratch.totlist[0][0] = 0; 
+			tSVs->DFST(scratch.listT[0],1, scratch.mmlist[0], scratch.totlist[0], 0, conv.b, &sctx, &scratch);
 
 			for(i=0;i<=minL2;i++)
 			{
 				delete []scratch.listT[i];
 				delete []scratch.mmlist[i]; 
+				delete []scratch.totlist[i]; 
 			}
 
 			for(i=0;i<nseqs;i++)
@@ -272,7 +280,7 @@ int svmClassifySuffixTree(OptsSVMClassify &opt, const CConverter &conv)
 				delete []seqname[i]; 
 			}
 
-			for (int j=0;j<=sctx.maxmm;j++)
+			for (int j=0;j<sctx.nclasses;j++)
 			{
 				delete []sctx.mmProfile0[j];
 			}
@@ -305,9 +313,9 @@ int svmClassifySuffixTree(OptsSVMClassify &opt, const CConverter &conv)
 double svmScoreunorm(int i, double *c, const ScoreContext &sc)
 {
 	double res = 0; 
-	for(int m=0;m<=sc.maxmm;m++)
+	for(int m=0;m<sc.nclasses;m++) // Phase 7: rows are mismatch classes (unreachable ones NULL); one alphabet: m = 0..maxmm
 	{
-		res+=sc.mmProfile0[m][i]*c[m]; 
+		if (sc.mmProfile0[m]) res+=sc.mmProfile0[m][i]*c[m]; 
 	}
 	return(res); 
 }
