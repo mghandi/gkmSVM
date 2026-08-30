@@ -195,14 +195,83 @@ under dynamic pulling; the floor is the heaviest single pass, which only splitti
    longer a degree-k polynomial) — it stays the route to *exact* kernels at k ≤ 4–5, which, where it
    applies, supersedes capping altogether.
 
-## 6. What not to do
+## 6. Plan G — a GPU gkmSVM: reducing the mismatch profile to matrix products
+
+The question is whether the core — the mismatch profile N_m[i][j] (number of window pairs of
+sequences i, j whose per-block mismatch counts are m) — can be written as matrix multiplication.
+Three exact reductions exist; together they cover every kernel we run. Notation: W windows in
+total, U distinct l-mers (06 all-sites: W = 830 676, U = 329 394; 07 at 4 000 windows: U = 113 709),
+n sequences, cnt_u ∈ ℕⁿ the per-sequence multiplicity of l-mer u.
+
+**G1 — exact filter/gkm kernel (any d, k ≤ 5–6) = batched syrk over pattern-count matrices.**
+Because H(m) and C(ℓ−|m|,k) are polynomials of degree ≤ k in the block mismatch counts (verified
+exactly, section 3), K = Σ_{|p|≤k} γ_p · X_pᵀX_p with X_p the (b^|p| × n) window-projection count
+matrix of position subset p. Dense, tensor-core-shaped; streams pattern batches; fp16/bf16 inputs
+(counts ≤ 32 767) with fp32/fp64 accumulation. Cost Σ_p b^|p| · n²/2 MACs: 06 at k = 4 → 65 TFLOP
+(seconds on H100/A100, ~1 min on the M3 Ultra GPU); 06 at k = 6 → 1.7 PFLOP (≈ 2–5 s on H100 dense
+bf16, ~1 h on M3 Ultra) vs ≈ 2 h CPU exact today. GaKCo (Singh et al. 2017) is the CPU counting
+precedent for the gkm case. Cannot produce *capped* kernels (a capped coefficient is not a
+polynomial) — but where it applies it makes capping unnecessary.
+
+**G2 — capped-d profile = sparse Gram of "deletion-index" matrices + binomial inversion.**
+For patterns q with t ≤ d wildcard positions, M_q = X_qᵀX_q counts window pairs agreeing on all
+non-wildcard positions; a pair at block distance s is counted in Π_b C(ℓ_b−s_b, t_b−s_b) such
+patterns and a pair at distance > d in none, so A_t := Σ_{|q̄|=t} M_q = Σ_{s≤t} [Π_b C(ℓ_b−s_b,t_b−s_b)] N_s
+(block-resolved), triangular and integer-invertible: the whole capped profile from d + 1 sparse
+Grams. GPU shape: pack the projected windows into ≤ 128-bit keys, radix-sort / hash-join per
+pattern, segmented reduction, scatter of postings outer products. Work = patterns × W key
+insertions (06 d = 4: 6 196 × 830 676 = 5·10⁹ keys — seconds on a GPU sort) **plus the covering
+multiplicity on near pairs**, which is the catch: identical/near-identical windows (the CTCF motif
+core in every 06 window) are re-counted in thousands of patterns. Best when near-duplicate windows
+are rare (typical genome-wide negative sets), poor on motif-centred or repetitive sets.
+
+**G3 — capped-d profile = one Gram over distinct l-mers with a fused classify epilogue (the
+flagship).** Encode each distinct l-mer one-hot per block: O_b ∈ {0,1}^{(ℓ_b·b_b) × U}. Then
+(O_bᵀO_b)[u][v] = number of matching positions of u and v in block b, so the per-block mismatch
+counts of *every* l-mer pair are the entries of r small Gram matrices — literally matrix
+multiplication (int8/one-hot: 06 has Σ ℓ_b b_b = 60 rows). Tiled U × U (never materialised), the
+epilogue computes the class m per pair, drops pairs with |m| > d, and emits (u, v, c(m)) — or, in
+the bit-parallel variant, XOR + per-field popcount on packed codes (≈ 10 integer ops per pair, no
+tensor cores needed, the natural Metal version). The surviving near pairs are then scattered as
+c(m)·cnt_u ⊗ cnt_v into the n × n kernel (kernel-mode) or into per-class n × n counters (profile
+mode); most cnt vectors have one entry, heavy l-mers (motif cores, poly-runs) are batched as small
+dense outer products. Each pair is classified exactly once — no covering multiplicity, no
+d-dependence in the dominant stage, no data-dependent pathologies, trivially multi-GPU.
+Cost U²/2 pair classifications: 06 all-sites 5.4·10¹⁰ → ≈ 5–20 s on the M3 Ultra GPU (custom
+Metal), ≈ 1–3 s on an H100 (int8 GEMM ~3·10¹² MACs); 07 (U = 113 709) → < 1 s H100, ~3 s M3 Ultra vs
+61 s CPU at d = 6; scatter is output-sensitive (near pairs only). Above U ≈ 10⁶ (full CLIP sets)
+add a multi-index-hashing prefilter (split positions into d + 1 parts; a pair with ≤ d mismatches
+is exact on some part) to cut the quadratic — the standard GPU all-pairs-Hamming design.
+
+What G3 does *not* do: the full, uncapped profile with all classes — its scatter is Σ over all
+l-mer pairs of postings products = W², inherent to the object (that is why the exact kernel goes
+through G1's polynomial identity instead). Nobody needs that object.
+
+**Coverage.** Exact kernel, k ≤ 6 → G1. Capped d, any k, any B → G3 (G2 as the sort-based
+alternative on near-duplicate-free data). Both give bit-exact integers/verified coefficients and
+are checked against `-a 0` and the oracle corpus like every other path. Expected end state on a
+CUDA card: exact 06 kernel (today ≈ 2 h CPU) in seconds; capped kernels (today 30–60 s CPU, often
+2–4 min under load) in ≈ 1 s; the classify/score path (deltaSVM-style) reuses G3's pair
+classification against the support-vector l-mers.
+
+**Roadmap (Plan G).**
+1. Prototype G3 kernel-mode on Metal (M3 Ultra) and G1 on Accelerate/AMX — one week each — with the
+   oracle corpus as the acceptance test; keep the tile/epilogue design portable (Metal ↔ CUDA are
+   both plain SIMT kernels here).
+2. CUDA backend (`gkmsvm_kernel -a 5`, R `useGPU=TRUE`) with cuBLASLt int8/bf16 for G1 and a
+   custom popcount/one-hot tile kernel for G3; multi-index prefilter for U > 10⁶.
+3. Only then revisit the CPU tree path: with G1/G3 available, the CPU items A1/A2/A2a/A2b become
+   the fallback path for machines without a GPU, still worth doing but no longer on the critical
+   path.
+
+## 7. What not to do
 
 * Do **not** port the DFS/trie to the GPU — irregular pointer chasing, no coalescing; the GPU win
-  comes only through the Plan-B GEMM shape.
+  comes through the Gram formulations of Plan G (G1 for exact kernels, G3 for capped d).
 * Micro-optimising `addmmprof`/branchless leaf code buys ≤ 20 % (leaf work is the minor term).
 * More threads on the current pass design do nothing — the tail pass is one unit of work.
 
-## 7. Suggested order
+## 8. Suggested order
 
 1. Done: C's d-study (section 4) and `-P 2` at capped d (section 5).
 2. Threads-aware `-P 0` auto rule (one heuristic in `kernel_tree_impl.h`).
