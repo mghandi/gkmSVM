@@ -129,3 +129,21 @@ decision into the PR description or the plan, and keep going.
   over starting Phase 2 in a hurry — the safety net is what makes everything after it cheap.
 * **If tests need data:** generate fixtures (as `dev/baseline.sh` does); do not download genomes.
 * **At the end:** update the status section of this file and post a summary comment on the newest PR.
+
+## 8. Performance work and the GPU prototype (2026-08-30)
+
+* `dev/PERFORMANCE_PLAN.md` is the plan for large-n kernels: measured diagnosis of the tree path
+  (pass imbalance, tiling, atomics, greedy trie clones), the `-d` study (capped d reproduces the
+  exact AUC at d = 4–6 for the gkmsvm3 experiments), and Plan G — the kernel and the capped
+  mismatch profile as Gram matrices. The mathematics is written up in
+  `../gkmsvm3/theory/gkm_kernels_as_gram_matrices.pdf` (general alphabets) and
+  `gkm_kernels_constantB.pdf` (single alphabet, every matrix printed).
+* `dev/metal_g3/` is a working Metal prototype of Route 2 (`make`; `gkm_metal` takes the
+  `gkmsvm_kernel` flags and writes `.gkmk`): bit-exact against `gkmsvm_kernel` on every
+  configuration tried, 3.5–150× faster than 28 CPU threads (numbers in its README). It is on branch
+  `phase7/e-experiments-docs`, not integrated into `gkmsvm_kernel` or the R package.
+* Harness knobs on the gkmsvm3 side: `GKMSVM_BIN`, `GKMSVM_SVM=libsvm`, `GKMSVM_D` (cap; the
+  harness then passes `-P 2`, which is 2.8–3.9× faster than the greedy design on many cores and
+  bit-identical), planned `GKMSVM_GPU=1`.
+* Any change to the C++ kernel path must keep `make test` (181 golden cases) and `make oracle`
+  green; any new kernel path is first compared with `gkmsvm_kernel -b` output on a small input.
