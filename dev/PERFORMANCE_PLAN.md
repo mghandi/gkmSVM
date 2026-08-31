@@ -327,5 +327,8 @@ next steps in `dev/metal_g3/README.md`.
    for ℓ ≥ 16 (−4 to −10 %).
 4. Done (2026-08-31): A2b measured cost model (`-P 1`; `-P 4` = 2016 model). Open: A2 pass splitting —
    measure parallel efficiency at n = 8 000–30 000.
-5. B on CPU/AMX for k ≤ 4, then the Metal batch; wire into `gkmsvm_kernel -a 3` and the harness
-   (exact kernels without capping where it applies).
+5. Done (2026-08-30/31) instead of B: the Route-2 Metal prototype `dev/metal_g3` (bit-exact, 3.5–320×
+   vs 28 threads; class groups bound its memory; 128-bit codes lift the word limit to 2·⌊64/f⌋
+   positions), wired into the gkmsvm3 harness (`GKMSVM_GPU=1`), which reran every cut configuration
+   of experiments 05–07 in 2 h. Open: B on CPU/AMX or GPU GEMM for k ≤ 4 (exact kernels as one
+   `syrk`), `-t 1` on the GPU, a CUDA port, `gkmsvm_classify` on the GPU.

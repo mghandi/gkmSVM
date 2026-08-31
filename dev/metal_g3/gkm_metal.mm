@@ -9,7 +9,7 @@
 //
 // Build:  make            (clang++ -std=c++17 -O2 -fobjc-arc -framework Metal -framework Foundation)
 // Usage:  gkm_metal -l L -k K -d D [-t 0|2] -A dna,=01 [-R] [-o out.gkmk] [-L light] [-C chunk] in.mfa
-// Limits (prototype): l * ceil(log2 max b) <= 64 bits per word, <= 8 blocks, kinds filter (0) / gkm (2).
+// Limits (prototype): l <= 2 * floor(64 / ceil(log2 max b)) positions (128-bit codes), <= 8 blocks, kinds filter (0) / gkm (2).
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 #include <cstdio>
@@ -29,26 +29,33 @@ using namespace metal;
 
 struct Params {
     uint U, n, fieldBits, nBlocks, light, rowLo, rowHi, ovCap;
-    ulong lowMask;                // one bit per position (bit p*f)
-    ulong blockMask[8];           // lowMask restricted to each block
+    ulong lowMask[2];             // one bit per position (bit (p % perHalf) * f of half p / perHalf)
+    ulong blockMask[8][2];        // lowMask restricted to each block
     uint  blockStride[8];         // mixed-radix strides of the class index
     uint  nClassesTotal;
     uint  selfPairs;              // 1: this class group holds class 0 -> add the self pairs (u, u)
+    uint  wide;                   // 1: positions occupy both 64-bit halves of the code (l * f > 64)
 };
 
 inline uint tri(uint i, uint j) {          // lower-triangle index, i >= j
     return i * (i + 1) / 2 + j;
 }
 
-inline uint classify(ulong a, ulong b, constant Params &P, thread bool &ok) {
+inline ulong mismatchBits(ulong a, ulong b, uint fieldBits, ulong lowMask) {
     ulong x = a ^ b;
     ulong m = x;
-    for (uint s = 1; s < P.fieldBits; s++) m |= (x >> s);
-    m &= P.lowMask;
+    for (uint s = 1; s < fieldBits; s++) m |= (x >> s);
+    return m & lowMask;
+}
+
+inline uint classify(ulong2 a, ulong2 b, constant Params &P, thread bool &ok) {
+    ulong m0 = mismatchBits(a.x, b.x, P.fieldBits, P.lowMask[0]);
+    ulong m1 = P.wide ? mismatchBits(a.y, b.y, P.fieldBits, P.lowMask[1]) : 0ul;
     uint cls = 0;
     for (uint bb = 0; bb < P.nBlocks; bb++) {
-        ulong mb = m & P.blockMask[bb];
+        ulong mb = m0 & P.blockMask[bb][0];
         uint c = popcount(uint(mb & 0xffffffffu)) + popcount(uint(mb >> 32));
+        if (P.wide) { ulong mc = m1 & P.blockMask[bb][1]; c += popcount(uint(mc & 0xffffffffu)) + popcount(uint(mc >> 32)); }
         cls += c * P.blockStride[bb];
     }
     ok = true;
@@ -72,7 +79,7 @@ inline void scatter(device atomic_uint *N, uint triSize, uint cidx,
 }
 
 // 2-D grid: thread (r, c) handles row u = rowLo + r and columns v in [c*VT, min((c+1)*VT, u))
-kernel void classifyRows(device const ulong *codes        [[buffer(0)]],
+kernel void classifyRows(device const ulong2 *codes       [[buffer(0)]],
                          device const uint  *postStart    [[buffer(1)]],
                          device const uint  *postSeq      [[buffer(2)]],
                          device const uint  *postCnt      [[buffer(3)]],
@@ -89,7 +96,7 @@ kernel void classifyRows(device const ulong *codes        [[buffer(0)]],
     uint v0 = tid.y * VT;
     if (v0 >= u && tid.y > 0) return;
     uint triSize = P.n * (P.n + 1) / 2;
-    ulong cu = codes[u];
+    ulong2 cu = codes[u];
     uint pu = postStart[u + 1] - postStart[u];
     if (tid.y == 0 && P.selfPairs) {          // self pair (class 0 is always reachable and always compact index 0 of group 0)
         device atomic_uint *N0 = N;
@@ -149,12 +156,15 @@ kernel void heavyPairs(device const uint *postStart   [[buffer(1)]],
 
 struct Params {
     uint32_t U, n, fieldBits, nBlocks, light, rowLo, rowHi, ovCap;
-    uint64_t lowMask;
-    uint64_t blockMask[8];
+    uint64_t lowMask[2];
+    uint64_t blockMask[8][2];
     uint32_t blockStride[8];
     uint32_t nClassesTotal;
     uint32_t selfPairs;
+    uint32_t wide;
 };
+struct Code2 { uint64_t lo, hi; bool operator==(const Code2 &o) const { return lo == o.lo && hi == o.hi; } };
+struct Code2Hash { size_t operator()(const Code2 &c) const { return (size_t)(c.lo ^ (c.hi * 0x9E3779B97F4A7C15ull) ^ (c.hi >> 29)); } };
 
 static double now() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
 
@@ -231,7 +241,10 @@ int main(int argc, char **argv) {
     if (addRC && alph[0].comp.empty()) addRC = false;
     std::vector<int> posB(ell); for (int t = 0; t < T; t++) for (int i = 0; i < L; i++) posB[t * L + i] = (int)alph[t].syms.size();
     int f = 1; for (int b : posB) { int need = 1; while ((1 << need) < b) need++; f = std::max(f, need); }
-    if (ell * f > 64) { fprintf(stderr, "prototype limit: l*fieldBits = %d > 64\n", ell * f); return 1; }
+    // packed code: perHalf = 64 / f positions per 64-bit half (no field straddles the boundary); two halves
+    const int perHalf = 64 / f;
+    const bool wide = ell > perHalf;
+    if (ell > 2 * perHalf) { fprintf(stderr, "prototype limit: l = %d positions of %d bits exceed 2 x 64-bit codes (max %d positions)\n", ell, f, 2 * perHalf); return 1; }
     // blocks in order of first appearance of each alphabet size
     std::vector<int> blockB, blockLen, posBlock(ell);
     for (int p = 0; p < ell; p++) { int bi = -1; for (size_t b = 0; b < blockB.size(); b++) if (blockB[b] == posB[p]) bi = (int)b; if (bi < 0) { bi = (int)blockB.size(); blockB.push_back(posB[p]); blockLen.push_back(0); } blockLen[bi]++; posBlock[p] = bi; }
@@ -247,12 +260,12 @@ int main(int argc, char **argv) {
         coef.push_back(kind == 0 ? Hcoef(blockB, blockLen, m, K) : binom(ell - tot, K));
     }
     int R = (int)coef.size();
-    fprintf(stderr, "l=%d (T=%d x L=%d), k=%d, d=%d, %d blocks, %u classes, %d reachable, %d bits/position, RC=%d\n", ell, T, L, K, D, nB, nClassesTotal, R, f, (int)addRC);
+    fprintf(stderr, "l=%d (T=%d x L=%d), k=%d, d=%d, %d blocks, %u classes, %d reachable, %d bits/position%s, RC=%d\n", ell, T, L, K, D, nB, nClassesTotal, R, f, wide ? " (128-bit codes)" : "", (int)addRC);
 
     // ---- read .mfa, build distinct l-mers with postings
     double t0 = now();
-    std::vector<uint64_t> codes; std::vector<uint32_t> postStart(1, 0), postSeq, postCnt;
-    std::unordered_map<uint64_t, uint32_t> ids;
+    std::vector<Code2> codes; std::vector<uint32_t> postStart(1, 0), postSeq, postCnt;
+    std::unordered_map<Code2, uint32_t, Code2Hash> ids;
     std::vector<std::vector<std::pair<uint32_t, uint32_t>>> post;
     std::vector<std::string> names;
     {
@@ -266,7 +279,7 @@ int main(int argc, char **argv) {
             std::vector<std::vector<int>> code(T, std::vector<int>(n0, -1));
             for (int t = 0; t < T; t++) for (int i = 0; i < n0 && i < (int)tracks[t].size(); i++) { size_t q = alph[t].syms.find(tracks[t][i]); code[t][i] = (q == std::string::npos) ? -1 : (int)q; }
             auto addWord = [&](const std::vector<int> &w) {
-                uint64_t c = 0; for (int p = 0; p < ell; p++) c |= (uint64_t)w[p] << (p * f);
+                Code2 c{0, 0}; for (int p = 0; p < ell; p++) { uint64_t v = (uint64_t)w[p] << ((p % perHalf) * f); if (p < perHalf) c.lo |= v; else c.hi |= v; }
                 auto it = ids.find(c); uint32_t id;
                 if (it == ids.end()) { id = (uint32_t)codes.size(); ids[c] = id; codes.push_back(c); post.emplace_back(); } else id = it->second;
                 auto &pl = post[id];
@@ -312,7 +325,7 @@ int main(int argc, char **argv) {
     if (!psoRows || !psoHeavy) { fprintf(stderr, "pipeline failed: %s\n", err.localizedDescription.UTF8String); return 1; }
     id<MTLCommandQueue> queue = [dev newCommandQueue];
     auto mk = [&](const void *p, size_t bytes) { return [dev newBufferWithBytes:p length:std::max<size_t>(bytes, 16) options:MTLResourceStorageModeShared]; };
-    id<MTLBuffer> bCodes = mk(codes.data(), codes.size() * 8), bStart = mk(postStart.data(), postStart.size() * 4),
+    id<MTLBuffer> bCodes = mk(codes.data(), codes.size() * 16), bStart = mk(postStart.data(), postStart.size() * 4),
                   bSeq = mk(postSeq.data(), postSeq.size() * 4), bCnt = mk(postCnt.data(), postCnt.size() * 4),
                   bTable = mk(classTable.data(), classTable.size() * 2);
     // ---- class groups: the profile buffer holds Rg <= R classes at a time; the pair space is classified once per
@@ -333,7 +346,8 @@ int main(int argc, char **argv) {
     id<MTLBuffer> bOvCount = [dev newBufferWithLength:16 options:MTLResourceStorageModeShared];
     memset(bOvCount.contents, 0, 16);
     Params P{}; P.U = U; P.n = n; P.fieldBits = f; P.nBlocks = nB; P.light = light; P.ovCap = ovCap; P.nClassesTotal = nClassesTotal;
-    for (int p = 0; p < ell; p++) { P.lowMask |= 1ull << (p * f); P.blockMask[posBlock[p]] |= 1ull << (p * f); }
+    P.wide = wide ? 1u : 0u;
+    for (int p = 0; p < ell; p++) { int h = p / perHalf; uint64_t bit = 1ull << ((p % perHalf) * f); P.lowMask[h] |= bit; P.blockMask[posBlock[p]][h] |= bit; }
     for (int b = 0; b < nB; b++) P.blockStride[b] = stride[b];
 
     if ((uint64_t)chunk * U > ovCap) chunk = std::max<int>(64, (int)(ovCap / U));   // every pair of a chunk may be deferred

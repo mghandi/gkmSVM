@@ -17,10 +17,12 @@ containing a symbol outside the alphabet are skipped; `-d -1` = all classes). Ki
 
 ## Design
 
-* **Encoding.** Each distinct l-mer is packed into a 64-bit code, `f = ⌈log2 max b⌉` bits per
-  position (prototype limit `ℓ·f ≤ 64`, ≤ 8 blocks). Per-block mismatch counts of a pair:
-  `x = a ^ b`, OR the `f` bit-planes of every field into the field's low bit, mask per block,
-  `popcount` — about ten integer operations per pair, no tensor cores.
+* **Encoding.** Each distinct l-mer is packed into a 128-bit code (two 64-bit halves, `⌊64/f⌋`
+  positions per half so that no field straddles the boundary), `f = ⌈log2 max b⌉` bits per position
+  (limit `ℓ ≤ 2·⌊64/f⌋`: 64 positions for b ≤ 4, 42 for b ≤ 8, 32 for b ≤ 16, 24 for b ≤ 32; ≤ 8
+  blocks). Per-block mismatch counts of a pair: `x = a ^ b`, OR the `f` bit-planes of every field
+  into the field's low bit, mask per block, `popcount` — about ten integer operations per pair per
+  half; the second half is skipped (uniform branch) when `ℓ·f ≤ 64`.
 * **Classification.** 2-D thread grid: thread `(r, c)` handles row `u = rowLo + r` and the 512
   columns `v ∈ [512c, min(512(c+1), u))` of the strict lower triangle (plus the self pair when
   `c = 0`). Rows are processed in chunks (`-C`, default 4096 rows) so that the deferred-pair list
@@ -41,7 +43,7 @@ containing a symbol outside the alphabet are skipped; `-d -1` = all classes). Ki
   sites 36.8 s with one 43 GB group, 37.3 s with 6 groups of 8 GB, 51 s with 25 groups of 2 GB —
   all bit-identical. Memory is no longer the limit on n.
 
-## Results (Apple M3 Ultra, 60-core GPU; CPU = `gkmsvm_kernel -P 2`, 28 threads; all bit-exact)
+## Results (Apple M3 Ultra, 60-core GPU; CPU = `gkmsvm_kernel -P 2`, 28 threads, profile mode — the 128-bit rows: kernel mode of 2026-08-31; all bit-exact)
 
 | input | ℓ, blocks | d | Metal total | CPU | speed-up |
 |---|---|---|---|---|---|
@@ -49,6 +51,8 @@ containing a symbol outside the alphabet are skipped; `-d -1` = all classes). Ki
 | same | | 6 | 0.98 s | 15.6 s | 16× |
 | same | | **−1 (exact)** | **2.9 s** | 427 s | **150×** |
 | exp. 07, n = 4 000 (U = 114 k) | 24, (4⁸\|2⁸\|3⁸) | 6 | 3.0 s | 57.7 s | 19× |
+| 05 seq + ctx5, n = 1 000, L = 12 (128-bit codes) | 24, (4¹²\|5¹²) | −1 | 0.20 s | 63.8 s | 320× |
+| exp. 07, n = 4 000, L = 12 (128-bit codes) | 36, (4¹²\|2¹²\|3¹²) | 6 | 2.2 s | 47.0 s | 21× |
 | exp. 06, n = 13 398 (U = 329 k) | 20 | 4 | 4.0 s | 33.6 s | 8× |
 | same | | 6 | 10.1 s | 395 s | 39× |
 | same | | **−1 (exact)** | **36.8 s** (43 GB profile) | not finished on CPU (est. ≥ 6 h) | — |
@@ -70,8 +74,10 @@ run: the profile is integer-exact on both sides and the same double arithmetic f
 
 ## Limitations / next steps
 
-* `ℓ·f ≤ 64` bits (extend to 128-bit codes for ℓ = 32 with 5-symbol tracks), ≤ 8 blocks,
-  `-t 1` (truncated filter) not supported, single GPU.
+* `ℓ ≤ 2·⌊64/f⌋` positions (128-bit codes since 2026-08-31; the two wide rows of the table were
+  checked entry for entry against `gkmsvm_kernel`), ≤ 8 blocks, `-t 1` (truncated filter) not
+  supported — its coefficients come from the least-squares tables of `GeneralB.cpp`, which the
+  prototype does not reimplement; the gkmsvm3 experiments use `-t 0` throughout — single GPU.
 * The profile buffer, `reachable classes × n(n+1)/2 × 4 B`, is bounded by `-M` through class
   groups (above). A kernel-mode variant that accumulates `c(m)·cnt` directly into one triangle is
   not available on Metal: the shading language has no 64-bit `fetch_add` and no double, and 32-bit
