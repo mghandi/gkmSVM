@@ -428,6 +428,85 @@ void CiDLPasses::newGreedyIDLPasses(int L, int M,  int Dmax, int *nodesAtDepthCn
 }
 
 
+double CiDLPasses::calcCostB(int *lmer, int *order, const double *w, const double *pPos, int L){
+  double res = 0, pj = 1.0;
+  for(int i=0;i<L;i++){
+    int pos = order[i];
+    pj *= (lmer[pos]==0) ? pPos[pos] : (1.0 - pPos[pos]);
+    res += w[i]*pj;
+  }
+  return res;
+}
+
+void CiDLPasses::newGreedyIDLPassesB(int L, int M, int Dmax, const std::vector<int> &lmers, int b){
+  this->L = L;
+  if(this->passOrder==NULL) initPassOrderIDL(L, M, Dmax);
+  const long U = (long)(lmers.size() / (size_t)L);
+  // per-position match probability of two random distinct l-mers: sum_s f(s)^2 (1/b for a uniform alphabet)
+  std::vector<double> pPos(L, 1.0 / b);
+  if (U > 0) {
+    std::vector<double> f((size_t)L * b, 0.0);
+    for (long u = 0; u < U; u++) for (int i = 0; i < L; i++) { int sym = lmers[(size_t)u * L + i]; if (sym >= 0 && sym < b) f[(size_t)i * b + sym] += 1.0; }
+    for (int i = 0; i < L; i++) { double q = 0; for (int sym = 0; sym < b; sym++) { double x = f[(size_t)i * b + sym] / U; q += x * x; } pPos[i] = q; }
+  }
+  // per pass order: distinct prefixes at every depth of the reordered trie, w[d] = count(d)^2 (count(0) = 1 = root)
+  int fbits = 1; while ((1 << fbits) < b) fbits++;
+  std::vector<std::vector<double>> w(M, std::vector<double>(L, 1.0));
+  if (U > 1) {
+    std::vector<long> hist(L);
+    if ((long)L * fbits <= 64) {
+      std::vector<unsigned long long> code(U);
+      for (int j = 0; j < M; j++) {
+        for (long u = 0; u < U; u++) { unsigned long long c = 0; const int *lm = &lmers[(size_t)u * L]; for (int d = 0; d < L; d++) c = (c << fbits) | (unsigned long long)lm[passOrder[j][d]]; code[u] = c; }
+        std::sort(code.begin(), code.end());
+        std::fill(hist.begin(), hist.end(), 0L);
+        for (long u = 1; u < U; u++) { unsigned long long x = code[u] ^ code[u - 1]; if (!x) continue; int lead = __builtin_clzll(x) - (64 - L * fbits); hist[lead / fbits]++; }
+        double cnt = 1; for (int d = 0; d < L; d++) { w[j][d] = cnt * cnt; cnt += hist[d]; }
+      }
+    } else {
+      std::vector<int> re((size_t)U * L); std::vector<long> idx(U);
+      for (int j = 0; j < M; j++) {
+        for (long u = 0; u < U; u++) { const int *lm = &lmers[(size_t)u * L]; for (int d = 0; d < L; d++) re[(size_t)u * L + d] = lm[passOrder[j][d]]; idx[u] = u; }
+        std::sort(idx.begin(), idx.end(), [&](long a, long c2){ const int *x = &re[(size_t)a * L], *y = &re[(size_t)c2 * L]; for (int d = 0; d < L; d++) if (x[d] != y[d]) return x[d] < y[d]; return false; });
+        std::fill(hist.begin(), hist.end(), 0L);
+        for (long u = 1; u < U; u++) { const int *x = &re[(size_t)idx[u] * L], *y = &re[(size_t)idx[u - 1] * L]; int d = 0; while (d < L && x[d] == y[d]) d++; if (d < L) hist[d]++; }
+        double cnt = 1; for (int d = 0; d < L; d++) { w[j][d] = cnt * cnt; cnt += hist[d]; }
+      }
+    }
+  }
+  deletePassTrees();
+  passTrees = new CbinMMtree *[M];
+  for(int i=0;i<M;i++) passTrees[i] = new CbinMMtree();
+  CbinMMtable mmtable;
+  mmtable.createTable(L, Dmax);
+  const double GKM_GREEDY_EPS = (L >= 16) ? 0.2 : 0.0;
+  int n = mmtable.nrow;
+  std::vector<double> minCost(n); std::vector<int> order(n);
+  for(int i=0;i<n;i++){
+    double sMin = 1.0E300;
+    for(int j=0;j<M; j++){ double sj = calcCostB(mmtable.table[i], passOrder[j], w[j].data(), pPos.data(), L); if(sj<sMin) sMin = sj; }
+    minCost[i] = sMin; order[i] = i;
+  }
+  std::sort(order.begin(), order.end(), [&](int a, int c2){ return minCost[a] > minCost[c2] || (minCost[a] == minCost[c2] && a < c2); });
+  std::vector<double> load(M, 0.0);
+  int *jlmer = new int[L];
+  for(int ri=0;ri<n; ri++){
+    int i = order[ri];
+    int *lmer = mmtable.table[i];
+    double bound = minCost[i]*(1.0+GKM_GREEDY_EPS);
+    int jMin = -1; double bestCost = 0;
+    for(int j=0;j<M; j++){
+      double sj = calcCostB(lmer, passOrder[j], w[j].data(), pPos.data(), L);
+      if(sj<=bound && (jMin<0 || load[j]<load[jMin])){ jMin = j; bestCost = sj; }
+    }
+    load[jMin] += bestCost;
+    jlmer = reorder(lmer, passOrder[jMin], L, jlmer);
+    passTrees[jMin]->addSeq(jlmer, L);
+  }
+  delete []jlmer;
+  mmtable.deleteTable();
+}
+
 double CiDLPasses::calcCost(int *lmer, int *order, double *w, double p, int L){
   double res = 0;
   double pj=1.0;

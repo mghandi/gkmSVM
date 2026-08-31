@@ -161,8 +161,17 @@ static int gkmKernelPassesAndOutput(OptsGkmKernel &opt, KernelContext &kc, CLTre
       int q = 6; if (q > L) q = L;
       iDL.newPrefixSplitPasses(L, kc.maxmm, q);
       gkmMsg("Long words: %d prefix-split passes (%.3g mismatch patterns).\n", iDL.M, CiDLPasses::patternCount(L, kc.maxmm));
-    } else
-    iDL.newGreedyIDLPasses(L,2*L,  kc.maxmm, nodesAtDepthCnt, p);
+    } else if (opt.passDesign == 4) {
+      iDL.newGreedyIDLPasses(L,2*L,  kc.maxmm, nodesAtDepthCnt, p);   // legacy cost model: one mean match probability, identity-order trie widths
+    } else {
+      // A2b: cost model from the actual l-mers (per-position match probabilities, per-order trie widths);
+      // a stride sample of at most ~2M distinct l-mers keeps this to a few seconds
+      std::vector<int> lmers; std::vector<int> prefix(L);
+      long stride = (uniqueLmerCnt > 2000000) ? (uniqueLmerCnt + 1999999) / 2000000 : 1, counter = 0;
+      lmers.reserve((size_t)(uniqueLmerCnt / stride + 1) * L);
+      seqsTS->collectLmers(L, L, b, prefix.data(), lmers, stride, counter);
+      iDL.newGreedyIDLPassesB(L, 2*L, kc.maxmm, lmers, b);
+    }
     
     //iDL.newGreedy2IDLPasses(L,2*L,  kc.maxmm, nodesAtDepthCnt, p);
     //iDL.newGreedy2IDLPasses(L,L,  kc.maxmm, nodesAtDepthCnt, p);

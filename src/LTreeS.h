@@ -18,6 +18,7 @@
 
 #pragma once
 #include "global.h"
+#include <vector>
 #include "LList.h"
 #include "CbinMMtree.h"
 
@@ -76,7 +77,8 @@ public:
   //void DFSTf( CLTreeSptr **matchingLmers, int listlen, int *curMismatchCnt, int pos);  // this is for fast version -- yet to be implemented
   //void DFSTnf(CLTreeSptr **matchingLmers, int listlen, int *curMismatchCnt);
   
-  int leavesCount(int withMultiplicity, int n, int alphabetSize, int *nodesAtDepth);  //returns the number of sequences in the tree.  //call with n=L from outside. // it also counts the number of nodes at each depth
+  int leavesCount(int withMultiplicity, int n, int alphabetSize, int *nodesAtDepth);
+  void collectLmers(int n, int L, int alphabetSize, int *prefix, std::vector<int> &out, long stride, long &counter); // appends every stride-th distinct l-mer (L ints each) to out; call with n = L, counter = 0  //returns the number of sequences in the tree.  //call with n=L from outside. // it also counts the number of nodes at each depth
   
   void cloneReorder(CLTreeS *newTree, int *order, int n, int L, int alphabetSize, int *tmpArray,int *tmpArray2); // reorders and clones to the new tree (without replicating the data nodes) // used by iDL bound
   

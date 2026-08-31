@@ -29,7 +29,16 @@ See `dev/REFACTORING_PLAN.md` for the plan and its execution log.
   minimum (LPT), instead of to the pass where each pattern alone is cheapest. Any assignment is
   exact (same kernel); measured −10 % wall for the 06 joint kernel at 13 398 sites (d = 4, 74 → 67 s),
   −4 % for the 07 3-block kernel, but +10 % for DNA (ℓ = 10), so the rule is applied to words of ≥ 16
-  positions only. The pass-cost model itself (per-position match probabilities, A2b) is the larger lever.
+  positions only.
+* **Measured pass-cost model (A2b):** the greedy design's cost model — one mean match probability
+  and the identity-order trie widths — is replaced by per-position match probabilities
+  (`Σ_s f_j(s)²` over the distinct l-mers) and, for each pass order, the exact number of distinct
+  prefixes at every depth of the reordered trie (sorted packed codes; a stride sample above 2·10⁶
+  l-mers). For heterogeneous alphabets this is what the 2016 model was blind to (a methylation track's
+  effective alphabet is ≈ 1, not 2). Same kernel; on 28 threads the 07 3-block kernel (ℓ = 24, d = 6)
+  goes 267 → 158 s with 5.5× less CPU (1 541 → 282 s), the 06 joint kernel at 13 398 sites (d = 4)
+  70 → 60 s (CPU 510 → 350 s; on 4 threads 109 → 82 s); DNA is unchanged (18.0 vs 18.9 s, and
+  177 → 172 s single-threaded). `-P 4` keeps the 2016 cost model for comparison.
 
 ### Phase 7 — gkm-SVM over heterogeneous alphabets (multi-track input)
 

@@ -33,7 +33,7 @@ struct OptsGkmKernel {
 	int maxnThread = 1000;
 	int tileRows = 0;          // -r: rows of the mismatch profile held at once (0 = automatic from tileMemoryMB)
 	int tileMemoryMB = 1024;   // memory budget for the profile when tileRows is automatic
-	int passDesign = 0;        // -P: 0 automatic (greedy iDL table up to GKM_MAX_PATTERN_TABLE patterns, prefix-split beyond; prefix-split also whenever d is capped and >= 4 threads run), 1 greedy iDL, 2 prefix-split (Phase 7)
+	int passDesign = 0;        // -P: 0 automatic (greedy iDL table up to GKM_MAX_PATTERN_TABLE patterns, prefix-split beyond; prefix-split also whenever d is capped and >= 4 threads run), 1 greedy iDL (A2b cost model), 2 prefix-split (Phase 7), 4 greedy with the 2016 cost model
 	int accMode = 0;           // -K: 0 automatic, 1 mismatch-class profile counters (tiled), 2 kernel mode: the integer-scaled coefficient is accumulated per sequence pair (one int64 triangle, no tiles; filter types 0 and 2, no pseudocounts)
 	int accMemoryMB = 4096;    // -G: memory for the kernel-mode accumulators; private per-thread copies while they fit, otherwise shared with atomic adds
 };

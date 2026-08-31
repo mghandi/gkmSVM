@@ -209,6 +209,9 @@ All numbers: Apple M3 Ultra, 28 threads, kernels compared entry for entry with t
 | | DNA ℓ = 10, d = 3, 4 000 × 500 bp | 18.3 s | 18.1 s |
 | A2a load-aware greedy (`-P 1`, profile mode) | 06 n = 4 000 / 13 398, d = 4 | 5.1 / 74.4 s | 5.5 / 67.2 s |
 | | 07 d = 6; DNA ℓ = 10 | 258 s; 18.2 s | 247 s; 20.0 s (→ enabled for ℓ ≥ 16 only) |
+| **A2b measured cost model** (`-P 1` vs `-P 4`, profile mode) | 06 n = 4 000 / 13 398, d = 4 | 4.8 / 70.2 s (CPU 30 / 510 s) | 3.9 / 60.0 s (CPU 17 / 350 s); 4 threads: 109 → 82 s |
+| | 07 d = 6 | 267 s (CPU 1 541 s) | **158 s (CPU 282 s)** |
+| | DNA ℓ = 10, d = 3, 28 thr / 1 thr | 18.0 / 177 s | 18.9 / 172 s |
 
 Implementation notes. Kernel mode scales the coefficients by ∏bᵢ (`coefDen`; b^L for one alphabet)
 and requires them to be exact integers (relative 1e-12) — true for H and the gkm counts, false for
@@ -219,8 +222,14 @@ against int64 overflow. Accumulators: `std::atomic<long long>` triangles, one pe
 shared triangles (3.6 GB) were *faster* than 28 private ones (18 GB: 13.8 vs 16.0 s — zeroing and
 reducing 18 GB costs more than the atomics). The exact `-d -1` case at 13 398 sites still takes
 36 min on the CPU against 37 s on the GPU (`dev/metal_g3`); the GPU is the exact-kernel route.
-A2a's small effect confirms the diagnosis of item 4: with the current cost model the load-aware
-tie-breaking has little to work with; A2b (per-position p, per-order w) is the remaining CPU item.
+A2a's small effect confirmed the diagnosis of item 4, and A2b then delivered it: with per-position
+match probabilities and per-order trie widths the greedy design's *total* CPU drops 1.5–5.5× on the
+general-B cases (the patterns land on genuinely cheap orders) while DNA is unchanged. Wall time on
+28 threads improves less (07: 267 → 158 s) because the heaviest pass now sets the floor — 282 s of
+CPU in 158 s of wall is 1.8 effective cores — so pass *splitting* (A2, item 5) is what remains on
+the greedy path; on many threads prefix-split (`-P 2`, 23.8 s in kernel mode for the same 07 case)
+is still the faster design, while greedy + A2b is now the cheapest on 1–4 threads. Both designs, and
+both accumulation modes, give the identical kernel.
 
 ## 6. Plan G — a GPU gkmSVM: reducing the mismatch profile to matrix products
 
@@ -316,6 +325,7 @@ next steps in `dev/metal_g3/README.md`.
 3. Done (2026-08-31): A1 kernel-mode (`-K`, no tiles, private/shared int64 accumulators) — measured
    1.3–3.8× at capped d, 2.2× exact at 4 000, exact 13 398-site kernel in 36 min (was ≥ 6 h); A2a shipped
    for ℓ ≥ 16 (−4 to −10 %).
-4. A2 pass splitting — measure parallel efficiency at n = 8 000–30 000.
+4. Done (2026-08-31): A2b measured cost model (`-P 1`; `-P 4` = 2016 model). Open: A2 pass splitting —
+   measure parallel efficiency at n = 8 000–30 000.
 5. B on CPU/AMX for k ≤ 4, then the Metal batch; wire into `gkmsvm_kernel -a 3` and the harness
    (exact kernels without capping where it applies).

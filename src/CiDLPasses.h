@@ -30,6 +30,12 @@ public:
         
     void newIDLPasses(int L, int Dmax); // generates M circular passes and assigns L-mers to the trees based on min iDL rule.
     void newGreedyIDLPasses(int L, int M, int Dmax, int *nodesAtDepthCnt, double p); // uses the greedty alg to assign to trees. p =1/b prob(match)
+    // A2b (2026-08-31): the same greedy assignment with a cost model measured on the actual l-mers: per-position
+    // match probabilities p_j = sum_s f_j(s)^2 and, for every pass order, the number of distinct prefixes at each
+    // depth of the trie reordered by that pass (exact, by sorting packed codes; l * bits <= 64, lexicographic
+    // otherwise). lmers: U distinct l-mers of L symbols each (a stride sample of them for very large U).
+    void newGreedyIDLPassesB(int L, int M, int Dmax, const std::vector<int> &lmers, int b);
+    double calcCostB(int *lmer, int *order, const double *w, const double *pPos, int L);
     void newGreedy2IDLPasses(int L, int M, int Dmax, int *nodesAtDepthCnt, double p); // uses the greedty 2alg to assign to trees. p =1/b prob(match)
     // Phase 7 (long words): one pass per match/mismatch pattern of the first q positions (with <= Dmax
     // mismatches), the remaining positions bounded by an implicit (depth, mismatches used) DAG that plugs

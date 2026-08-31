@@ -96,7 +96,8 @@ void print_usage_and_exit_gkmKernel(const char *prog)
     gkmMsg("%s", "  -N             merge records that share a name within a file into one row (default: one record = one row)\n");
     gkmMsg("%s", "  -b             write the kernel in the binary .gkmk format (float32) instead of text\n");
     gkmMsg("%s", "  -r rows        compute the kernel in tiles of this many rows (bounded memory; 0 = automatic, 1 GB budget)\n");
-    gkmMsg("%s", "  -P design      pass design: 0 automatic (default), 1 greedy iDL table, 2 prefix-split (long words; same result)\n");
+    gkmMsg("%s", "  -P design      pass design: 0 automatic (default), 1 greedy iDL table (cost model measured on the l-mers),\n");
+    gkmMsg("%s", "                 2 prefix-split (long words), 4 greedy with the 2016 cost model; all give the same result\n");
     gkmMsg("%s", "  -K mode        accumulation: 0 automatic (default), 1 mismatch-class profile (tiled), 2 kernel mode (one int64\n");
     gkmMsg("%s", "                 triangle of scaled coefficients, no tiles; filter types 0/2 without -p; same result)\n");
     gkmMsg("%s", "  -G MB          memory for the kernel-mode accumulators (default 4096): private per-thread copies while\n");

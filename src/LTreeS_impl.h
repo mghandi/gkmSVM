@@ -701,4 +701,17 @@ int CLTreeS::leavesCount(int withMultiplicity, int n, int alphabetSize, int *nod
   return nleaves; 
 }
 
+void CLTreeS::collectLmers(int n, int L, int alphabetSize, int *prefix, std::vector<int> &out, long stride, long &counter)
+{
+  for (int i = 0; i < alphabetSize; i++)
+  {
+    if (daughter[i].t != NULL)
+    {
+      prefix[L - n] = i;
+      if (n == 1) { if (counter++ % stride == 0) out.insert(out.end(), prefix, prefix + L); }
+      else daughter[i].t->collectLmers(n - 1, L, alphabetSize, prefix, out, stride, counter);
+    }
+  }
+}
+
 } // namespace GKM_NS
