@@ -8,7 +8,7 @@ and written as `.gkmk` for direct comparison with `gkmsvm_kernel`.
 
 ```
 make
-./gkm_metal -l L -k K -d D [-t 0|2] -A dna,=01 [-R] [-o out.gkmk] [-L light] [-C chunk] in.mfa
+./gkm_metal -l L -k K -d D [-t 0|2] -A dna,=01 [-R] [-o out.gkmk] [-M GB] [-g groups] [-L light] [-C chunk] in.mfa
 ```
 Same conventions as `gkmsvm_kernel` (multi-track `.mfa`, `-A` specs `dna|rna|protein|=SYMBOLS`,
 reverse complement on by default: track 1 complemented + reversed, other tracks reversed; windows
@@ -33,6 +33,13 @@ containing a symbol outside the alphabet are skipped; `-d -1` = all classes). Ki
   kernel with one thread per (entry, posting of the longer list).
 * **Kernel.** `K = Σ_c coef[c] N_c` over the reachable classes in double; `H(m)` from the
   elementary symmetric polynomials, gkm from binomials; normalised; `.gkmk` float32 with CRC-32.
+* **Class groups (2026-08-31).** The counter buffer holds `Rg ≤ R` classes at a time (`-M GB`, default
+  60 % of `maxBufferLength`; or `-g` groups): the pair space is classified once per group with a
+  class table that maps the other classes to "skip", each group's counts are folded into `K` on the
+  CPU (classes in increasing compact order, so the double sum is the same as with one group), and
+  the buffer is reused. Classification is cheap, so this costs little: exact 06 kernel at 13 398
+  sites 36.8 s with one 43 GB group, 37.3 s with 6 groups of 8 GB, 51 s with 25 groups of 2 GB —
+  all bit-identical. Memory is no longer the limit on n.
 
 ## Results (Apple M3 Ultra, 60-core GPU; CPU = `gkmsvm_kernel -P 2`, 28 threads; all bit-exact)
 
@@ -46,6 +53,15 @@ containing a symbol outside the alphabet are skipped; `-d -1` = all classes). Ki
 | same | | 6 | 10.1 s | 395 s | 39× |
 | same | | **−1 (exact)** | **36.8 s** (43 GB profile) | not finished on CPU (est. ≥ 6 h) | — |
 
+Additional checks on 2026-08-31 (every one 0 differing entries vs `gkmsvm_kernel`, whose kernel-mode
+path was itself checked against the profile path): class groups `-g 4` / `-g 121` on the exact 4 000-site
+06 kernel (3.05 s / 18.9 s vs 3.18 s), `-g 3` on 07 d = 6, `-M 8` / `-M 2` on the exact 13 398-site
+kernel (37.3 s / 51.3 s). Through the gkmsvm3 harness (`GKMSVM_GPU=1`) the prototype reproduced every
+CPU result of experiments 05–07 (largest |ΔAUC| 1e-4, LIBSVM noise) and ran the configurations that
+had been cut on the CPU: 06 at all matched sites for six cell types (60 analyses, 44 min), 06
+transfers (81, 7 min), 05 all six CLIP sets at 12 000 sequences (106, 68 min), 07 all stages (18,
+3 min).
+
 Classification runs at 1–3·10¹⁰ pairs/s when few pairs are near; the run time is dominated by the
 scatter of near pairs (inline atomics and the heavy-pair kernel), which is why cost grows with `d`
 and is highest for the exact case, where every pair contributes. The comparison files were produced
@@ -56,12 +72,14 @@ run: the profile is integer-exact on both sides and the same double arithmetic f
 
 * `ℓ·f ≤ 64` bits (extend to 128-bit codes for ℓ = 32 with 5-symbol tracks), ≤ 8 blocks,
   `-t 1` (truncated filter) not supported, single GPU.
-* The profile buffer is `reachable classes × n(n+1)/2 × 4 B` (43 GB at n = 13 398 for the exact
-  121-class case) — fine in 256 GB unified memory; a kernel-mode variant that accumulates
-  `c(m)·cnt` directly into one float64 triangle (or int64 with fixed-point coefficients) removes the
-  class factor.
-* Faster classification: threadgroup-shared code tiles and simdgroup compaction of the deferred pairs
-  (one atomic per 32 lanes instead of one per pair) should give another 3–5× on the classify stage;
-  the exact-case scatter (all pairs) can be reformulated as Route 1 (pattern-Gram GEMM) when
-  k ≤ 5.
+* The profile buffer, `reachable classes × n(n+1)/2 × 4 B`, is bounded by `-M` through class
+  groups (above). A kernel-mode variant that accumulates `c(m)·cnt` directly into one triangle is
+  not available on Metal: the shading language has no 64-bit `fetch_add` and no double, and 32-bit
+  digit-split accumulators would need 3–4 atomics per pair where the scatter already dominates.
+* Threadgroup-shared code tiles were tried on 2026-08-31 and removed: the classify stage is not
+  memory-bound (0.35 vs 0.34 s at 4 000 sites, 2.5 vs 2.3 s exact), the scatter is what costs, and
+  the first version was wrong for partial threadgroups — a reminder that every variant must be
+  compared entry for entry before use. Simdgroup compaction of the deferred pairs would help the
+  classify stage only, for the same reason. The exact-case scatter (all pairs) can be reformulated
+  as Route 1 (pattern-Gram GEMM) when k ≤ 5.
 * Multi-index prefilter for U ≫ 10⁶; a CUDA port is a straight translation (the kernel is plain SIMT).

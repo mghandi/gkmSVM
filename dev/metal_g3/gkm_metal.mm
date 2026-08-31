@@ -33,6 +33,7 @@ struct Params {
     ulong blockMask[8];           // lowMask restricted to each block
     uint  blockStride[8];         // mixed-radix strides of the class index
     uint  nClassesTotal;
+    uint  selfPairs;              // 1: this class group holds class 0 -> add the self pairs (u, u)
 };
 
 inline uint tri(uint i, uint j) {          // lower-triangle index, i >= j
@@ -90,7 +91,7 @@ kernel void classifyRows(device const ulong *codes        [[buffer(0)]],
     uint triSize = P.n * (P.n + 1) / 2;
     ulong cu = codes[u];
     uint pu = postStart[u + 1] - postStart[u];
-    if (tid.y == 0) {          // self pair (class 0 is always reachable and always compact index 0)
+    if (tid.y == 0 && P.selfPairs) {          // self pair (class 0 is always reachable and always compact index 0 of group 0)
         device atomic_uint *N0 = N;
         for (uint a = postStart[u]; a < postStart[u + 1]; a++)
             for (uint b = a; b < postStart[u + 1]; b++) {           // unordered posting pairs: cell {i,j} once
@@ -152,6 +153,7 @@ struct Params {
     uint64_t blockMask[8];
     uint32_t blockStride[8];
     uint32_t nClassesTotal;
+    uint32_t selfPairs;
 };
 
 static double now() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
@@ -206,7 +208,8 @@ static void writeGkmk(const std::string &fn, const std::vector<float> &tri, int 
 }
 
 int main(int argc, char **argv) {
-    int L = 10, K = 6, D = -1, kind = 0, light = 16, chunk = 4096;
+    int L = 10, K = 6, D = -1, kind = 0, light = 16, chunk = 4096, groups = 0;
+    double budgetGB = 0;          // -M: memory for the profile buffer; classes are processed in groups that fit (0 = 60 % of maxBufferLength)
     bool addRC = true;
     std::string specs = "dna", outFn = "out.gkmk", inFn;
     for (int i = 1; i < argc; i++) {
@@ -214,9 +217,10 @@ int main(int argc, char **argv) {
         if (a == "-l") L = atoi(argv[++i]); else if (a == "-k") K = atoi(argv[++i]); else if (a == "-d") D = atoi(argv[++i]);
         else if (a == "-t") kind = atoi(argv[++i]); else if (a == "-A") specs = argv[++i]; else if (a == "-R") addRC = false;
         else if (a == "-o") outFn = argv[++i]; else if (a == "-L") light = atoi(argv[++i]); else if (a == "-C") chunk = atoi(argv[++i]);
+        else if (a == "-M") budgetGB = atof(argv[++i]); else if (a == "-g") groups = atoi(argv[++i]);
         else inFn = a;
     }
-    if (inFn.empty()) { fprintf(stderr, "usage: gkm_metal -l L -k K -d D [-t 0|2] -A specs [-R] [-o out.gkmk] in.mfa\n"); return 1; }
+    if (inFn.empty()) { fprintf(stderr, "usage: gkm_metal -l L -k K -d D [-t 0|2] -A specs [-R] [-o out.gkmk] [-M GB] [-g groups] [-L light] [-C chunk] in.mfa\n"); return 1; }
     if (kind != 0 && kind != 2) { fprintf(stderr, "prototype supports -t 0 (filter) and -t 2 (gkm)\n"); return 1; }
 
     // alphabets and positions
@@ -311,11 +315,19 @@ int main(int argc, char **argv) {
     id<MTLBuffer> bCodes = mk(codes.data(), codes.size() * 8), bStart = mk(postStart.data(), postStart.size() * 4),
                   bSeq = mk(postSeq.data(), postSeq.size() * 4), bCnt = mk(postCnt.data(), postCnt.size() * 4),
                   bTable = mk(classTable.data(), classTable.size() * 2);
-    size_t Nbytes = (size_t)R * triSize * 4;
-    fprintf(stderr, "profile buffer: %d classes x %llu entries = %.2f GB\n", R, (unsigned long long)triSize, Nbytes / 1e9);
+    // ---- class groups: the profile buffer holds Rg <= R classes at a time; the pair space is classified once per
+    // group (classification is cheap, the scatter is what costs), and each group's counts are folded into the
+    // kernel on the CPU before the next group. Compact class indices are contiguous per group and folded in
+    // increasing order, so the result is identical to the single-group computation.
+    if (budgetGB <= 0) budgetGB = dev.maxBufferLength * 0.6 / 1e9;
+    int Rg = (int)std::min<double>(R, std::floor(budgetGB * 1e9 / ((double)triSize * 4)));
+    if (groups > 0) Rg = std::max(1, (R + groups - 1) / groups);
+    if (Rg < 1) { fprintf(stderr, "even one class (%.2f GB) exceeds the memory budget %.1f GB\n", triSize * 4 / 1e9, budgetGB); return 1; }
+    int G = (R + Rg - 1) / Rg;
+    size_t Nbytes = (size_t)Rg * triSize * 4;
+    fprintf(stderr, "profile buffer: %d of %d classes x %llu entries = %.2f GB, %d class group%s\n", Rg, R, (unsigned long long)triSize, Nbytes / 1e9, G, G == 1 ? "" : "s");
     if (Nbytes > dev.maxBufferLength) { fprintf(stderr, "profile buffer exceeds maxBufferLength\n"); return 1; }
     id<MTLBuffer> bN = [dev newBufferWithLength:Nbytes options:MTLResourceStorageModeShared];
-    memset(bN.contents, 0, Nbytes);
     uint32_t ovCap = 1u << 27;
     id<MTLBuffer> bOv = [dev newBufferWithLength:(size_t)ovCap * 12 options:MTLResourceStorageModeShared];
     id<MTLBuffer> bOvCount = [dev newBufferWithLength:16 options:MTLResourceStorageModeShared];
@@ -326,7 +338,16 @@ int main(int argc, char **argv) {
 
     if ((uint64_t)chunk * U > ovCap) chunk = std::max<int>(64, (int)(ovCap / U));   // every pair of a chunk may be deferred
     fprintf(stderr, "row chunk %d, light threshold %d\n", chunk, light);
-    double t1 = now(); double heavySec = 0; unsigned long long nOvTotal = 0;
+    std::vector<double> Kt(triSize, 0.0);
+    unsigned long long tot = 0;
+    double t1 = now(); double heavySec = 0, foldSec = 0; unsigned long long nOvTotal = 0;
+    for (int g = 0; g < G; g++) {
+    int c0 = g * Rg, c1 = std::min(R, c0 + Rg);
+    std::vector<uint16_t> groupTable(nClassesTotal, 0xFFFF);
+    for (uint32_t c = 0; c < nClassesTotal; c++) if (classTable[c] != 0xFFFF && (int)classTable[c] >= c0 && (int)classTable[c] < c1) groupTable[c] = (uint16_t)(classTable[c] - c0);
+    id<MTLBuffer> bTable = mk(groupTable.data(), groupTable.size() * 2);
+    memset(bN.contents, 0, Nbytes);
+    P.selfPairs = (g == 0) ? 1u : 0u;
     for (uint32_t lo = 0; lo < U; lo += chunk) {
         uint32_t hi = std::min(U, lo + (uint32_t)chunk);
         P.rowLo = lo; P.rowHi = hi;
@@ -362,36 +383,21 @@ int main(int argc, char **argv) {
             *(uint32_t *)bOvCount.contents = 0;
         }
     }
-    double t2 = now();
-    fprintf(stderr, "classify + scatter: %.2f s (%.3g pairs, %.3g pairs/s); heavy pairs: %llu in %.2f s\n", t2 - t1, (double)U * U / 2, (double)U * U / 2 / (t2 - t1), nOvTotal, heavySec);
-    if (false) { uint32_t nOv = 0;
-        std::vector<uint32_t> entryStart(nOv + 1, 0); const uint32_t *ov = (const uint32_t *)bOv.contents;
-        for (uint32_t e = 0; e < nOv; e++) { uint32_t u = ov[3 * e]; entryStart[e + 1] = entryStart[e] + (postStart[u + 1] - postStart[u]); }
-        uint32_t total = entryStart[nOv];
-        id<MTLBuffer> bES = mk(entryStart.data(), entryStart.size() * 4);
-        Params P2 = P; P2.ovCap = nOv; id<MTLBuffer> bP2 = mk(&P2, sizeof(P2));
-        id<MTLCommandBuffer> cb = [queue commandBuffer]; id<MTLComputeCommandEncoder> enc = [cb computeCommandEncoder];
-        [enc setComputePipelineState:psoHeavy];
-        [enc setBuffer:bStart offset:0 atIndex:1]; [enc setBuffer:bSeq offset:0 atIndex:2]; [enc setBuffer:bCnt offset:0 atIndex:3];
-        [enc setBuffer:bN offset:0 atIndex:5]; [enc setBuffer:bOv offset:0 atIndex:6]; [enc setBuffer:bES offset:0 atIndex:7]; [enc setBuffer:bP2 offset:0 atIndex:8];
-        NSUInteger tg = std::min<NSUInteger>(psoHeavy.maxTotalThreadsPerThreadgroup, 256);
-        [enc dispatchThreads:MTLSizeMake(total, 1, 1) threadsPerThreadgroup:MTLSizeMake(tg, 1, 1)];
-        [enc endEncoding]; [cb commit]; [cb waitUntilCompleted];
-        if (cb.error) { fprintf(stderr, "GPU error (heavy): %s\n", cb.error.localizedDescription.UTF8String); return 1; }
-        fprintf(stderr, "heavy pairs: %.2f s (%u entries, %u threads)\n", now() - t2, nOv, total);
-    }
-    // ---- kernel from the profile, normalise, write
-    double t3 = now();
+    // fold this group's counts into the kernel (double; classes in increasing compact order, as before)
+    double tf = now();
     const uint32_t *Nbuf = (const uint32_t *)bN.contents;
-    std::vector<double> Kt(triSize, 0.0);
-    for (int c = 0; c < R; c++) { const uint32_t *Nc = Nbuf + (uint64_t)c * triSize; double w = coef[c]; for (uint64_t x = 0; x < triSize; x++) Kt[x] += w * Nc[x]; }
+    for (int c = c0; c < c1; c++) { const uint32_t *Nc = Nbuf + (uint64_t)(c - c0) * triSize; double w = coef[c]; unsigned long long sc = 0; for (uint64_t x = 0; x < triSize; x++) { Kt[x] += w * Nc[x]; sc += Nc[x]; } tot += sc; }
+    foldSec += now() - tf;
+    }
+    double t2 = now();
+    fprintf(stderr, "classify + scatter: %.2f s (%.3g pairs x %d group%s, %.3g pairs/s); heavy pairs: %llu in %.2f s; fold %.2f s\n", t2 - t1 - foldSec, (double)U * U / 2, G, G == 1 ? "" : "s", (double)U * U / 2 * G / (t2 - t1 - foldSec), nOvTotal, heavySec, foldSec);
+    // ---- normalise, write
+    double t3 = now();
     std::vector<double> diag(n); for (uint32_t i = 0; i < n; i++) diag[i] = Kt[(uint64_t)i * (i + 1) / 2 + i];
     std::vector<float> out(triSize);
     for (uint32_t i = 0; i < n; i++) for (uint32_t j = 0; j <= i; j++) { double dn = diag[i] * diag[j]; out[(uint64_t)i * (i + 1) / 2 + j] = (i == j) ? 1.0f : (dn < 1e-50 ? 0.0f : (float)(Kt[(uint64_t)i * (i + 1) / 2 + j] / std::sqrt(dn))); }
     writeGkmk(outFn, out, n, L, K, D, kind, specs);
-    fprintf(stderr, "kernel from profile + normalise + write: %.2f s; total %.2f s\n", now() - t3, now() - t0);
-    // class summary
-    unsigned long long tot = 0; for (int c = 0; c < R; c++) { unsigned long long s = 0; const uint32_t *Nc = Nbuf + (uint64_t)c * triSize; for (uint64_t x = 0; x < triSize; x++) s += Nc[x]; tot += s; }
+    fprintf(stderr, "normalise + write: %.2f s; total %.2f s\n", now() - t3, now() - t0);
     fprintf(stderr, "profile entries counted (lower triangle, ordered pairs): %llu\n", tot);
     return 0;
 }
