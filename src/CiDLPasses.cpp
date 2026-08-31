@@ -7,6 +7,7 @@
 //
 
 #include "CiDLPasses.h"
+#include <algorithm>
 #include "CbinMMtable.h"
 #include "global.h"
 
@@ -385,45 +386,41 @@ void CiDLPasses::newGreedyIDLPasses(int L, int M,  int Dmax, int *nodesAtDepthCn
   CbinMMtable mmtable;
   mmtable.createTable(L, Dmax);
   
-  int *rndi = new int[mmtable.nrow];
-  for(int i=0;i<mmtable.nrow;i++){
-    rndi[i]=i;
-  }
-  randomPermute(rndi, mmtable.nrow);
-  
-  
-  
-  int *jlmer = new int[L];
-  for(int ri=0;ri<mmtable.nrow; ri++){
-    int i = rndi[ri]; 
-    int *lmer = mmtable.table[i];
+  // A2a (dev/PERFORMANCE_PLAN.md section 5, 2026-08-31): the original rule put every pattern into the pass where
+  // its own estimated DFS cost is minimal -- the objective was total work, with no term for the heaviest pass,
+  // which is what the threads wait for. Now: patterns in decreasing order of their minimum cost (LPT), each
+  // assigned to the least-loaded pass among those whose cost is within (1 + GKM_GREEDY_EPS) of its minimum.
+  // Any assignment gives the identical kernel; only the balance of the passes changes. Measured 2026-08-31 on
+  // 28 threads: -10 % wall for l = 20 at 13 398 sequences (d = 4), -4 % for l = 24 (d = 6), but +10 % for DNA
+  // l = 10 (d = 3) -- so the load-aware rule is used for words of >= 16 positions only (eps = 0 reproduces the
+  // min-cost rule up to ties). The cost model itself (A2b) is the larger lever.
+  const double GKM_GREEDY_EPS = (L >= 16) ? 0.2 : 0.0;
+  int n = mmtable.nrow;
+  double *minCost = new double[n];
+  int *order = new int[n];
+  for(int i=0;i<n;i++){
     double sMin = 1.0E300;
-    int jMin = 0;
+    for(int j=0;j<M; j++){ double sj = calcCost(mmtable.table[i], passOrder[j], w, p, L); if(sj<sMin) sMin = sj; }
+    minCost[i] = sMin; order[i] = i;
+  }
+  std::sort(order, order+n, [&](int a, int b){ return minCost[a] > minCost[b] || (minCost[a] == minCost[b] && a < b); });
+  double *load = new double[M];
+  for(int j=0;j<M;j++) load[j]=0;
+  int *jlmer = new int[L];
+  for(int ri=0;ri<n; ri++){
+    int i = order[ri];
+    int *lmer = mmtable.table[i];
+    double bound = minCost[i]*(1.0+GKM_GREEDY_EPS);
+    int jMin = -1; double bestCost = 0;
     for(int j=0;j<M; j++){
-      jlmer = reorder(lmer, passOrder[j], L, jlmer);
-      //            double sj = passTrees[j]->calcAddCost(jlmer, w,  L, p);
       double sj = calcCost(lmer, passOrder[j], w, p, L);
-      
-      if(sj<sMin){
-        sMin = sj;
-        jMin = j;
-      }
+      if(sj<=bound && (jMin<0 || load[j]<load[jMin])){ jMin = j; bestCost = sj; }
     }
-    //jMin=0;
+    load[jMin] += bestCost;
     jlmer = reorder(lmer, passOrder[jMin], L, jlmer);
     passTrees[jMin]->addSeq(jlmer, L);
-    /*
-    printf(" T%d, ", jMin);
-    for(int kk=0;kk<L;kk++){
-    printf("%d", lmer[kk]);
-    }
-    printf(" --> ");
-    for(int kk=0;kk<L;kk++){
-    printf("%d", jlmer[kk]);
-    }
-    printf("\n");
-    */
   }
+  delete []minCost; delete []order; delete []load;
   
   delete []w;
   delete []jlmer;

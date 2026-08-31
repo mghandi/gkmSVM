@@ -4,6 +4,33 @@
 
 See `dev/REFACTORING_PLAN.md` for the plan and its execution log.
 
+### Performance (2026-08-31; `dev/PERFORMANCE_PLAN.md`)
+
+* **Kernel-mode accumulation** (`gkmsvm_kernel -K`, R `accMode`): for the full filter (`-t 0`) and
+  the gapped k-mer counts (`-t 2`) without pseudocounts, the kernel is now accumulated directly —
+  the coefficient of each mismatch class, scaled by ∏bᵢ to an exact integer, is added into one
+  64-bit integer lower triangle per thread at every l-mer pair — instead of counting the pairs per
+  mismatch class first. No per-class counters, so no tiles and no repeated trie traversal, and no
+  atomic counters while the private triangles fit `-G`/`accMemoryMB` (default 4 GB; shared atomic
+  triangles beyond that). The result is exact and independent of the thread count, and identical to
+  the profile path on every configuration measured (golden corpus byte-identical; 06/07 multi-track
+  kernels at 4 000 and 13 398 sequences: 0 of 1.8·10⁸ entries differ). Measured on 28 threads: 07
+  3-block kernel (ℓ = 24, d = 6, 4 000 windows) 62.6 → 23.8 s; 06 joint kernel (ℓ = 20, 13 398 sites)
+  d = 4 34.7 → 13.8 s, d = 6 395 → 105 s, exact `-d -1` 427 → 217 s at 4 000 sites and **2 175 s at
+  13 398 sites** (the profile path, tiled 43 GB / 1 GB, was estimated at ≥ 6 h and never finished).
+  The truncated filter (`-t 1`), the wildcard/mismatch kernels and `-p` keep the profile path
+  automatically (`-K 1` forces it, `-K 2` requests kernel mode and explains when it cannot apply).
+* **`-P 0` is threads-aware:** the prefix-split pass design is chosen automatically for words of ≥ 16
+  positions when the mismatch count is capped (`-d ≥ 0`) and at least 4 threads are available
+  (2.8–3.9× faster wall on 28 threads at ℓ = 20–24; identical kernel); short words (DNA, ℓ = 10)
+  keep the greedy design, which was 28 % faster there.
+* **Load-aware greedy pass design (A2a):** the greedy iDL design now assigns the mismatch patterns in
+  decreasing order of their minimum cost to the least-loaded pass among those within 20 % of that
+  minimum (LPT), instead of to the pass where each pattern alone is cheapest. Any assignment is
+  exact (same kernel); measured −10 % wall for the 06 joint kernel at 13 398 sites (d = 4, 74 → 67 s),
+  −4 % for the 07 3-block kernel, but +10 % for DNA (ℓ = 10), so the rule is applied to words of ≥ 16
+  positions only. The pass-cost model itself (per-position match probabilities, A2b) is the larger lever.
+
 ### Phase 7 — gkm-SVM over heterogeneous alphabets (multi-track input)
 
 * **`gkmsvm_kernel(..., alphabets = c("dna", "01"))`** (CLI: `-A dna,=01`) computes the gapped

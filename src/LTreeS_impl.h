@@ -256,7 +256,34 @@ void addmmprof(aint *mmprofile_i,int *nodej_seqIDs_p,int nn, int curnodeid)
   }
 }
 
+// Leaf operations of the last DFS level (Phase 6 note: the profile form is branchless on purpose; a
+// data-dependent branch here cost 17 %). Rows hold j <= i only.
+struct ProfileSink {
+  static inline void one(const KernelContext *, aint **mmprofile, int i, int cls, int jj) { int in = (jj <= i); mmprofile[cls][in ? jj : i] += in; }
+  static inline void many(const KernelContext *, aint **mmprofile, int i, int cls, int *p, int n) { addmmprof(mmprofile[cls], p, n, i); }
+};
+// Kernel mode (Plan A1): K~[i][j] += c~[class] per l-mer pair, c~ = the coefficient scaled to an integer.
+struct KernelSink {
+  static inline void add(const KernelContext *ctx, size_t idx, long long v) {
+    std::atomic<long long> &a = ctx->kacc[idx];
+    if (ctx->kaccAtomic) a.fetch_add(v, std::memory_order_relaxed);
+    else a.store(a.load(std::memory_order_relaxed) + v, std::memory_order_relaxed);
+  }
+  static inline void one(const KernelContext *ctx, aint **, int i, int cls, int jj) { if (jj <= i) add(ctx, (size_t)i * (i + 1) / 2 + jj, ctx->kcoef[cls]); }
+  static inline void many(const KernelContext *ctx, aint **, int i, int cls, int *p, int n) {
+    size_t base = (size_t)i * (i + 1) / 2; long long v = ctx->kcoef[cls];
+    for (int j = 0; j < n; j++) { if (p[j] > i) return; add(ctx, base + p[j], v); }
+  }
+};
+
 void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, CbinMMtree **curMMtree, int alphabetSize, const KernelContext *ctx, int lastStep)
+{
+  if (ctx->kacc) DFSTnIDL_T<KernelSink>(matchingLmers, listlen, curMismatchCnt, curMMtree, alphabetSize, ctx, lastStep);
+  else DFSTnIDL_T<ProfileSink>(matchingLmers, listlen, curMismatchCnt, curMMtree, alphabetSize, ctx, lastStep);
+}
+
+template<class Sink>
+void CLTreeS::DFSTnIDL_T(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, CbinMMtree **curMMtree, int alphabetSize, const KernelContext *ctx, int lastStep)
 {
   
   // note: similar to DFST, we should first check if mismatch not allowed, don't iterate over mismatch places and go directly to match
@@ -293,7 +320,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
               LTreeSnodeData *nodej=imatchingLmer->daughter[fbid].node;
               if (nodej->n==1)
               {
-                { int jj = nodej->seqIDs.i; int in = (jj <= curnodeid); mmprofile[curMismatchCnt[i]][in ? jj : curnodeid] += in; } // Phase 6: rows hold j <= i only; branchless (a data-dependent branch here cost 17%)
+                Sink::one(ctx, mmprofile, curnodeid, curMismatchCnt[i], nodej->seqIDs.i);
                 
               }
               else
@@ -304,7 +331,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                 if (nodej->seqIDs.p[j]>curnodeid) break;
                 mmprofile[curMismatchCnt[i]][nodej->seqIDs.p[j]]++;
                 }*/
-                addmmprof(mmprofile[curMismatchCnt[i]],nodej->seqIDs.p,nodej->n, curnodeid);
+                Sink::many(ctx, mmprofile, curnodeid, curMismatchCnt[i], nodej->seqIDs.p, nodej->n);
                 
               }
           }
@@ -318,7 +345,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
               LTreeSnodeData *nodej=imatchingLmer->daughter[fbid].node;
               if (nodej->n==1)
               {
-                { int jj = nodej->seqIDs.i; int in = (jj <= curnodeid); mmprofile[lastStep+curMismatchCnt[i]][in ? jj : curnodeid] += in; }
+                Sink::one(ctx, mmprofile, curnodeid, lastStep+curMismatchCnt[i], nodej->seqIDs.i);
                 
               }
               else
@@ -329,7 +356,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                 if (nodej->seqIDs.p[j]>curnodeid) break;
                 mmprofile[lastStep+curMismatchCnt[i]][nodej->seqIDs.p[j]]++;
                 }*/
-                addmmprof(mmprofile[lastStep+curMismatchCnt[i]],nodej->seqIDs.p,nodej->n, curnodeid);
+                Sink::many(ctx, mmprofile, curnodeid, lastStep+curMismatchCnt[i], nodej->seqIDs.p, nodej->n);
                 
               }
               
@@ -374,9 +401,8 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                   aint **mmprofile=ctx->mmProfile[curnodeid];
                   
                   //int *mmprofile_curMismatchCntP1_i=mmprofile[lastStep+curMismatchCnt[i]];
-                  aint *mmprofile_curMismatchCnt_i=mmprofile[curMismatchCnt[i]];
-                  
-                  { int jj = nodej->seqIDs.i; int in = (jj <= curnodeid); mmprofile_curMismatchCnt_i[in ? jj : curnodeid] += in; }
+                                    
+                  Sink::one(ctx, mmprofile, curnodeid, curMismatchCnt[i], nodej->seqIDs.i);
                   
                 }
                 
@@ -399,9 +425,8 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                   aint **mmprofile=ctx->mmProfile[curnodeid];
                   
                   //int *mmprofile_curMismatchCntP1_i=mmprofile[lastStep+curMismatchCnt[i]];
-                  aint *mmprofile_curMismatchCnt_i=mmprofile[curMismatchCnt[i]];
-                  
-                  addmmprof(mmprofile_curMismatchCnt_i,nodej->seqIDs.p,nodej->n, curnodeid);
+                                    
+                  Sink::many(ctx, mmprofile, curnodeid, curMismatchCnt[i], nodej->seqIDs.p, nodej->n);
                 }
                 
               }
@@ -422,9 +447,8 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                   if (curnodeid < ctx->rowLo || curnodeid > ctx->rowHi) continue; // outside the tile
                   aint **mmprofile=ctx->mmProfile[curnodeid];
                   
-                  aint *mmprofile_curMismatchCntP1_i=mmprofile[lastStep+curMismatchCnt[i]];
-                  
-                  { int jj = nodej->seqIDs.i; int in = (jj <= curnodeid); mmprofile_curMismatchCntP1_i[in ? jj : curnodeid] += in; }
+                                    
+                  Sink::one(ctx, mmprofile, curnodeid, lastStep+curMismatchCnt[i], nodej->seqIDs.i);
                   
                 }
               }
@@ -438,7 +462,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
                   
                   //int *mmprofile_curMismatchCntP1_i=mmprofile[lastStep+curMismatchCnt[i]];
                   //int *mmprofile_curMismatchCnt_i=mmprofile[curMismatchCnt[i]];
-                  addmmprof(ctx->mmProfile[curnodeid][lastStep+curMismatchCnt[i]],nodej->seqIDs.p,nodej_n, curnodeid);
+                  Sink::many(ctx, ctx->mmProfile[curnodeid], curnodeid, lastStep+curMismatchCnt[i], nodej->seqIDs.p, nodej_n);
                 }
               }
               
@@ -460,7 +484,7 @@ void CLTreeS::DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt
         {
         
         
-        addmmprof(mmprofile_curMismatchCnt_i,nodej->seqIDs.p,nodej->n, curnodeid);
+        Sink::many(ctx, mmprofile, curnodeid, curMismatchCnt[i], nodej->seqIDs.p, nodej->n);
         
         }
         }

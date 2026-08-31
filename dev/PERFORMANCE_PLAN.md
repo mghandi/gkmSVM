@@ -195,6 +195,33 @@ under dynamic pulling; the floor is the heaviest single pass, which only splitti
    longer a degree-k polynomial) — it stays the route to *exact* kernels at k ≤ 4–5, which, where it
    applies, supersedes capping altogether.
 
+### Measured 2026-08-31 — items 1–3 shipped (branch `phase7/e-experiments-docs`)
+
+All numbers: Apple M3 Ultra, 28 threads, kernels compared entry for entry with the previous binary
+(0 differences in every case, golden corpus byte-identical, oracle green).
+
+| item | configuration | before | after |
+|---|---|---|---|
+| threads-aware `-P 0` | ℓ ≥ 16, `-d ≥ 0`, ≥ 4 threads → prefix-split | (needed `-P 2` by hand) | same as `-P 2`; DNA ℓ = 10 kept on greedy (prefix-split 18.3 → 23.4 s there) |
+| **A1 kernel mode** (`-K`, default on for `-t 0/2`) | 06 joint ℓ = 20, n = 4 000: d = 4 / 6 / −1 | 2.8 / 15.9 / 467 s | 2.2 / 13.0 / 217 s |
+| | 06 joint n = 13 398: d = 4 / 6 / −1 | 34.7 / 395 / never finished (≥ 6 h est.) | 13.8–16.0 / 105 / **2 175 s** |
+| | 07 3-block ℓ = 24, n = 4 000, d = 6 | 62.6 s (6 tiles) | 23.8 s |
+| | DNA ℓ = 10, d = 3, 4 000 × 500 bp | 18.3 s | 18.1 s |
+| A2a load-aware greedy (`-P 1`, profile mode) | 06 n = 4 000 / 13 398, d = 4 | 5.1 / 74.4 s | 5.5 / 67.2 s |
+| | 07 d = 6; DNA ℓ = 10 | 258 s; 18.2 s | 247 s; 20.0 s (→ enabled for ℓ ≥ 16 only) |
+
+Implementation notes. Kernel mode scales the coefficients by ∏bᵢ (`coefDen`; b^L for one alphabet)
+and requires them to be exact integers (relative 1e-12) — true for H and the gkm counts, false for
+the truncated filter's least-squares coefficients (near-integers at ~1e-8: rounding them changed the
+7th digit of a golden case, which is how the tolerance was set) — and bounds max|c̃|·maxw² < 4·10¹⁸
+against int64 overflow. Accumulators: `std::atomic<long long>` triangles, one per thread while
+`-G` (default 4 GB) allows, otherwise shared with relaxed `fetch_add`; at n = 13 398, d = 4 the 5
+shared triangles (3.6 GB) were *faster* than 28 private ones (18 GB: 13.8 vs 16.0 s — zeroing and
+reducing 18 GB costs more than the atomics). The exact `-d -1` case at 13 398 sites still takes
+36 min on the CPU against 37 s on the GPU (`dev/metal_g3`); the GPU is the exact-kernel route.
+A2a's small effect confirms the diagnosis of item 4: with the current cost model the load-aware
+tie-breaking has little to work with; A2b (per-position p, per-order w) is the remaining CPU item.
+
 ## 6. Plan G — a GPU gkmSVM: reducing the mismatch profile to matrix products
 
 The question is whether the core — the mismatch profile N_m[i][j] (number of window pairs of
@@ -285,9 +312,10 @@ next steps in `dev/metal_g3/README.md`.
 ## 8. Suggested order
 
 1. Done: C's d-study (section 4) and `-P 2` at capped d (section 5).
-2. Threads-aware `-P 0` auto rule (one heuristic in `kernel_tree_impl.h`).
-3. A1 kernel-mode (no tiles, private accumulators) — the biggest remaining lever in *both* regimes;
-   verify vs oracle, measure at capped d and `-d -1`.
+2. Done (2026-08-31): threads-aware `-P 0` auto rule (ℓ ≥ 16, capped d, ≥ 4 threads).
+3. Done (2026-08-31): A1 kernel-mode (`-K`, no tiles, private/shared int64 accumulators) — measured
+   1.3–3.8× at capped d, 2.2× exact at 4 000, exact 13 398-site kernel in 36 min (was ≥ 6 h); A2a shipped
+   for ℓ ≥ 16 (−4 to −10 %).
 4. A2 pass splitting — measure parallel efficiency at n = 8 000–30 000.
 5. B on CPU/AMX for k ≤ 4, then the Metal batch; wire into `gkmsvm_kernel -a 3` and the harness
    (exact kernels without capping where it applies).

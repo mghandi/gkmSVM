@@ -104,7 +104,7 @@ static int gkmKernelPassesAndOutput(OptsGkmKernel &opt, KernelContext &kc, CLTre
                                     int nseqs, int npos, int nneg, int ntotal, const int *LmersCnt,
                                     const std::vector<SeqRecord> &records, const double *c, const std::vector<int> &reach,
                                     bool usePseudocnt, double n0, double C, double btL, int maxnmm,
-                                    int hdrB, const std::string &hdrAlphabet)
+                                    int hdrB, const std::string &hdrAlphabet, double coefDen)
 {
   int i;
   const size_t nrowsUsed = reach.size();
@@ -144,7 +144,19 @@ static int gkmKernelPassesAndOutput(OptsGkmKernel &opt, KernelContext &kc, CLTre
     // words (multi-track, large -d) the prefix-split design enumerates them implicitly instead
     // maxmm == 0 (exact word matching, e.g. K > L with the truncated filter): the greedy design divides by
     // Dmax in its pass orders (UB; SIGFPE on Linux), the prefix-split DAG handles it
-    bool prefixSplit = (opt.passDesign == 2) || (opt.passDesign == 0 && (kc.maxmm == 0 || CiDLPasses::patternCount(L, kc.maxmm) > GKM_MAX_PATTERN_TABLE));
+    // The thread budget (computed once; also decides the pass design below).
+    int nThreadsBudget = (int)std::thread::hardware_concurrency();
+    if (nThreadsBudget <= 0) nThreadsBudget = 1;
+    if (opt.maxnThread < nThreadsBudget) nThreadsBudget = opt.maxnThread;
+    if (nThreadsBudget < 1) nThreadsBudget = 1;
+    // -P 0 (automatic): prefix-split for long words (pattern table too large), for maxmm == 0, and -- measured
+    // 2026-08-30/31, dev/PERFORMANCE_PLAN.md section 5 -- for words of >= 16 positions whenever the mismatch count
+    // is capped (-d >= 0) and at least 4 threads are available: it traverses the shared trie (no per-pass clone)
+    // and its 64 passes balance far better (2.8-3.9x faster wall on 28 threads at l = 20-24, d = 4-6, identical
+    // kernel). Greedy stays the choice for short words (l = 10 DNA, d = 3: prefix-split was 28 % slower at 4 000
+    // sequences), for 1-3 threads (20-35 % less total CPU) and for -d -1.
+    bool prefixSplit = (opt.passDesign == 2) || (opt.passDesign == 0 && (kc.maxmm == 0 || CiDLPasses::patternCount(L, kc.maxmm) > GKM_MAX_PATTERN_TABLE
+                                                                         || (opt.maxnmm >= 0 && L >= 16 && nThreadsBudget >= 4)));
     if (prefixSplit) {
       int q = 6; if (q > L) q = L;
       iDL.newPrefixSplitPasses(L, kc.maxmm, q);
@@ -253,118 +265,202 @@ static int gkmKernelPassesAndOutput(OptsGkmKernel &opt, KernelContext &kc, CLTre
   else 
   */
 
-  // ---- Phase 6: tiles of rows. The mismatch profile of rows [lo, hi] is built by a full set of
-  // passes with the DFS pruned to that band (node id ranges), the rows are written, the tile is freed.
-  // Counts are integers, so the result is identical to the untiled computation.
-  int tileRows = opt.tileRows;
-  if (tileRows <= 0) {
-    double bytesPerRow = (double)nrowsUsed * sizeof(aint) * nseqs; // upper bound (the last row is the longest)
-    double budget = (double)opt.tileMemoryMB * 1048576.0;
-    tileRows = (int)(budget / (bytesPerRow > 0 ? bytesPerRow : 1));
-    if (tileRows < 1) tileRows = 1;
-  }
-  if (tileRows > nseqs) tileRows = nseqs;
-  int ntiles = (nseqs + tileRows - 1) / tileRows;
-  if (ntiles > 1) { gkmMsg("Computing the kernel in %d tiles of %d rows.\n", ntiles, tileRows); }
-  // One contiguous block, sized for the largest (last) tile and reused by every tile: freeing and
-  // reallocating a block per tile does not lower the resident set (the allocator keeps freed large
-  // blocks, and each tile's block is bigger than the previous one), a single reused block does.
-  size_t maxTileCounters = 0;
-  for (int tile = 0; tile < ntiles; tile++) {
-    int lo = tile * tileRows, hi = lo + tileRows - 1; if (hi > nseqs - 1) hi = nseqs - 1;
-    size_t c = 0; for(int i=lo;i<=hi;i++) c += nrowsUsed * (i+1);
-    if (c > maxTileCounters) maxTileCounters = c;
-  }
-  aint *tileBlock = new aint[maxTileCounters > 0 ? maxTileCounters : 1];
-  for (int tile = 0; tile < ntiles; tile++)
+  // ---- Accumulation mode (Plan A1, dev/PERFORMANCE_PLAN.md section 2). The kernel is a linear function of the
+  // mismatch-class counts, K[i][j] = sum_class c[class] N[i][class][j], and for the full filter and the gkm counts
+  // the coefficients scaled by coefDen (prod b_i) are integers: the leaf can add c~[class] straight into one int64
+  // lower triangle per thread -- no per-class counters, hence no tiles and no repeated traversal -- and the result
+  // is exact (integer) and independent of the thread count. Not applicable with pseudocounts, or when the scaled
+  // coefficients are not integers (truncated filter) or could overflow int64.
+  bool kernelMode = false;
+  std::vector<long long> kcoef;
   {
-    int lo = tile * tileRows, hi = lo + tileRows - 1; if (hi > nseqs - 1) hi = nseqs - 1;
-    kc.rowLo = lo; kc.rowHi = hi;
-    size_t tileCounters = 0;
-    for(int i=lo;i<=hi;i++) tileCounters += nrowsUsed * (i+1);
-    for(size_t k=0;k<tileCounters;k++) tileBlock[k]=0;
-    {
-      size_t off = 0;
-      for(int i=lo;i<=hi;i++)
-      {
-        kc.mmProfile[i] = new aint*[kc.nclasses];
-        for (int j=0;j<kc.nclasses;j++) kc.mmProfile[i][j] = NULL;
-        for (size_t q=0;q<nrowsUsed;q++) { kc.mmProfile[i][reach[q]] = tileBlock + off; off += (size_t)(i+1); }
+    const char *why = NULL;
+    if (opt.accMode == 1) why = "-K 1";
+    else if (usePseudocnt) why = "pseudocounts (-p)";
+    else if (!(coefDen > 0)) why = "no coefficient scale";
+    else {
+      kcoef.assign(kc.nclasses, 0);
+      double maxAbs = 0;
+      for (size_t q = 0; q < nrowsUsed; q++) {
+        double v = c[reach[q]] * coefDen, r = (double)std::llround(v);
+        // exact integers only (relative 1e-12, i.e. double rounding): the truncated filter's least-squares coefficients
+        // are near-integers at ~1e-8 and would change the output in the 7th digit if rounded
+        if (fabs(v - r) > 1e-12 * (fabs(r) > 1.0 ? fabs(r) : 1.0) || fabs(r) >= 9007199254740992.0) { why = "the scaled coefficients are not exact integers (truncated filter or wildcard/mismatch weights)"; break; }
+        kcoef[reach[q]] = (long long)r;
+        if (fabs(r) > maxAbs) maxAbs = fabs(r);
       }
+      double maxw = 0; for (int i = 0; i < nseqs; i++) if (LmersCnt[i] > maxw) maxw = LmersCnt[i];
+      if (!why && maxAbs * maxw * maxw > 4.0e18) why = "the accumulators could overflow int64 (too many windows per record for these coefficients)";
     }
-    int nThreads=std::thread::hardware_concurrency();
-    if(nThreads==0){nThreads = iDL.M;}
-    if(nThreads>iDL.M){nThreads =iDL.M;}
-    if(opt.maxnThread<nThreads){nThreads=opt.maxnThread;}
-    if(nThreads<1){nThreads=1;}
+    kernelMode = (why == NULL);
+    if (!kernelMode && opt.accMode == 2) gkmMsg("Kernel-mode accumulation (-K 2) is not applicable here: %s; using the mismatch-class profile.\n", why);
+  }
+
+  if (kernelMode)
+  {
+    const size_t tri = (size_t)nseqs * (nseqs + 1) / 2;
+    int nThreads = nThreadsBudget;
+    if (nThreads > iDL.M) nThreads = iDL.M;
+    if (nThreads < 1) nThreads = 1;
+    double triBytes = (double)tri * sizeof(std::atomic<long long>);
+    int copies = (int)((double)opt.accMemoryMB * 1048576.0 / (triBytes > 0 ? triBytes : 1));
+    if (copies < 1) copies = 1;
+    if (copies > nThreads) copies = nThreads;
+    std::atomic<long long> *acc = new std::atomic<long long>[tri * copies];
+    for (size_t x = 0; x < tri * copies; x++) acc[x].store(0, std::memory_order_relaxed);
+    std::vector<KernelContext> kcs(nThreads, kc);
+    for (int t = 0; t < nThreads; t++) {
+      kcs[t].rowLo = 0; kcs[t].rowHi = nseqs - 1;
+      kcs[t].kacc = acc + (size_t)(t % copies) * tri;
+      kcs[t].kcoef = kcoef.data();
+      kcs[t].kaccAtomic = (copies < nThreads);
+    }
+    gkmMsg("Kernel-mode accumulation: %d int64 triangle%s of %.2f GB (%s adds; coefficients x %g).\n", copies, (copies == 1) ? "" : "s",
+           triBytes * copies / 1073741824.0, (copies < nThreads) ? "shared, atomic" : "private", coefDen);
     std::atomic<int> nextPass(0);
-    
     gkmMsg("Running %d passes on %d thread%s.\n", iDL.M, nThreads, (nThreads==1)?"":"s");
-    if (nThreads<=1){
-      task1( L, &iDL, seqsTS, iDL.M, &nextPass, &kc, b);
-    }else{
-      
-#ifndef MULTI_THREAD_SAFE
-      Printf("Warning -- MULTI_THREAD_SAFE is not enabled (see src/global.h). Some values may be approximated.\n");
-#endif
-      
-      
+    if (nThreads <= 1) {
+      task1(L, &iDL, seqsTS, iDL.M, &nextPass, &kcs[0], b);
+    } else {
       std::thread *myThreads = new std::thread[nThreads];
-      int j;
-      
-      for(j=0;j<nThreads;j++){
-        myThreads[j] = std::thread(task1, L, &iDL, seqsTS, iDL.M, &nextPass, &kc, b);
-        // myThreads[j].join();
-      }
-      for(j=0;j<nThreads;j++){
-        myThreads[j].join();
-      }
+      for (int j = 0; j < nThreads; j++) myThreads[j] = std::thread(task1, L, &iDL, seqsTS, iDL.M, &nextPass, &kcs[j], b);
+      for (int j = 0; j < nThreads; j++) myThreads[j].join();
       delete []myThreads;
     }
-    
-    for(i=lo;i<=hi;i++)
-    {
-      if (usePseudocnt)
-      {
-        norm[i] = sqrt(calcinnerprod(i,i,c,n0,C,LmersCnt[i], LmersCnt[i], btL, kc));
-      }
-      else
-      {
-        norm[i] = sqrt(calcinnerprod(i,i,c,kc));
-      }
+    for (int cp = 1; cp < copies; cp++) {
+      const std::atomic<long long> *src = acc + (size_t)cp * tri;
+      for (size_t x = 0; x < tri; x++) acc[x].store(acc[x].load(std::memory_order_relaxed) + src[x].load(std::memory_order_relaxed), std::memory_order_relaxed);
     }
-    
-    for(i=lo;i<=hi;i++)
+    for (i = 0; i < nseqs; i++) norm[i] = sqrt((double)acc[(size_t)i * (i + 1) / 2 + i].load(std::memory_order_relaxed));
+    for (i = 0; i < nseqs; i++)
     {
-      
-      //if (outputClassLabel)
-      //{
-      //	fprintf(fo, "%d\t", (i<npos)?1:-1);
-      //}
-      //if (OutputSeqNames)
-      //{
-      //	fprintf(fo, "%s\t", seqname[i]);
-      //}
-      
-      for(int j=0;j<=i;j++)
+      const std::atomic<long long> *row = acc + (size_t)i * (i + 1) / 2;
+      for (int j = 0; j <= i; j++)
       {
         double v;
-        if (i==j) v = 1.0;
-        else if (usePseudocnt) v = (norm[i]*norm[j]<1E-50)?0.0:calcinnerprod(i,j,c, n0,C,LmersCnt[i], LmersCnt[j], btL, kc)/(norm[i]*norm[j]);
-        else v = (norm[i]*norm[j]<1E-50)?0.0:calcinnerprod(i,j,c,kc)/(norm[i]*norm[j]);
-        if (v == 0.0) v = 0.0; // canonical +0 (an exact zero can be -0.0 on one compiler and +0.0 on another)
+        if (i == j) v = 1.0;
+        else v = (norm[i]*norm[j]<1E-50) ? 0.0 : (double)row[j].load(std::memory_order_relaxed) / (norm[i]*norm[j]);
+        if (v == 0.0) v = 0.0;
         if (fo) { if (i==j) fprintf(fo, "1.0\t"); else fprintf(fo, "%e\t", v); }
         else bin.add(gkmCanon(v));
       }
-      if (fo) fprintf(fo, "\n"); 
+      if (fo) fprintf(fo, "\n");
     }
-    for(int i=lo;i<=hi;i++)
-    {
-      delete []kc.mmProfile[i];
-      kc.mmProfile[i] = NULL;
-    }
+    delete []acc;
   }
-  delete []tileBlock;
+  else
+  {
+    // ---- Phase 6: tiles of rows. The mismatch profile of rows [lo, hi] is built by a full set of
+    // passes with the DFS pruned to that band (node id ranges), the rows are written, the tile is freed.
+    // Counts are integers, so the result is identical to the untiled computation.
+    int tileRows = opt.tileRows;
+    if (tileRows <= 0) {
+      double bytesPerRow = (double)nrowsUsed * sizeof(aint) * nseqs; // upper bound (the last row is the longest)
+      double budget = (double)opt.tileMemoryMB * 1048576.0;
+      tileRows = (int)(budget / (bytesPerRow > 0 ? bytesPerRow : 1));
+      if (tileRows < 1) tileRows = 1;
+    }
+    if (tileRows > nseqs) tileRows = nseqs;
+    int ntiles = (nseqs + tileRows - 1) / tileRows;
+    if (ntiles > 1) { gkmMsg("Computing the kernel in %d tiles of %d rows.\n", ntiles, tileRows); }
+    // One contiguous block, sized for the largest (last) tile and reused by every tile: freeing and
+    // reallocating a block per tile does not lower the resident set (the allocator keeps freed large
+    // blocks, and each tile's block is bigger than the previous one), a single reused block does.
+    size_t maxTileCounters = 0;
+    for (int tile = 0; tile < ntiles; tile++) {
+      int lo = tile * tileRows, hi = lo + tileRows - 1; if (hi > nseqs - 1) hi = nseqs - 1;
+      size_t c = 0; for(int i=lo;i<=hi;i++) c += nrowsUsed * (i+1);
+      if (c > maxTileCounters) maxTileCounters = c;
+    }
+    aint *tileBlock = new aint[maxTileCounters > 0 ? maxTileCounters : 1];
+    for (int tile = 0; tile < ntiles; tile++)
+    {
+      int lo = tile * tileRows, hi = lo + tileRows - 1; if (hi > nseqs - 1) hi = nseqs - 1;
+      kc.rowLo = lo; kc.rowHi = hi;
+      size_t tileCounters = 0;
+      for(int i=lo;i<=hi;i++) tileCounters += nrowsUsed * (i+1);
+      for(size_t k=0;k<tileCounters;k++) tileBlock[k]=0;
+      {
+        size_t off = 0;
+        for(int i=lo;i<=hi;i++)
+        {
+          kc.mmProfile[i] = new aint*[kc.nclasses];
+          for (int j=0;j<kc.nclasses;j++) kc.mmProfile[i][j] = NULL;
+          for (size_t q=0;q<nrowsUsed;q++) { kc.mmProfile[i][reach[q]] = tileBlock + off; off += (size_t)(i+1); }
+        }
+      }
+      int nThreads = nThreadsBudget;
+      if(nThreads>iDL.M){nThreads =iDL.M;}
+      if(nThreads<1){nThreads=1;}
+      std::atomic<int> nextPass(0);
+    
+      gkmMsg("Running %d passes on %d thread%s.\n", iDL.M, nThreads, (nThreads==1)?"":"s");
+      if (nThreads<=1){
+        task1( L, &iDL, seqsTS, iDL.M, &nextPass, &kc, b);
+      }else{
+      
+  #ifndef MULTI_THREAD_SAFE
+        Printf("Warning -- MULTI_THREAD_SAFE is not enabled (see src/global.h). Some values may be approximated.\n");
+  #endif
+      
+      
+        std::thread *myThreads = new std::thread[nThreads];
+        int j;
+      
+        for(j=0;j<nThreads;j++){
+          myThreads[j] = std::thread(task1, L, &iDL, seqsTS, iDL.M, &nextPass, &kc, b);
+          // myThreads[j].join();
+        }
+        for(j=0;j<nThreads;j++){
+          myThreads[j].join();
+        }
+        delete []myThreads;
+      }
+    
+      for(i=lo;i<=hi;i++)
+      {
+        if (usePseudocnt)
+        {
+          norm[i] = sqrt(calcinnerprod(i,i,c,n0,C,LmersCnt[i], LmersCnt[i], btL, kc));
+        }
+        else
+        {
+          norm[i] = sqrt(calcinnerprod(i,i,c,kc));
+        }
+      }
+    
+      for(i=lo;i<=hi;i++)
+      {
+      
+        //if (outputClassLabel)
+        //{
+        //	fprintf(fo, "%d\t", (i<npos)?1:-1);
+        //}
+        //if (OutputSeqNames)
+        //{
+        //	fprintf(fo, "%s\t", seqname[i]);
+        //}
+      
+        for(int j=0;j<=i;j++)
+        {
+          double v;
+          if (i==j) v = 1.0;
+          else if (usePseudocnt) v = (norm[i]*norm[j]<1E-50)?0.0:calcinnerprod(i,j,c, n0,C,LmersCnt[i], LmersCnt[j], btL, kc)/(norm[i]*norm[j]);
+          else v = (norm[i]*norm[j]<1E-50)?0.0:calcinnerprod(i,j,c,kc)/(norm[i]*norm[j]);
+          if (v == 0.0) v = 0.0; // canonical +0 (an exact zero can be -0.0 on one compiler and +0.0 on another)
+          if (fo) { if (i==j) fprintf(fo, "1.0\t"); else fprintf(fo, "%e\t", v); }
+          else bin.add(gkmCanon(v));
+        }
+        if (fo) fprintf(fo, "\n"); 
+      }
+      for(int i=lo;i<=hi;i++)
+      {
+        delete []kc.mmProfile[i];
+        kc.mmProfile[i] = NULL;
+      }
+    }
+    delete []tileBlock;
+  }
   if (fo) fclose(fo); 
   else if (bin.write(opt.outfile, records) != 0) return gkmCannotOpen(opt.outfile.c_str());
   if (writeIndexSidecar(opt.outfile, records) != 0) { gkmMsg("\n WARNING: could not write %s.index\n", opt.outfile.c_str()); }
@@ -641,7 +737,7 @@ int gkmKernelSuffixTree(OptsGkmKernel &opt, const CConverter &conv)  //maingKern
   double btL=pow(1.0*conv.b,L);
   {
     int rc = gkmKernelPassesAndOutput(opt, kc, seqsTS, L, conv.b, 1.0/conv.b, nseqs, npos, nneg, ntotal, LmersCnt, records, c, reach,
-                                      usePseudocnt, n0, C, btL, maxnmm, conv.b, std::string(conv.alphabet, conv.alphabet + conv.b));
+                                      usePseudocnt, n0, C, btL, maxnmm, conv.b, std::string(conv.alphabet, conv.alphabet + conv.b), btL);
     if (rc != 0) return rc;
   }
   delete []LmersCnt;
@@ -740,8 +836,9 @@ int gkmKernelMultiTrack(OptsGkmKernel &opt, const TrackAlphabets &ta)
   kc.mmProfile = new aint **[nseqs > 0 ? nseqs : 1];
   for (int i = 0; i < nseqs; i++) kc.mmProfile[i] = NULL;
   double p = 0; for (int i = 0; i < ell; i++) p += 1.0 / av.B[i]; p /= ell; // mean match probability (pass-design heuristic only)
+  double coefDen = 1.0; for (int i = 0; i < ell; i++) coefDen *= av.B[i]; // prod b_i: scales H (and the gkm counts) to integers
   int rc = gkmKernelPassesAndOutput(opt, kc, seqsTS, ell, b, p, nseqs, npos, nneg, ntotal, LmersCnt.data(), records, c, reach,
-                                    false, 0.0, 0.0, 0.0, maxnmm, b, ta.canonical());
+                                    false, 0.0, 0.0, 0.0, maxnmm, b, ta.canonical(), coefDen);
   seqsTS->deleteTree(ell, b, 0);
   delete seqsTS;
   delete []kc.mmProfile;

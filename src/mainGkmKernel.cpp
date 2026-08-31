@@ -97,6 +97,10 @@ void print_usage_and_exit_gkmKernel(const char *prog)
     gkmMsg("%s", "  -b             write the kernel in the binary .gkmk format (float32) instead of text\n");
     gkmMsg("%s", "  -r rows        compute the kernel in tiles of this many rows (bounded memory; 0 = automatic, 1 GB budget)\n");
     gkmMsg("%s", "  -P design      pass design: 0 automatic (default), 1 greedy iDL table, 2 prefix-split (long words; same result)\n");
+    gkmMsg("%s", "  -K mode        accumulation: 0 automatic (default), 1 mismatch-class profile (tiled), 2 kernel mode (one int64\n");
+    gkmMsg("%s", "                 triangle of scaled coefficients, no tiles; filter types 0/2 without -p; same result)\n");
+    gkmMsg("%s", "  -G MB          memory for the kernel-mode accumulators (default 4096): private per-thread copies while\n");
+    gkmMsg("%s", "                 they fit, shared atomic accumulators otherwise\n");
     
     Printf(" \n");
 }
@@ -108,7 +112,7 @@ static int gkmKernelParseArgs(int argc, char** argv, OptsGkmKernel &opt)
     int c;
     if (argc == 1) { print_usage_and_exit_gkmKernel(argv[0]); return 1;}
 
-	while ((c = getopt (argc, argv, "l:k:d:m:n:t:a:L:M:A:T:r:P:RpbN")) != -1)
+	while ((c = getopt (argc, argv, "l:k:d:m:n:t:a:L:M:A:T:r:P:K:G:RpbN")) != -1)
 	{
 		switch (c) 
 		{
@@ -129,6 +133,8 @@ static int gkmKernelParseArgs(int argc, char** argv, OptsGkmKernel &opt)
 			case 'N': opt.mergeByName = true; break;
 			case 'r': opt.tileRows = atoi(optarg); break;
 			case 'P': opt.passDesign = atoi(optarg); break;
+			case 'K': opt.accMode = atoi(optarg); break;
+			case 'G': opt.accMemoryMB = atoi(optarg); break;
 			default: print_usage_and_exit_gkmKernel(argv[0]); return 1;
 		}
 	}

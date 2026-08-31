@@ -71,6 +71,7 @@ public:
   
   
   void DFSTnIDL(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, CbinMMtree **curMMtree, int alphabetSize, const KernelContext *ctx, int lastStep); // this version has iDL (or more generally MMtree bound)
+  template<class Sink> void DFSTnIDL_T(CLTreeS **matchingLmers, int listlen, int *curMismatchCnt, CbinMMtree **curMMtree, int alphabetSize, const KernelContext *ctx, int lastStep); // the last level, with the leaf operation as a policy: ProfileSink (counts into mmProfile) or KernelSink (coefficient into kacc)
   
   //void DFSTf( CLTreeSptr **matchingLmers, int listlen, int *curMismatchCnt, int pos);  // this is for fast version -- yet to be implemented
   //void DFSTnf(CLTreeSptr **matchingLmers, int listlen, int *curMismatchCnt);

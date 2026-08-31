@@ -14,6 +14,7 @@
  */
 #pragma once
 #include "global.h"
+#include <atomic>
 
 struct KernelContext {
 	aint ***mmProfile;   // mmProfile[i][m][j], j <= i (lower triangle): number of L-mer pairs of sequences i, j with m mismatches; NULL outside the current tile
@@ -22,7 +23,14 @@ struct KernelContext {
 	int rowLo, rowHi;    // the tile: only rows i in [rowLo, rowHi] are recorded (Phase 6: bounded memory)
 	int nclasses;        // rows per sequence: mismatch classes (Phase 7). Single alphabet: maxmm+1, row m = m mismatches; general B: prod (l_j+1), row = class index sum m_j stride_j, unreachable rows NULL
 	const int *stepPos;  // stepPos[position] added to the class index at a mismatch (all 1 for a single alphabet); the DFS receives it permuted into pass order
-	KernelContext() : mmProfile(NULL), maxmm(0), LM1(0), rowLo(0), rowHi(0x7fffffff), nclasses(0), stepPos(NULL) {}
+	// Kernel-mode accumulation (Plan A1, dev/PERFORMANCE_PLAN.md): when kacc is set the leaf adds the integer-scaled
+	// coefficient kcoef[class] straight into kacc[i(i+1)/2 + j] (j <= i) instead of counting the pair in mmProfile;
+	// one int64 lower triangle instead of nclasses of them, hence no tiles. kaccAtomic: several threads share this
+	// accumulator (relaxed fetch_add); otherwise it is private to one thread (plain load/add/store).
+	std::atomic<long long> *kacc;
+	const long long *kcoef;
+	bool kaccAtomic;
+	KernelContext() : mmProfile(NULL), maxmm(0), LM1(0), rowLo(0), rowHi(0x7fffffff), nclasses(0), stepPos(NULL), kacc(NULL), kcoef(NULL), kaccAtomic(false) {}
 };
 
 struct ScoreContext {
