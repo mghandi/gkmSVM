@@ -109,7 +109,10 @@ kernel void classifyRows(device const ulong *codes        [[buffer(0)]],
                 scatter(N, triSize, cidx, postStart, postSeq, postCnt, u, v, 1u);
             } else {
                 uint slot = atomic_fetch_add_explicit(ovCount, 1u, memory_order_relaxed);
-                if (slot < P.ovCap) { overflow[3 * slot] = u; overflow[3 * slot + 1] = v; overflow[3 * slot + 2] = cidx; }
+                if (slot < P.ovCap) {                       // longer posting list first: it becomes the thread dimension
+                    bool sw = pv > pu;
+                    overflow[3 * slot] = sw ? v : u; overflow[3 * slot + 1] = sw ? u : v; overflow[3 * slot + 2] = cidx;
+                }
             }
         }
     }
@@ -203,7 +206,7 @@ static void writeGkmk(const std::string &fn, const std::vector<float> &tri, int 
 }
 
 int main(int argc, char **argv) {
-    int L = 10, K = 6, D = -1, kind = 0, light = 16, chunk = 8192;
+    int L = 10, K = 6, D = -1, kind = 0, light = 64, chunk = 4096;
     bool addRC = true;
     std::string specs = "dna", outFn = "out.gkmk", inFn;
     for (int i = 1; i < argc; i++) {
@@ -313,7 +316,7 @@ int main(int argc, char **argv) {
     if (Nbytes > dev.maxBufferLength) { fprintf(stderr, "profile buffer exceeds maxBufferLength\n"); return 1; }
     id<MTLBuffer> bN = [dev newBufferWithLength:Nbytes options:MTLResourceStorageModeShared];
     memset(bN.contents, 0, Nbytes);
-    uint32_t ovCap = 1u << 24;
+    uint32_t ovCap = 1u << 27;
     id<MTLBuffer> bOv = [dev newBufferWithLength:(size_t)ovCap * 12 options:MTLResourceStorageModeShared];
     id<MTLBuffer> bOvCount = [dev newBufferWithLength:16 options:MTLResourceStorageModeShared];
     memset(bOvCount.contents, 0, 16);
@@ -321,7 +324,7 @@ int main(int argc, char **argv) {
     for (int p = 0; p < ell; p++) { P.lowMask |= 1ull << (p * f); P.blockMask[posBlock[p]] |= 1ull << (p * f); }
     for (int b = 0; b < nB; b++) P.blockStride[b] = stride[b];
 
-    double t1 = now();
+    double t1 = now(); double heavySec = 0; unsigned long long nOvTotal = 0;
     for (uint32_t lo = 0; lo < U; lo += chunk) {
         uint32_t hi = std::min(U, lo + (uint32_t)chunk);
         P.rowLo = lo; P.rowHi = hi;
@@ -337,12 +340,30 @@ int main(int argc, char **argv) {
         [enc dispatchThreads:MTLSizeMake(nthreads, 1, 1) threadsPerThreadgroup:MTLSizeMake(tg, 1, 1)];
         [enc endEncoding]; [cb commit]; [cb waitUntilCompleted];
         if (cb.error) { fprintf(stderr, "GPU error: %s\n", cb.error.localizedDescription.UTF8String); return 1; }
+        uint32_t nOv = *(uint32_t *)bOvCount.contents;
+        if (nOv > ovCap) { fprintf(stderr, "overflow list capacity exceeded in chunk %u (%u > %u): rerun with smaller -C or larger -L\n", lo, nOv, ovCap); return 1; }
+        if (nOv > 0) {
+            double th = now();
+            std::vector<uint32_t> entryStart(nOv + 1, 0); const uint32_t *ov = (const uint32_t *)bOv.contents;
+            for (uint32_t e = 0; e < nOv; e++) { uint32_t u = ov[3 * e]; entryStart[e + 1] = entryStart[e] + (postStart[u + 1] - postStart[u]); }
+            uint32_t total = entryStart[nOv];
+            id<MTLBuffer> bES = mk(entryStart.data(), entryStart.size() * 4);
+            Params P2 = P; P2.ovCap = nOv; id<MTLBuffer> bP2 = mk(&P2, sizeof(P2));
+            id<MTLCommandBuffer> cb2 = [queue commandBuffer]; id<MTLComputeCommandEncoder> enc2 = [cb2 computeCommandEncoder];
+            [enc2 setComputePipelineState:psoHeavy];
+            [enc2 setBuffer:bStart offset:0 atIndex:1]; [enc2 setBuffer:bSeq offset:0 atIndex:2]; [enc2 setBuffer:bCnt offset:0 atIndex:3];
+            [enc2 setBuffer:bN offset:0 atIndex:5]; [enc2 setBuffer:bOv offset:0 atIndex:6]; [enc2 setBuffer:bES offset:0 atIndex:7]; [enc2 setBuffer:bP2 offset:0 atIndex:8];
+            NSUInteger tg2 = std::min<NSUInteger>(psoHeavy.maxTotalThreadsPerThreadgroup, 256);
+            [enc2 dispatchThreads:MTLSizeMake(total, 1, 1) threadsPerThreadgroup:MTLSizeMake(tg2, 1, 1)];
+            [enc2 endEncoding]; [cb2 commit]; [cb2 waitUntilCompleted];
+            if (cb2.error) { fprintf(stderr, "GPU error (heavy): %s\n", cb2.error.localizedDescription.UTF8String); return 1; }
+            heavySec += now() - th; nOvTotal += nOv;
+            *(uint32_t *)bOvCount.contents = 0;
+        }
     }
-    uint32_t nOv = *(uint32_t *)bOvCount.contents;
     double t2 = now();
-    fprintf(stderr, "classify: %.2f s (%.3g pairs, %.3g pairs/s); heavy pairs deferred: %u\n", t2 - t1, (double)U * U / 2, (double)U * U / 2 / (t2 - t1), nOv);
-    if (nOv > ovCap) { fprintf(stderr, "overflow list capacity exceeded (%u > %u); rerun with larger -L\n", nOv, ovCap); return 1; }
-    if (nOv > 0) {
+    fprintf(stderr, "classify + scatter: %.2f s (%.3g pairs, %.3g pairs/s); heavy pairs: %llu in %.2f s\n", t2 - t1, (double)U * U / 2, (double)U * U / 2 / (t2 - t1), nOvTotal, heavySec);
+    if (false) { uint32_t nOv = 0;
         std::vector<uint32_t> entryStart(nOv + 1, 0); const uint32_t *ov = (const uint32_t *)bOv.contents;
         for (uint32_t e = 0; e < nOv; e++) { uint32_t u = ov[3 * e]; entryStart[e + 1] = entryStart[e] + (postStart[u + 1] - postStart[u]); }
         uint32_t total = entryStart[nOv];
