@@ -130,20 +130,33 @@ decision into the PR description or the plan, and keep going.
 * **If tests need data:** generate fixtures (as `dev/baseline.sh` does); do not download genomes.
 * **At the end:** update the status section of this file and post a summary comment on the newest PR.
 
-## 8. Performance work and the GPU prototype (2026-08-30)
+## 8. Performance work and the GPU prototype (2026-08-30/31)
 
-* `dev/PERFORMANCE_PLAN.md` is the plan for large-n kernels: measured diagnosis of the tree path
-  (pass imbalance, tiling, atomics, greedy trie clones), the `-d` study (capped d reproduces the
-  exact AUC at d = 4–6 for the gkmsvm3 experiments), and Plan G — the kernel and the capped
-  mismatch profile as Gram matrices. The mathematics is written up in
-  `../gkmsvm3/theory/gkm_kernels_as_gram_matrices.pdf` (general alphabets) and
-  `gkm_kernels_constantB.pdf` (single alphabet, every matrix printed).
-* `dev/metal_g3/` is a working Metal prototype of Route 2 (`make`; `gkm_metal` takes the
-  `gkmsvm_kernel` flags and writes `.gkmk`): bit-exact against `gkmsvm_kernel` on every
-  configuration tried, 3.5–150× faster than 28 CPU threads (numbers in its README). It is on branch
-  `phase7/e-experiments-docs`, not integrated into `gkmsvm_kernel` or the R package.
+* `dev/PERFORMANCE_PLAN.md` is the plan for large-n kernels and now also the record of what was
+  measured: the `-d` study (capped d = 4–6 reproduces the exact AUC in the gkmsvm3 experiments),
+  the Gram-matrix reformulation (Plan G; mathematics in
+  `../gkmsvm3/theory/gkm_kernels_as_gram_matrices.pdf` and `gkm_kernels_constantB.pdf`, both with a
+  measured-results section), and the "Measured 2026-08-31" table.
+* **Shipped on branch `phase7/e-experiments-docs` (2026-08-31; golden 181/181 byte-identical,
+  oracle green, every variant's kernel identical entry for entry to the previous binary):**
+  kernel-mode accumulation `-K` (R `accMode`, `accMemoryMB`) — the integer-scaled coefficient goes
+  straight into one int64 triangle per thread, no per-class counters, no tiles (07 3-block d = 6
+  62.6 → 23.8 s; 06 at 13 398 sites d = 4 34.7 → 13.8 s, exact `-d -1` 2 175 s where the tiled path
+  never finished); threads-aware `-P 0` (prefix-split for ℓ ≥ 16, capped d, ≥ 4 threads);
+  load-aware greedy assignment for ℓ ≥ 16; the greedy design's cost model measured on the actual
+  l-mers (per-position match probabilities, per-order trie widths; 07: 5.5× less CPU; `-P 4` = the
+  2016 model). `NEWS.md` "Performance" has the user-facing text.
+* `dev/metal_g3/gkm_metal` (Route 2 on Apple Metal): bit-exact against `gkmsvm_kernel` on every
+  configuration tried, 3.5–320× faster than 28 CPU threads; class groups (`-M GB` / `-g`) bound the
+  counter memory at no cost, 128-bit codes allow ℓ ≤ 2·⌊64/⌈log₂ b⌉⌋ positions; `-t 1` not
+  supported. Wired into the gkmsvm3 harness (`GKMSVM_GPU=1`), which reran every cut configuration
+  of its experiments 05–07 on it (2 h). Not integrated into `gkmsvm_kernel` or the R package.
 * Harness knobs on the gkmsvm3 side: `GKMSVM_BIN`, `GKMSVM_SVM=libsvm`, `GKMSVM_D` (cap; the
-  harness then passes `-P 2`, which is 2.8–3.9× faster than the greedy design on many cores and
-  bit-identical), planned `GKMSVM_GPU=1`.
-* Any change to the C++ kernel path must keep `make test` (181 golden cases) and `make oracle`
-  green; any new kernel path is first compared with `gkmsvm_kernel -b` output on a small input.
+  harness then passes `-P 2`), `GKMSVM_GPU=1`, `GKMSVM_GPU_MAX_PROFILE_GB` (→ `-M`),
+  `GKMSVM_KERNEL_LOG`.
+* Rules that held: any change to the C++ kernel path keeps `make test` and `make oracle` green;
+  any new kernel path (CPU or GPU) is first compared entry for entry with `gkmsvm_kernel -b` output
+  (`gkmsvm3/…/cpp_backend.read_gkmk`) — this caught a wrong GPU variant twice; dev builds go to a
+  scratch `BUILD=` directory while another process uses `build/`.
+* Open: A2 pass splitting on the greedy path; Route 1 (pattern-Gram GEMM) for exact k ≤ 4;
+  `-t 1`, `gkmsvm_classify` and a CUDA port on the GPU side; merging the branch stack (§2).
