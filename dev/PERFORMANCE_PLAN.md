@@ -254,6 +254,17 @@ CUDA card: exact 06 kernel (today ≈ 2 h CPU) in seconds; capped kernels (today
 2–4 min under load) in ≈ 1 s; the classify/score path (deltaSVM-style) reuses G3's pair
 classification against the support-vector l-mers.
 
+**Prototype (done 2026-08-30, `dev/metal_g3/`).** G3 was implemented on Metal in ~450 lines
+(Objective-C++ host + MSL kernel): bit-packed codes, XOR/popcount classification on a 2-D thread
+grid, integer profile atomics with a deferred path for heavy posting lists, kernel from the profile
+in double. **Bit-exact** against `gkmsvm_kernel` on every configuration tried (filter and gkm, d = 2,
+4, 6, −1, with and without reverse complement). Measured on the M3 Ultra against the best CPU
+setting (`-P 2`, 28 threads): experiment 06 at n = 4 000 — d = 4: 0.73 s vs 2.5 s; d = 6: 0.98 s vs
+15.6 s; **exact: 2.9 s vs 427 s (150×)**; experiment 07 (3 blocks, ℓ = 24) d = 6: 3.0 s vs 57.7 s;
+experiment 06 at all 13 398 sites — d = 4: 4.0 s vs 33.6 s; d = 6: 10.1 s vs 395 s; **exact: 36.8 s**
+(43 GB profile in unified memory; the CPU run was never completed, ≥ 6 h estimated). Details and
+next steps in `dev/metal_g3/README.md`.
+
 **Roadmap (Plan G).**
 1. Prototype G3 kernel-mode on Metal (M3 Ultra) and G1 on Accelerate/AMX — one week each — with the
    oracle corpus as the acceptance test; keep the tile/epilogue design portable (Metal ↔ CUDA are
