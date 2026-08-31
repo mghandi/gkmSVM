@@ -70,7 +70,7 @@ inline void scatter(device atomic_uint *N, uint triSize, uint cidx,
     }
 }
 
-// one thread handles rows r = rowLo + t and its mirror rowHi - 1 - t (balances the triangle)
+// 2-D grid: thread (r, c) handles row u = rowLo + r and columns v in [c*VT, min((c+1)*VT, u))
 kernel void classifyRows(device const ulong *codes        [[buffer(0)]],
                          device const uint  *postStart    [[buffer(1)]],
                          device const uint  *postSeq      [[buffer(2)]],
@@ -80,39 +80,39 @@ kernel void classifyRows(device const ulong *codes        [[buffer(0)]],
                          device uint *overflow            [[buffer(6)]],   // triples (u, v, cidx)
                          device atomic_uint *ovCount      [[buffer(7)]],
                          constant Params &P               [[buffer(8)]],
-                         uint t [[thread_position_in_grid]])
+                         uint2 tid [[thread_position_in_grid]])
 {
+    const uint VT = 512;
+    uint u = P.rowLo + tid.x;
+    if (u >= P.rowHi) return;
+    uint v0 = tid.y * VT;
+    if (v0 >= u && tid.y > 0) return;
     uint triSize = P.n * (P.n + 1) / 2;
-    uint rows[2] = { P.rowLo + t, P.rowHi - 1 - t };
-    uint nrows = (rows[0] < rows[1]) ? 2 : (rows[0] == rows[1] ? 1 : 0);
-    for (uint q = 0; q < nrows; q++) {
-        uint u = rows[q];
-        ulong cu = codes[u];
-        uint pu = postStart[u + 1] - postStart[u];
-        // self pair (class 0 is always reachable and always compact index 0)
-        {
-            device atomic_uint *N0 = N;
-            for (uint a = postStart[u]; a < postStart[u + 1]; a++)
-                for (uint b = a; b < postStart[u + 1]; b++) {           // unordered posting pairs: cell {i,j} once
-                    uint i = postSeq[a], j = postSeq[b];
-                    uint idx = (i >= j) ? tri(i, j) : tri(j, i);
-                    atomic_fetch_add_explicit(&N0[idx], postCnt[a] * postCnt[b], memory_order_relaxed);
-                }
-        }
-        for (uint v = 0; v < u; v++) {
-            bool ok;
-            uint cls = classify(cu, codes[v], P, ok);
-            uint cidx = classTable[cls];
-            if (cidx == 0xFFFF) continue;
-            uint pv = postStart[v + 1] - postStart[v];
-            if (pu * pv <= P.light) {
-                scatter(N, triSize, cidx, postStart, postSeq, postCnt, u, v, 1u);
-            } else {
-                uint slot = atomic_fetch_add_explicit(ovCount, 1u, memory_order_relaxed);
-                if (slot < P.ovCap) {                       // longer posting list first: it becomes the thread dimension
-                    bool sw = pv > pu;
-                    overflow[3 * slot] = sw ? v : u; overflow[3 * slot + 1] = sw ? u : v; overflow[3 * slot + 2] = cidx;
-                }
+    ulong cu = codes[u];
+    uint pu = postStart[u + 1] - postStart[u];
+    if (tid.y == 0) {          // self pair (class 0 is always reachable and always compact index 0)
+        device atomic_uint *N0 = N;
+        for (uint a = postStart[u]; a < postStart[u + 1]; a++)
+            for (uint b = a; b < postStart[u + 1]; b++) {           // unordered posting pairs: cell {i,j} once
+                uint i = postSeq[a], j = postSeq[b];
+                uint idx = (i >= j) ? tri(i, j) : tri(j, i);
+                atomic_fetch_add_explicit(&N0[idx], postCnt[a] * postCnt[b], memory_order_relaxed);
+            }
+    }
+    uint v1 = min(v0 + VT, u);
+    for (uint v = v0; v < v1; v++) {
+        bool ok;
+        uint cls = classify(cu, codes[v], P, ok);
+        uint cidx = classTable[cls];
+        if (cidx == 0xFFFF) continue;
+        uint pv = postStart[v + 1] - postStart[v];
+        if (pu * pv <= P.light) {
+            scatter(N, triSize, cidx, postStart, postSeq, postCnt, u, v, 1u);
+        } else {
+            uint slot = atomic_fetch_add_explicit(ovCount, 1u, memory_order_relaxed);
+            if (slot < P.ovCap) {                       // longer posting list first: it becomes the thread dimension
+                bool sw = pv > pu;
+                overflow[3 * slot] = sw ? v : u; overflow[3 * slot + 1] = sw ? u : v; overflow[3 * slot + 2] = cidx;
             }
         }
     }
@@ -206,7 +206,7 @@ static void writeGkmk(const std::string &fn, const std::vector<float> &tri, int 
 }
 
 int main(int argc, char **argv) {
-    int L = 10, K = 6, D = -1, kind = 0, light = 64, chunk = 4096;
+    int L = 10, K = 6, D = -1, kind = 0, light = 16, chunk = 4096;
     bool addRC = true;
     std::string specs = "dna", outFn = "out.gkmk", inFn;
     for (int i = 1; i < argc; i++) {
@@ -324,6 +324,8 @@ int main(int argc, char **argv) {
     for (int p = 0; p < ell; p++) { P.lowMask |= 1ull << (p * f); P.blockMask[posBlock[p]] |= 1ull << (p * f); }
     for (int b = 0; b < nB; b++) P.blockStride[b] = stride[b];
 
+    if ((uint64_t)chunk * U > ovCap) chunk = std::max<int>(64, (int)(ovCap / U));   // every pair of a chunk may be deferred
+    fprintf(stderr, "row chunk %d, light threshold %d\n", chunk, light);
     double t1 = now(); double heavySec = 0; unsigned long long nOvTotal = 0;
     for (uint32_t lo = 0; lo < U; lo += chunk) {
         uint32_t hi = std::min(U, lo + (uint32_t)chunk);
@@ -335,9 +337,8 @@ int main(int argc, char **argv) {
         [enc setBuffer:bCodes offset:0 atIndex:0]; [enc setBuffer:bStart offset:0 atIndex:1]; [enc setBuffer:bSeq offset:0 atIndex:2];
         [enc setBuffer:bCnt offset:0 atIndex:3]; [enc setBuffer:bTable offset:0 atIndex:4]; [enc setBuffer:bN offset:0 atIndex:5];
         [enc setBuffer:bOv offset:0 atIndex:6]; [enc setBuffer:bOvCount offset:0 atIndex:7]; [enc setBuffer:bP offset:0 atIndex:8];
-        uint32_t nthreads = (hi - lo + 1) / 2;
-        NSUInteger tg = std::min<NSUInteger>(psoRows.maxTotalThreadsPerThreadgroup, 256);
-        [enc dispatchThreads:MTLSizeMake(nthreads, 1, 1) threadsPerThreadgroup:MTLSizeMake(tg, 1, 1)];
+        uint32_t ctiles = (hi + 511) / 512;
+        [enc dispatchThreads:MTLSizeMake(hi - lo, ctiles, 1) threadsPerThreadgroup:MTLSizeMake(32, 8, 1)];
         [enc endEncoding]; [cb commit]; [cb waitUntilCompleted];
         if (cb.error) { fprintf(stderr, "GPU error: %s\n", cb.error.localizedDescription.UTF8String); return 1; }
         uint32_t nOv = *(uint32_t *)bOvCount.contents;
